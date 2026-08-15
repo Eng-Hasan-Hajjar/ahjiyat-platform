@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply font-body bg-parchment text-ink;
+    }
+    h1, h2, h3, h4 {
+        @apply font-display;
+    }
+}
+
+/* الشكل السداسي المُوجَّه (facet) - العنصر البصري المميز للهوية،
+   يُستخدم على شارة الجواهر وكخلفية زخرفية خفيفة */
+.gem-facet {
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}

@@ -1,0 +1,1 @@
+<link rel="icon" href="{{ asset('images/namaa-logo.png') }}">
