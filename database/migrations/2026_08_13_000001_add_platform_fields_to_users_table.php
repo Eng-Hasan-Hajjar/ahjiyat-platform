@@ -9,10 +9,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role')->default('user')->after('email'); // user | admin
-            $table->boolean('is_frozen')->default(false)->after('role');
-            $table->string('frozen_reason')->nullable()->after('is_frozen');
-            $table->timestamp('last_seen_at')->nullable()->after('frozen_reason');
+           
+            $table->boolean('is_frozen')->default(false);
+            $table->string('frozen_reason')->nullable();
+            $table->timestamp('last_seen_at')->nullable();
         });
     }
 

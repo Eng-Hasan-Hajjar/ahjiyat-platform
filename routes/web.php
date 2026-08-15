@@ -11,7 +11,7 @@ use App\Http\Controllers\RedemptionController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', HomeController::class)->name('home');
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('/puzzles', [PuzzleController::class, 'index'])->name('puzzles.index');
 Route::get('/puzzles/category/{category:slug}', [PuzzleController::class, 'index'])->name('puzzles.category');
