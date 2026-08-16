@@ -4,44 +4,65 @@
 
 @section('content')
 
-    {{-- الهيرو = أحجية اليوم فعلياً، مو نص تسويقي عام - المستخدم يشوف "المنتج" من أول ثانية --}}
-    <section class="bg-ink text-parchment rounded-2xl p-8 md:p-12 mb-10 relative overflow-hidden">
-        <div class="absolute -left-10 -top-10 w-40 h-40 bg-amethyst/20 gem-facet"></div>
-        <div class="absolute -left-4 bottom-6 w-16 h-16 bg-gold/20 gem-facet"></div>
+    {{-- ===== Hero Section - أحجية اليوم ===== --}}
+    <section class="glass rounded-3xl p-8 md:p-12 mb-12 relative overflow-hidden anim-fade-up">
+        {{-- زخارف gem-facet متحركة في الخلفية --}}
+        <div class="absolute -left-10 -top-10 w-40 h-40 bg-amethyst/30 gem-facet anim-float"></div>
+        <div class="absolute -left-4 bottom-6 w-16 h-16 bg-gold/30 gem-facet anim-pulse-glow"></div>
+        <div class="absolute right-10 top-10 w-24 h-24 bg-fuchsia-500/20 gem-facet anim-float"></div>
 
-        <div class="relative max-w-xl">
-            <span class="inline-block text-xs font-bold text-gold mb-3 tracking-wide">أحجية اليوم</span>
+        <div class="relative max-w-2xl">
+            <span class="inline-block text-xs font-black text-gold mb-3 tracking-widest uppercase anim-fade-up d-1">
+                ✦ أحجية اليوم
+            </span>
 
             @if ($dailyPuzzle)
-                <h1 class="font-display font-extrabold text-2xl md:text-3xl mb-4 leading-relaxed">
+                <h1 class="font-display font-black text-3xl md:text-5xl mb-4 leading-tight text-gradient-gem anim-fade-up d-2">
                     {{ $dailyPuzzle->prompt }}
                 </h1>
+                <p class="text-slate-300 mb-6 anim-fade-up d-3">
+                    تحدّى نفسك اليوم واكسب <span class="text-gold font-black">{{ $dailyPuzzle->gem_reward }} جوهرة</span> 💎
+                </p>
                 <a href="{{ route('puzzles.show', $dailyPuzzle) }}"
-                   class="inline-flex items-center gap-2 bg-gold text-ink font-bold px-5 py-2.5 rounded-lg hover:bg-gold/90 transition">
-                    حل الأحجية الآن
-                    <span class="w-3 h-3 bg-ink gem-facet inline-block"></span>
-                    {{ $dailyPuzzle->gem_reward }}
+                   class="btn-gem anim-fade-up d-4">
+                    حلّ الأحجية الآن
+                    <span class="w-3 h-3 bg-gold gem-facet inline-block"></span>
                 </a>
             @else
-                <h1 class="font-display font-extrabold text-2xl md:text-3xl mb-4 leading-relaxed">
-                    حل الألغاز، اجمع الجواهر، وتصدّر لوحة الصدارة
+                <h1 class="font-display font-black text-3xl md:text-5xl mb-4 leading-tight text-gradient-gem anim-fade-up d-2">
+                    حلّ الألغاز، اجمع الجواهر، وتصدّر لوحة الصدارة
                 </h1>
-                <a href="{{ route('puzzles.index') }}"
-                   class="inline-flex items-center gap-2 bg-gold text-ink font-bold px-5 py-2.5 rounded-lg hover:bg-gold/90 transition">
+                <p class="text-slate-300 mb-6 anim-fade-up d-3">
+                    تحديات ذهنية يومية تكافئك بالجواهر الثمينة 💎
+                </p>
+                <a href="{{ route('puzzles.index') }}" class="btn-gem anim-fade-up d-4">
                     تصفّح الأحجيات
+                    <span>←</span>
                 </a>
             @endif
         </div>
     </section>
 
-    <section>
-        <h2 class="font-display font-bold text-xl text-ink mb-4">التصنيفات</h2>
+    {{-- ===== التصنيفات ===== --}}
+    <section class="anim-fade-up d-2">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="font-display font-black text-2xl md:text-3xl text-white">التصنيفات</h2>
+            <a href="{{ route('puzzles.index') }}" class="text-sm font-bold text-amethyst hover:text-amethyst-700 transition">
+                كل الأحجيات ←
+            </a>
+        </div>
+
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-            @foreach ($categories as $category)
+            @foreach ($categories as $index => $category)
                 <a href="{{ route('puzzles.category', $category) }}"
-                   class="bg-white border border-ink/10 rounded-xl p-4 text-center hover:border-amethyst hover:shadow-md transition">
-                    <span class="font-display font-bold text-ink block mb-1">{{ $category->name }}</span>
-                    <span class="text-xs text-ink/50">{{ $category->puzzles_count }} أحجية</span>
+                   class="puzzle-card text-center group anim-fade-up d-{{ $index % 4 + 1 }}">
+                    <span class="gem-facet w-12 h-12 mx-auto mb-3 bg-gradient-to-br from-amethyst to-gold grid place-items-center">
+                        <span class="text-white font-black">{{ $category->puzzles_count }}</span>
+                    </span>
+                    <span class="font-display font-black text-white block mb-1 group-hover:text-gradient-gem transition">
+                        {{ $category->name }}
+                    </span>
+                    <span class="text-xs text-slate-400 font-semibold">{{ $category->puzzles_count }} أحجية</span>
                 </a>
             @endforeach
         </div>

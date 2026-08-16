@@ -1,18 +1,220 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-    body {
-        @apply font-body bg-parchment text-ink;
-    }
-    h1, h2, h3, h4 {
-        @apply font-display;
-    }
+@theme {
+    /* نظام الألوان الداكن الفاخر */
+    --color-night-950: #060a17;
+    --color-night-900: #0b1226;
+    --color-night-800: #101a38;
+    --color-night-700: #1a2347;
+
+    /* إعادة تعريف الألوان الأصلية بظلال أعمق */
+    --color-ink: #e2e8f0;
+    --color-parchment: #0b1226;
+
+    --color-amethyst: #8b5cf6;
+    --color-amethyst-50: rgba(139, 92, 246, .15);
+    --color-amethyst-700: #7c3aed;
+
+    --color-gold: #fcd34d;
+    --color-gold-50: rgba(252, 211, 77, .15);
+
+    --color-emerald: #34d399;
+    --color-rose: #fb7185;
+
+    /* خطوط */
+    --font-display: "Cairo", ui-sans-serif, system-ui, sans-serif;
+    --font-body: "Cairo", ui-sans-serif, system-ui, sans-serif;
 }
 
-/* الشكل السداسي المُوجَّه (facet) - العنصر البصري المميز للهوية،
-   يُستخدم على شارة الجواهر وكخلفية زخرفية خفيفة */
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: var(--font-body);
+    background-color: var(--color-night-950);
+    color: #cbd5e1;
+    min-height: 100vh;
+}
+
+/* ===== خلفية Aurora متوهجة (ميزة 2025/2026 العالمية) ===== */
+.aurora-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(700px 400px at 90% -5%, rgba(139, 92, 246, .25), transparent 60%),
+        radial-gradient(800px 450px at 5% 5%, rgba(56, 189, 248, .15), transparent 60%),
+        radial-gradient(1000px 600px at 50% 110%, rgba(217, 70, 239, .12), transparent 60%);
+}
+
+.aurora-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: .25;
+    background-image: radial-gradient(rgba(255, 255, 255, .15) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(ellipse at top, black 0%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse at top, black 0%, transparent 75%);
+}
+
+/* ===== تأثير Glassmorphism للأسطح ===== */
+.glass {
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+/* ===== نص متدرج فاخر ===== */
+.text-gradient-gem {
+    background: linear-gradient(135deg, #c4b5fd 0%, #f0abfc 45%, #fcd34d 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* ===== الشكل السداسي المميز (gem-facet) ===== */
 .gem-facet {
     clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+/* ===== تأثيرات الإضاءة (Glow) ===== */
+.glow-amethyst {
+    box-shadow: 0 0 20px rgba(139, 92, 246, .4),
+                0 0 40px rgba(139, 92, 246, .2);
+}
+
+.glow-gold {
+    box-shadow: 0 0 20px rgba(252, 211, 77, .4),
+                0 0 40px rgba(252, 211, 77, .2);
+}
+
+/* ===== زر رئيسي متدرج ===== */
+.btn-gem {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border-radius: 1rem;
+    padding: .85rem 1.8rem;
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, #7c3aed 0%, #d946ef 55%, #f59e0b 100%);
+    background-size: 180% 180%;
+    transition: all .3s ease;
+    box-shadow: 0 8px 30px -10px rgba(217, 70, 239, .5);
+}
+
+.btn-gem:hover {
+    background-position: 90% 50%;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px -10px rgba(217, 70, 239, .7);
+}
+
+.btn-gem:active { transform: scale(.97); }
+
+/* ===== بطاقات الأحجيات ===== */
+.puzzle-card {
+    border-radius: 1.4rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .08);
+    backdrop-filter: blur(14px);
+    transition: all .3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.puzzle-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity .3s;
+    background: radial-gradient(400px 160px at 80% -10%, rgba(139, 92, 246, .2), transparent 60%);
+}
+
+.puzzle-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(167, 139, 250, .4);
+    box-shadow: 0 18px 50px -18px rgba(139, 92, 246, .5);
+}
+
+.puzzle-card:hover::before { opacity: 1; }
+
+/* ===== شارات التصنيفات ===== */
+.chip {
+    border-radius: 9999px;
+    padding: .5rem 1.1rem;
+    font-size: .85rem;
+    font-weight: 700;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(255, 255, 255, .1);
+    color: #cbd5e1;
+    transition: all .25s ease;
+}
+
+.chip:hover {
+    border-color: rgba(167, 139, 250, .6);
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+.chip-active {
+    background: linear-gradient(135deg, rgba(139, 92, 246, .3), rgba(217, 70, 239, .2));
+    border-color: rgba(167, 139, 250, .6);
+    color: #fff;
+}
+
+/* ===== حقول الإدخال ===== */
+.input-gem {
+    width: 100%;
+    border-radius: 1rem;
+    padding: .9rem 1.2rem;
+    outline: none;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(255, 255, 255, .1);
+    color: #fff;
+    transition: all .25s ease;
+}
+
+.input-gem::placeholder { color: #64748b; }
+
+.input-gem:focus {
+    border-color: rgba(167, 139, 250, .7);
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, .15);
+}
+
+/* ===== حركات (Animations) ===== */
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes floaty {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+@keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 25px -6px rgba(217, 70, 239, .5); }
+    50% { box-shadow: 0 0 45px -6px rgba(217, 70, 239, .85); }
+}
+
+.anim-fade-up { animation: fadeUp .6s ease-out both; }
+.d-1 { animation-delay: .08s; }
+.d-2 { animation-delay: .16s; }
+.d-3 { animation-delay: .24s; }
+.d-4 { animation-delay: .32s; }
+
+.anim-float { animation: floaty 5s ease-in-out infinite; }
+.anim-pulse-glow { animation: pulseGlow 3s ease-in-out infinite; }
+
+/* ===== Scrollbar مخصص ===== */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--color-night-900); }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #7c3aed, #d946ef);
+    border-radius: 10px;
 }
