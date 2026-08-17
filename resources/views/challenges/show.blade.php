@@ -8,10 +8,6 @@
         $now = now();
         $isOpen = $challenge->is_active && $now->between($challenge->starts_at, $challenge->ends_at);
         $isUpcoming = $challenge->starts_at->isFuture();
-        $statusLabel = $isOpen ? 'مفتوح الآن' : ($isUpcoming ? 'يبدأ قريباً' : 'انتهى');
-        $statusStyle = $isOpen
-            ? 'bg-emerald/10 text-emerald border-emerald/30'
-            : ($isUpcoming ? 'bg-gold/10 text-gold border-gold/30' : 'bg-white/5 text-slate-400 border-white/10');
         $typeLabel = $challenge->type === 'tournament' ? 'بطولة' : 'تحدي أسبوعي';
     @endphp
 
@@ -24,7 +20,7 @@
     <div class="glass rounded-3xl p-6 md:p-9 mb-8 anim-fade-up d-1">
         <div class="flex flex-wrap items-center gap-2 mb-4">
             <span class="chip !py-1 !px-3">{{ $typeLabel }}</span>
-            <span class="rounded-full border px-3 py-1 text-xs font-black {{ $statusStyle }}">{{ $statusLabel }}</span>
+            <x-challenge-status-badge :challenge="$challenge" />
         </div>
 
         <h1 class="font-display font-black text-2xl md:text-4xl text-gradient-gem mb-3">{{ $challenge->title }}</h1>
@@ -69,19 +65,11 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 @forelse ($challenge->puzzles as $index => $puzzle)
-                    @php
-                        $difficultyLabel = ['easy' => 'سهل', 'medium' => 'متوسط', 'hard' => 'صعب'][$puzzle->difficulty] ?? $puzzle->difficulty;
-                        $diffStyle = [
-                            'easy' => 'bg-emerald/10 text-emerald border-emerald/30',
-                            'medium' => 'bg-amber-400/10 text-amber-300 border-amber-400/30',
-                            'hard' => 'bg-rose/10 text-rose border-rose/30',
-                        ][$puzzle->difficulty] ?? 'bg-white/10 text-slate-300 border-white/20';
-                    @endphp
                     <a href="{{ route('puzzles.show', $puzzle) }}"
                        class="puzzle-card group block anim-fade-up d-{{ $index % 4 + 1 }}">
-                        <div class="flex items-center justify-between mb-3">
-                            <span class="chip !py-1 !px-3 !text-xs">{{ $puzzle->category->name }}</span>
-                            <span class="rounded-full border px-3 py-1 text-xs font-black {{ $diffStyle }}">{{ $difficultyLabel }}</span>
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <span class="chip !py-1 !px-3 !text-xs min-w-0 truncate">{{ $puzzle->category->name }}</span>
+                            <x-difficulty-badge :difficulty="$puzzle->difficulty" />
                         </div>
                         <h3 class="font-display font-black text-white group-hover:text-gradient-gem transition line-clamp-2">
                             {{ Str::limit($puzzle->prompt, 60) }}

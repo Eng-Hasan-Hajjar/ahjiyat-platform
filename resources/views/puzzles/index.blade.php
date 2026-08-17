@@ -28,25 +28,14 @@
     {{-- ===== شبكة الأحجيات ===== --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
         @forelse ($puzzles as $index => $puzzle)
-            @php
-                $difficultyLabel = ['easy' => 'سهل', 'medium' => 'متوسط', 'hard' => 'صعب'][$puzzle->difficulty] ?? $puzzle->difficulty;
-                $diffStyle = [
-                    'easy' => 'bg-emerald/10 text-emerald border-emerald/30',
-                    'medium' => 'bg-amber-400/10 text-amber-300 border-amber-400/30',
-                    'hard' => 'bg-rose/10 text-rose border-rose/30',
-                ][$puzzle->difficulty] ?? 'bg-white/10 text-slate-300 border-white/20';
-            @endphp
-
             <a href="{{ route('puzzles.show', $puzzle) }}"
                class="puzzle-card group block anim-fade-up d-{{ $index % 4 + 1 }}">
 
-                <div class="flex items-center justify-between mb-3">
-                    <span class="chip !py-1 !px-3 !text-xs">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span class="chip !py-1 !px-3 !text-xs min-w-0 truncate">
                         {{ $puzzle->category->name }}
                     </span>
-                    <span class="rounded-full border px-3 py-1 text-xs font-black {{ $diffStyle }}">
-                        {{ $difficultyLabel }}
-                    </span>
+                    <x-difficulty-badge :difficulty="$puzzle->difficulty" />
                 </div>
 
                 <h3 class="font-display font-black text-lg text-white mb-2 group-hover:text-gradient-gem transition line-clamp-2">

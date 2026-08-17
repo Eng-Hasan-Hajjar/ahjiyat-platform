@@ -12,24 +12,15 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         @forelse ($challenges as $index => $challenge)
             @php
-                $now = now();
-                $isOpen = $challenge->is_active && $now->between($challenge->starts_at, $challenge->ends_at);
-                $isUpcoming = $challenge->starts_at->isFuture();
-                $statusLabel = $isOpen ? 'مفتوح الآن' : ($isUpcoming ? 'قريباً' : 'انتهى');
-                $statusStyle = $isOpen
-                    ? 'bg-emerald/10 text-emerald border-emerald/30'
-                    : ($isUpcoming ? 'bg-gold/10 text-gold border-gold/30' : 'bg-white/5 text-slate-400 border-white/10');
                 $typeLabel = $challenge->type === 'tournament' ? 'بطولة' : 'تحدي أسبوعي';
             @endphp
 
             <a href="{{ route('challenges.show', $challenge) }}"
                class="puzzle-card group block anim-fade-up d-{{ $index % 4 + 1 }}">
 
-                <div class="flex items-center justify-between mb-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <span class="chip !py-1 !px-3 !text-xs">{{ $typeLabel }}</span>
-                    <span class="rounded-full border px-3 py-1 text-xs font-black {{ $statusStyle }}">
-                        {{ $statusLabel }}
-                    </span>
+                    <x-challenge-status-badge :challenge="$challenge" />
                 </div>
 
                 <h3 class="font-display font-black text-lg text-white mb-2 group-hover:text-gradient-gem transition line-clamp-2">

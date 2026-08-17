@@ -4,15 +4,6 @@
 
 @section('content')
 
-    @php
-        $difficultyLabel = ['easy' => 'سهل', 'medium' => 'متوسط', 'hard' => 'صعب'][$puzzle->difficulty] ?? $puzzle->difficulty;
-        $diffStyle = [
-            'easy' => 'bg-emerald/10 text-emerald border-emerald/30',
-            'medium' => 'bg-amber-400/10 text-amber-300 border-amber-400/30',
-            'hard' => 'bg-rose/10 text-rose border-rose/30',
-        ][$puzzle->difficulty] ?? 'bg-white/10 text-slate-300 border-white/20';
-    @endphp
-
     <div class="max-w-3xl mx-auto">
         <a href="{{ route('puzzles.index') }}"
            class="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white transition mb-4 anim-fade-up">
@@ -22,9 +13,7 @@
         <div class="puzzle-card !p-6 md:!p-9 anim-fade-up d-1">
             <div class="flex flex-wrap items-center gap-2 mb-5">
                 <span class="chip !py-1 !px-3">{{ $puzzle->category->name }}</span>
-                <span class="rounded-full border px-3 py-1 text-xs font-black {{ $diffStyle }}">
-                    {{ $difficultyLabel }}
-                </span>
+                <x-difficulty-badge :difficulty="$puzzle->difficulty" />
                 <span class="ms-auto text-sm font-black text-gold">
                     +{{ $puzzle->gem_reward ?? 0 }} 💎
                 </span>
@@ -69,7 +58,7 @@
                                class="input-gem mb-5">
                     @endif
 
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
                         <span class="text-sm font-bold text-slate-400">
                             محاولة {{ $attemptsUsed + 1 }} من {{ $puzzle->max_attempts }}
                         </span>
