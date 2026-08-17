@@ -12,7 +12,7 @@ class Puzzle extends Model
 {
     protected $fillable = [
         'puzzle_category_id', 'title', 'type', 'difficulty', 'prompt',
-        'image_path', 'choices', 'answer_hash', 'hint', 'max_attempts',
+        'image_path', 'choices', 'answer_hash', 'answer_raw', 'hint', 'max_attempts',
         'time_limit_seconds', 'gem_reward', 'is_daily_puzzle',
         'daily_puzzle_date', 'is_active',
     ];

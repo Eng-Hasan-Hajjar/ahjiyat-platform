@@ -12,6 +12,12 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             PuzzleCategorySeeder::class,
             PuzzleSeeder::class,
+            UserSeeder::class,
+            PuzzleAttemptSeeder::class,
+            ChallengeSeeder::class,
+            ChallengeParticipantSeeder::class,
+            RedemptionRequestSeeder::class,
+            FraudFlagSeeder::class,
         ]);
     }
 }

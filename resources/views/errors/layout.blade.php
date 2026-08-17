@@ -3,104 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>خطأ @yield('code') - منصة إعمار</title>
+    <title>خطأ @yield('code') - أحجيات</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Cairo:wght@600;700;900&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary:      #2E7D4F;
-            --primary-light:#4CAF72;
-            --primary-pale: #E8F5EE;
-            --accent:       #F4A024;
-            --accent-light: #FFF3DC;
-            --danger:       #E53935;
-            --warning:      #FB8C00;
-            --text-dark:    #1A2332;
-            --text-mid:     #4A5568;
-            --text-light:   #718096;
-            --border:       #E2E8F0;
-        }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        html, body { height:100%; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
         body {
-            font-family: 'Tajawal', 'Cairo', sans-serif;
-            background: linear-gradient(135deg, #f0faf4 0%, #e8f5ee 40%, #fff8ed 100%);
+            font-family: 'Cairo', ui-sans-serif, system-ui, sans-serif;
+            background-color: #060a17;
+            background-image:
+                radial-gradient(700px 400px at 90% -5%, rgba(139, 92, 246, .25), transparent 60%),
+                radial-gradient(800px 450px at 5% 5%, rgba(56, 189, 248, .15), transparent 60%),
+                radial-gradient(1000px 600px at 50% 110%, rgba(217, 70, 239, .12), transparent 60%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 24px;
-            color: var(--text-dark);
-            position: relative;
-            overflow: hidden;
-        }
-        body::before {
-            content: '';
-            position: absolute;
-            top: -120px; right: -120px;
-            width: 460px; height: 460px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(46,125,79,.10) 0%, transparent 70%);
-        }
-        body::after {
-            content: '';
-            position: absolute;
-            bottom: -100px; left: -100px;
-            width: 380px; height: 380px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(244,160,36,.09) 0%, transparent 70%);
+            color: #cbd5e1;
         }
         .error-card {
-            background: #fff;
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid rgba(255, 255, 255, .08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-radius: 24px;
-            box-shadow: 0 25px 70px rgba(0,0,0,.12);
-            max-width: 480px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, .35);
+            max-width: 460px;
             width: 100%;
-            padding: 44px 40px 36px;
+            padding: 40px 32px 32px;
             text-align: center;
-            position: relative;
-            z-index: 1;
         }
         .brand {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: var(--primary-pale);
-            color: var(--primary);
-            border-radius: 25px;
+            background: rgba(255, 255, 255, .05);
+            border: 1px solid rgba(255, 255, 255, .1);
+            color: #cbd5e1;
+            border-radius: 999px;
             padding: 6px 16px;
-            font-family: 'Cairo', sans-serif;
             font-weight: 700;
             font-size: .85rem;
-            margin-bottom: 28px;
+            margin-bottom: 26px;
+        }
+        .brand span {
+            background: linear-gradient(135deg, #c4b5fd 0%, #f0abfc 45%, #fcd34d 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 900;
         }
         .error-icon-wrap {
-            width: 92px; height: 92px;
-            border-radius: 24px;
+            width: 84px; height: 84px;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
             display: flex; align-items: center; justify-content: center;
-            font-size: 2.6rem;
-            margin: 0 auto 22px;
+            font-size: 2.3rem;
+            margin: 0 auto 20px;
         }
         .error-code {
-            font-family: 'Cairo', sans-serif;
             font-weight: 900;
-            font-size: 3rem;
-            color: var(--primary);
+            font-size: 2.75rem;
             line-height: 1;
             margin-bottom: 10px;
+            background: linear-gradient(135deg, #c4b5fd 0%, #f0abfc 45%, #fcd34d 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
         .error-title {
-            font-family: 'Cairo', sans-serif;
-            font-weight: 700;
-            font-size: 1.3rem;
-            color: var(--text-dark);
+            font-weight: 800;
+            font-size: 1.2rem;
+            color: #fff;
             margin-bottom: 12px;
         }
         .error-desc {
-            color: var(--text-mid);
-            font-size: .93rem;
+            color: #94a3b8;
+            font-size: .92rem;
             line-height: 1.85;
-            margin-bottom: 30px;
+            margin-bottom: 28px;
         }
         .error-actions {
             display: flex;
@@ -112,39 +95,52 @@
             display: inline-flex;
             align-items: center;
             gap: 7px;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: .9rem;
+            padding: 12px 22px;
+            border-radius: 14px;
+            font-weight: 800;
+            font-size: .88rem;
             text-decoration: none;
-            transition: transform .18s, box-shadow .18s;
+            transition: transform .18s ease, box-shadow .18s ease;
             border: none;
             cursor: pointer;
-            font-family: 'Tajawal', sans-serif;
+            font-family: inherit;
         }
-        .btn-e:hover { transform: translateY(-3px); }
-        .btn-e-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 20px rgba(46,125,79,.25); }
-        .btn-e-outline { background: #fff; color: var(--primary); border: 2px solid var(--primary-pale); }
+        .btn-e:hover { transform: translateY(-2px); }
+        .btn-e-primary {
+            background: linear-gradient(135deg, #7c3aed 0%, #d946ef 55%, #f59e0b 100%);
+            color: #fff;
+            box-shadow: 0 8px 30px -10px rgba(217, 70, 239, .5);
+        }
+        .btn-e-outline {
+            background: rgba(255, 255, 255, .05);
+            color: #cbd5e1;
+            border: 1px solid rgba(255, 255, 255, .12);
+        }
+        .btn-e-outline:hover { border-color: rgba(167, 139, 250, .6); color: #fff; }
         .error-footer {
-            margin-top: 26px;
-            padding-top: 20px;
-            border-top: 1px solid var(--border);
-            font-size: .78rem;
-            color: var(--text-light);
+            margin-top: 24px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(255, 255, 255, .08);
+            font-size: .76rem;
+            color: #64748b;
+        }
+        @media (max-width: 400px) {
+            .error-card { padding: 32px 22px 26px; }
+            .error-code { font-size: 2.3rem; }
         }
     </style>
 </head>
 <body>
     <div class="error-card">
-        <div class="brand">🏗️ منصة إعمار</div>
-        <div class="error-icon-wrap" style="background: @yield('iconBg', '#E8F5EE');">@yield('icon')</div>
+        <div class="brand">✦ <span>أحجيات</span></div>
+        <div class="error-icon-wrap" style="background: @yield('iconBg', 'linear-gradient(135deg, rgba(139,92,246,.35), rgba(217,70,239,.25))');">@yield('icon')</div>
         <div class="error-code">@yield('code')</div>
         <div class="error-title">@yield('title')</div>
         <div class="error-desc">@yield('desc')</div>
         <div class="error-actions">
             @yield('actions')
         </div>
-        <div class="error-footer">منصة إعادة الإعمار وربط المتطوعين</div>
+        <div class="error-footer">منصة أحجيات · ألغاز وتحديات ذهنية</div>
     </div>
 </body>
 </html>

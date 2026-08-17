@@ -28,6 +28,9 @@
 
 html { scroll-behavior: smooth; }
 
+/* يمنع وميض عناصر Alpine (مثل قائمة الموبايل) قبل تحميل JS */
+[x-cloak] { display: none !important; }
+
 body {
     font-family: var(--font-body);
     background-color: var(--color-night-950);

@@ -47,6 +47,7 @@ class PuzzleAttemptService
 
             if ($isCorrect) {
                 $gemsAwarded = $this->awardGemsForSolve($user, $puzzle);
+                $this->updateChallengeScoresIfAny($user, $puzzle);
             }
 
             return [
@@ -84,5 +85,26 @@ class PuzzleAttemptService
         $this->wallet->debitAvailable($user, (int) config('gems.hint_cost'), "hint:{$puzzle->id}", $puzzle);
 
         return $puzzle->hint;
+    }
+
+    /**
+     * لو الأحجية تابعة لتحدٍ (أو أكثر) مفتوح حالياً والمستخدم منضم له،
+     * نزيد نقطة واحدة بلوحة صدارة كل تحدٍ من هذول (انظر ChallengeController::join).
+     */
+    protected function updateChallengeScoresIfAny(User $user, Puzzle $puzzle): void
+    {
+        $openChallenges = $puzzle->challenges()
+            ->where('is_active', true)
+            ->where('starts_at', '<=', now())
+            ->where('ends_at', '>=', now())
+            ->get();
+
+        foreach ($openChallenges as $challenge) {
+            $participant = $challenge->participants()->where('user_id', $user->id)->first();
+
+            if ($participant) {
+                $participant->increment('score');
+            }
+        }
     }
 }

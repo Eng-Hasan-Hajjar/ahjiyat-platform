@@ -1,7 +1,7 @@
 @extends('errors.layout')
 @section('code', '401')
 @section('icon', '🔑')
-@section('iconBg', '#FFF3DC')
+@section('iconBg', 'linear-gradient(135deg, rgba(252,211,77,.35), rgba(245,158,11,.25))')
 @section('title', 'يجب تسجيل الدخول أولاً')
 @section('desc', 'هذه الصفحة تتطلب تسجيل الدخول. الرجاء تسجيل الدخول لحسابك للمتابعة.')
 @section('actions')

@@ -17,16 +17,18 @@
 
 <div class="aurora-bg"></div>
 
-{{-- ===== Header عصري ===== --}}
-<header class="sticky top-0 z-40 glass border-x-0 border-t-0">
-    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-        <a href="{{ route('home') }}" class="flex items-center gap-3 shrink-0">
+{{-- ===== Header عصري (متجاوب مع الموبايل) ===== --}}
+<header x-data="{ mobileOpen: false }" @keydown.escape.window="mobileOpen = false" class="sticky top-0 z-40 glass border-x-0 border-t-0">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+        <a href="{{ route('home') }}" class="flex items-center gap-3 shrink-0" @click="mobileOpen = false">
             <span class="gem-facet anim-float w-9 h-9 grid place-items-center text-sm font-black text-white bg-gradient-to-br from-amethyst via-fuchsia-500 to-gold glow-amethyst">✦</span>
             <span class="text-xl font-black text-gradient-gem">أحجيات</span>
         </a>
 
+        {{-- روابط سطح المكتب --}}
         <nav class="hidden md:flex items-center gap-6 text-sm font-bold text-slate-300">
             <a href="{{ route('puzzles.index') }}" class="hover:text-white transition">الأحجيات</a>
+            <a href="{{ route('challenges.index') }}" class="hover:text-white transition">التحديات</a>
             <a href="{{ route('leaderboard.index') }}" class="hover:text-white transition">لوحة الصدارة</a>
             @auth
                 <a href="{{ route('wallet.index') }}" class="hover:text-gold transition">محفظتي</a>
@@ -34,19 +36,72 @@
             @endauth
         </nav>
 
-        <div class="flex items-center gap-3 text-sm font-bold">
+        {{-- يمين الشريط: رصيد + حساب (سطح المكتب) + زر القائمة (موبايل) --}}
+        <div class="flex items-center gap-2 sm:gap-3 text-sm font-bold">
             @auth
                 <x-gem-badge :amount="auth()->user()->wallet?->available_balance ?? 0" />
-                <a href="{{ route('profile.edit') }}" class="chip">{{ auth()->user()->name }}</a>
-                <form method="POST" action="{{ route('logout') }}">
+                <a href="{{ route('profile.edit') }}" class="hidden sm:inline-flex chip">{{ auth()->user()->name }}</a>
+                <form method="POST" action="{{ route('logout') }}" class="hidden md:block">
                     @csrf
                     <button class="chip !text-rose">خروج</button>
                 </form>
             @else
-                <a href="{{ route('login') }}" class="chip">دخول</a>
-                <a href="{{ route('register') }}" class="btn-gem !py-2 !px-4 text-sm">إنشاء حساب</a>
+                <a href="{{ route('login') }}" class="hidden sm:inline-flex chip">دخول</a>
+                <a href="{{ route('register') }}" class="hidden md:inline-flex btn-gem !py-2 !px-4 text-sm">إنشاء حساب</a>
             @endauth
+
+            {{-- زر الهامبرغر: يظهر فقط تحت md --}}
+            <button
+                @click="mobileOpen = !mobileOpen"
+                type="button"
+                class="md:hidden grid place-items-center w-10 h-10 rounded-xl border border-white/10 bg-white/5 text-white shrink-0"
+                :aria-expanded="mobileOpen"
+                aria-label="فتح القائمة"
+            >
+                <svg x-show="!mobileOpen" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                <svg x-show="mobileOpen" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
         </div>
+    </div>
+
+    {{-- ===== قائمة الموبايل المنسدلة ===== --}}
+    <div
+        x-show="mobileOpen"
+        x-cloak
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0 -translate-y-2"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 -translate-y-2"
+        class="md:hidden border-t border-white/10 bg-night-900/95 backdrop-blur-xl"
+        @click.outside="mobileOpen = false"
+    >
+        <nav class="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-1 text-sm font-bold text-slate-300">
+            <a href="{{ route('puzzles.index') }}" @click="mobileOpen = false" class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">الأحجيات</a>
+            <a href="{{ route('challenges.index') }}" @click="mobileOpen = false" class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">التحديات</a>
+            <a href="{{ route('leaderboard.index') }}" @click="mobileOpen = false" class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">لوحة الصدارة</a>
+
+            @auth
+                <a href="{{ route('wallet.index') }}" @click="mobileOpen = false" class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-gold transition">محفظتي</a>
+                <a href="{{ route('redemption.index') }}" @click="mobileOpen = false" class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-gold transition">الاستبدال</a>
+                <a href="{{ route('profile.edit') }}" @click="mobileOpen = false" class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">{{ auth()->user()->name }}</a>
+
+                <form method="POST" action="{{ route('logout') }}" class="mt-2 pt-3 border-t border-white/10">
+                    @csrf
+                    <button class="w-full text-right rounded-xl px-4 py-3 text-rose hover:bg-rose/10 transition">تسجيل الخروج</button>
+                </form>
+            @else
+                <div class="mt-2 pt-3 border-t border-white/10 flex flex-col gap-2">
+                    <a href="{{ route('login') }}" @click="mobileOpen = false" class="chip text-center">دخول</a>
+                    <a href="{{ route('register') }}" @click="mobileOpen = false" class="btn-gem justify-center">إنشاء حساب</a>
+                </div>
+            @endauth
+        </nav>
     </div>
 </header>
 
@@ -85,9 +140,12 @@
 </main>
 
 <footer class="glass border-x-0 border-b-0 mt-10">
-    <div class="max-w-6xl mx-auto px-4 py-6 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
-        <span>© {{ date('Y') }} <b class="text-gradient-gem">أحجيات</b></span>
-        <span>منصة ألغاز وتحديات ذهنية</span>
+    <div class="max-w-6xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-400 text-center sm:text-right">
+        <span>© {{ date('Y') }} <b class="text-gradient-gem">أحجيات</b> · منصة ألغاز وتحديات ذهنية</span>
+        <div class="flex items-center gap-4 font-bold">
+            <a href="{{ route('pages.terms') }}" class="hover:text-white transition">شروط الاستخدام</a>
+            <a href="{{ route('pages.privacy') }}" class="hover:text-white transition">سياسة الخصوصية</a>
+        </div>
     </div>
 </footer>
 
