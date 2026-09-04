@@ -42,6 +42,8 @@ class AdminPanelProvider extends PanelProvider
             // حتى على الموبايل (github.com/filamentphp/filament/issues/15056). نجبرها
             // تنغلق بكل تحميل صفحة على شاشة ضيقة - نفس سلوك أي قائمة موبايل منسدلة
             // طبيعية (ما يفترض تفضل مفتوحة بين تنقلات الصفحات أصلاً).
+            // كمان نضيف زر إغلاق (✕) واضح جوا القائمة على الموبايل، لأن Filament
+            // افتراضياً يعتمد فقط على "اضغط برّا القائمة لتسكرها" بدون زر صريح.
             ->renderHook(
                 'panels::head.start',
                 fn (): HtmlString => new HtmlString(<<<'HTML'
@@ -49,6 +51,30 @@ class AdminPanelProvider extends PanelProvider
                         if (window.innerWidth < 1024) {
                             localStorage.setItem('isOpen', 'false');
                         }
+
+                        document.addEventListener('DOMContentLoaded', function () {
+                            function addSidebarCloseButton() {
+                                var sidebar = document.querySelector('.fi-sidebar');
+                                if (!sidebar || sidebar.querySelector('.ahjiyat-sidebar-close-btn')) return;
+
+                                var btn = document.createElement('button');
+                                btn.type = 'button';
+                                btn.className = 'ahjiyat-sidebar-close-btn lg:hidden';
+                                btn.setAttribute('aria-label', 'إغلاق القائمة');
+                                btn.textContent = '✕';
+                                btn.style.cssText = 'position:absolute;top:1rem;inset-inline-end:1rem;z-index:40;width:2.25rem;height:2.25rem;border-radius:9999px;background:rgba(255,255,255,.08);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.1rem;border:1px solid rgba(255,255,255,.15);cursor:pointer;';
+                                btn.addEventListener('click', function () {
+                                    if (window.Alpine && window.Alpine.store('sidebar')) {
+                                        window.Alpine.store('sidebar').close();
+                                    }
+                                });
+
+                                sidebar.prepend(btn);
+                            }
+
+                            addSidebarCloseButton();
+                            document.addEventListener('livewire:navigated', addSidebarCloseButton);
+                        });
                     </script>
                     HTML),
             )

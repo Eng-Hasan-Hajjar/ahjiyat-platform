@@ -38,6 +38,7 @@ class ChallengeParticipantSeeder extends Seeder
                 $showcaseUsers = $users->whereIn('email', $showcaseEmails);
                 $participants = $participants->merge($showcaseUsers)->unique('id');
             }
+            
 
             foreach ($participants as $user) {
                 $challenge->participants()->create([
