@@ -2,96 +2,105 @@
 
 namespace App\GameEngine;
 
+use App\GameEngine\Contracts\GameTypeDefinition;
 use App\GameEngine\Contracts\GameValidator;
 use App\GameEngine\Contracts\ScoreCalculator;
 use App\Models\Puzzle;
 use InvalidArgumentException;
 
+/**
+ * موزّع رقيق فقط - لا يعرف شيئًا عن sequence أو memory أو أي نوع لعبة
+ * محدَّد بالاسم. كل المعرفة الفعلية تعيش داخل أصناف Definition المسجَّلة
+ * بـ config/game_types.php. إضافة نوع لعبة جديد لا تلمس هذا الملف إطلاقاً.
+ */
 class GameTypeRegistry
 {
-    protected const LEGACY_VALIDATION_TYPE = 'exact_string';
+    /** @var array<string, GameTypeDefinition>|null */
+    protected ?array $definitions = null;
 
-    protected const DEFAULT_SCORE_MODE = 'flat';
+    public function definitionFor(?string $gameType): GameTypeDefinition
+    {
+        $key = $gameType ?? '';
+        $definition = $this->definitions()[$key] ?? null;
 
-    protected const DEFAULT_RENDERER = 'games.legacy-input';
+        if (! $definition) {
+            throw new InvalidArgumentException("لا يوجد Game Type مسجّل بمفتاح: {$key}");
+        }
+
+        return $definition;
+    }
 
     public function validatorFor(Puzzle $puzzle): GameValidator
     {
-        $key = $puzzle->validation_type ?? self::LEGACY_VALIDATION_TYPE;
-
-        return $this->resolve('validators', $key, 'Validator');
+        return $this->definitionFor($puzzle->game_type)->validator();
     }
 
     public function scorerFor(Puzzle $puzzle): ScoreCalculator
     {
-        $key = $puzzle->score_mode ?? self::DEFAULT_SCORE_MODE;
-
-        return $this->resolve('scorers', $key, 'Score Calculator');
+        return $this->definitionFor($puzzle->game_type)->scorer();
     }
 
     public function rendererFor(Puzzle $puzzle): string
     {
-        return $puzzle->renderer ?: self::DEFAULT_RENDERER;
+        // القيمة المخزَّنة بالأحجية نفسها لها الأولوية دائمًا (سلوك موروث
+        // محفوظ كما هو) - الـDefinition توفّر فقط الافتراضي حين تكون فارغة.
+        return $puzzle->renderer ?: $this->definitionFor($puzzle->game_type)->renderer();
     }
 
+    /**
+     * القيم الافتراضية لنوع لعبة معيّن - تُستخدم بلوحة الإدارة لتعبئة
+     * validation_type/score_mode/renderer تلقائياً عند اختيار game_type.
+     * هذه القيم تُخزَّن للعرض/التوثيق فقط - التنفيذ الفعلي (validatorFor/
+     * scorerFor أعلاه) يمر عبر الـDefinition مباشرة وليس عبر هذه الأعمدة.
+     */
     public function defaultsFor(?string $gameType): array
     {
         if (blank($gameType)) {
             return [];
         }
 
-        return config("game_types.game_types.$gameType", []);
+        $definition = $this->definitions()[$gameType] ?? null;
+
+        if (! $definition) {
+            return [];
+        }
+
+        return [
+            'validation_type' => $definition->validationType(),
+            'score_mode' => $definition->scoreMode(),
+            'renderer' => $definition->renderer(),
+        ];
     }
 
+    /** خيارات حقل game_type بلوحة الإدارة - مشتقة من التسجيل الفعلي، بدون أي قائمة مكرّرة يدويًا */
     public function gameTypeOptions(): array
     {
-        return collect(config('game_types.game_types', []))
-            ->mapWithKeys(fn (array $definition, string $key) => [$key => $definition['label'] ?? $key])
-            ->toArray();
+        return collect($this->definitions())
+            ->reject(fn (GameTypeDefinition $definition) => $definition->key() === '')
+            ->mapWithKeys(fn (GameTypeDefinition $definition) => [$definition->key() => $definition->label()])
+            ->all();
     }
 
     /**
-     * يُستدعى تلقائياً من App\Models\Puzzle::booted() عند كل حفظ - يشتق
-     * solution_data/game_config حسب نوع اللعبة. كل نوع لعبة جديد لاحقاً
-     * يضيف حالة هون فقط، بدون أي تعديل على Puzzle model نفسه.
+     * يُستدعى تلقائياً من App\Models\Puzzle::booted() عند كل حفظ - يفوّض
+     * الاشتقاق بالكامل لِـ Definition النوع المعني. كل نوع لعبة جديد لاحقاً
+     * يضيف منطقه داخل Definition خاص به، بدون أي تعديل على هذا الملف.
      */
     public function prepareForSave(Puzzle $puzzle): void
     {
-        if ($puzzle->game_type === 'sequence') {
-            $items = (array) ($puzzle->game_config['items'] ?? []);
-            $puzzle->solution_data = ['order' => array_keys($items)];
-        }
-
-        if ($puzzle->game_type === 'memory') {
-            $config = (array) $puzzle->game_config;
-            $uniqueFaces = array_values(array_filter((array) ($config['faces'] ?? [])));
-
-            $cards = [];
-            $id = 0;
-
-            foreach ($uniqueFaces as $face) {
-                $cards[] = ['id' => $id++, 'face' => $face];
-                $cards[] = ['id' => $id++, 'face' => $face];
-            }
-
-            // نحافظ على faces (كما أدخلها الأدمن، لإعادة عرضها بالتعديل لاحقاً)
-            // بجانب cards المُشتقة (بيانات اللعب الفعلية) - داخل نفس العمود.
-            $puzzle->game_config = ['faces' => $uniqueFaces, 'cards' => $cards];
-        }
+        $this->definitionFor($puzzle->game_type)->normalizeAuthoringData($puzzle);
 
         if (filled($puzzle->game_type) && blank($puzzle->answer_hash)) {
             $puzzle->answer_hash = hash('sha256', $puzzle->game_type.':'.now()->timestamp.':'.random_int(100000, 999999));
         }
     }
 
-    protected function resolve(string $group, string $key, string $label): object
+    /** @return array<string, GameTypeDefinition> */
+    protected function definitions(): array
     {
-        $class = config("game_types.$group.$key");
-
-        if (! $class || ! class_exists($class)) {
-            throw new InvalidArgumentException("لا يوجد {$label} مسجّل بمفتاح: {$key}");
-        }
-
-        return app($class);
+        return $this->definitions ??= collect(config('game_types.definitions', []))
+            ->map(fn (string $class) => app($class))
+            ->keyBy(fn (GameTypeDefinition $definition) => $definition->key())
+            ->all();
     }
 }

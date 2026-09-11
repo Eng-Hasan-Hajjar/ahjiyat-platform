@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\GameTypeAuthoring\FilamentGameTypeSchemaRegistry;
 use App\Filament\Resources\PuzzleResource\Pages;
 use App\GameEngine\GameTypeRegistry;
 use App\Models\Puzzle;
@@ -104,19 +105,9 @@ class PuzzleResource extends Resource
                         })
                         ->columnSpanFull(),
 
-                    Forms\Components\Repeater::make('game_config.items')
-                        ->label('عناصر التسلسل (رتّبها من الأعلى للأسفل بالترتيب الصحيح)')
-                        ->simple(Forms\Components\TextInput::make('item')->required())
-                        ->visible(fn (Get $get) => $get('game_type') === 'sequence')
-                        ->minItems(2)
-                        ->columnSpanFull(),
-
-                    Forms\Components\Repeater::make('game_config.faces')
-                        ->label('عناصر أزواج الذاكرة (كل عنصر مرة واحدة فقط - سيتكرر تلقائياً بطاقتين)')
-                        ->simple(Forms\Components\TextInput::make('face')->required())
-                        ->visible(fn (Get $get) => $get('game_type') === 'memory')
-                        ->minItems(3)
-                        ->columnSpanFull(),
+                    // حقول كل نوع لعبة تأتي هون ديناميكيًا من الـAuthoring Registry -
+                    // إضافة نوع جديد لا تلمس هذا الملف إطلاقاً (شوف config/game_types.php).
+                    ...app(FilamentGameTypeSchemaRegistry::class)->allFields(),
 
                     Forms\Components\TextInput::make('validation_type')->label('نوع التحقق (تلقائي)')->disabled()->dehydrated(),
                     Forms\Components\TextInput::make('score_mode')->label('نمط الاحتساب (تلقائي)')->disabled()->dehydrated(),
