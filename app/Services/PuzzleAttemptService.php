@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\GameEngine\GameResult;
+use App\GameEngine\GameTypeRegistry;
 use App\Models\Puzzle;
 use App\Models\PuzzleAttempt;
 use App\Models\User;
@@ -12,14 +14,17 @@ class PuzzleAttemptService
     public function __construct(
         protected GemWalletService $wallet,
         protected FraudDetectionService $fraud,
+        protected GameTypeRegistry $games,
     ) {}
 
     /**
+     * @param  array<string, mixed>  $submission  بيانات الحل المُنظّمة (لأنواع الألعاب الجديدة).
+     *                                              للأنواع الكلاسيكية تُبنى تلقائياً من $submittedAnswer إذا تُركت فارغة.
      * @return array{attempt: PuzzleAttempt, correct: bool, gems_awarded: int, attempts_left: int}
      */
-    public function attempt(User $user, Puzzle $puzzle, string $submittedAnswer, bool $usedHint = false): array
+    public function attempt(User $user, Puzzle $puzzle, string $submittedAnswer, bool $usedHint = false, array $submission = []): array
     {
-        return DB::transaction(function () use ($user, $puzzle, $submittedAnswer, $usedHint) {
+        return DB::transaction(function () use ($user, $puzzle, $submittedAnswer, $usedHint, $submission) {
             $previousAttempts = PuzzleAttempt::where('user_id', $user->id)
                 ->where('puzzle_id', $puzzle->id)
                 ->lockForUpdate()
@@ -33,7 +38,12 @@ class PuzzleAttemptService
                 throw new \RuntimeException('سبق أن حللت هذه الأحجية.');
             }
 
-            $isCorrect = $puzzle->checkAnswer($submittedAnswer);
+            // للأنواع الكلاسيكية (game_type فارغ) نبني الحمولة تلقائياً من
+            // الحقل النصي القديم - صفر تغيير سلوك لأي استدعاء موجود حالياً.
+            $payload = $submission !== [] ? $submission : ['answer' => $submittedAnswer];
+
+            $gameResult = $this->games->validatorFor($puzzle)->check($puzzle, $payload);
+            $isCorrect = $gameResult->correct;
 
             $puzzleAttempt = PuzzleAttempt::create([
                 'user_id' => $user->id,
@@ -41,6 +51,7 @@ class PuzzleAttemptService
                 'attempt_number' => $previousAttempts + 1,
                 'is_correct' => $isCorrect,
                 'used_hint' => $usedHint,
+                'submission_snapshot' => $payload,
             ]);
 
             $gemsAwarded = 0;
@@ -64,7 +75,8 @@ class PuzzleAttemptService
         $dailyCap = config('gems.daily_earn_cap');
         $alreadyEarnedToday = $this->wallet->dailyEarnedToday($user);
 
-        $reward = min($puzzle->gem_reward, max(0, $dailyCap - $alreadyEarnedToday));
+        $rawReward = $this->games->scorerFor($puzzle)->calculate($puzzle, new GameResult(correct: true));
+        $reward = min($rawReward, max(0, $dailyCap - $alreadyEarnedToday));
 
         if ($reward <= 0) {
             return 0; // وصل سقف الكسب اليومي - يحمي من الاستغلال الآلي

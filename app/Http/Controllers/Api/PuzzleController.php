@@ -23,7 +23,7 @@ class PuzzleController extends Controller
         return Puzzle::query()
             ->where('is_active', true)
             ->when($request->category_id, fn ($q) => $q->where('puzzle_category_id', $request->category_id))
-            ->select(['id', 'puzzle_category_id', 'title', 'type', 'difficulty', 'gem_reward'])
+            ->select(['id', 'puzzle_category_id', 'title', 'type', 'game_type', 'difficulty', 'gem_reward'])
             ->paginate(20);
     }
 
@@ -32,6 +32,9 @@ class PuzzleController extends Controller
         return $puzzle->only([
             'id', 'title', 'type', 'difficulty', 'prompt', 'choices',
             'image_path', 'max_attempts', 'time_limit_seconds', 'gem_reward',
+            // حقول محرك الألعاب للعرض فقط - solution_data ممنوع تظهر هون
+            // أو بأي استجابة API مهما كان السياق.
+            'game_type', 'game_config', 'renderer',
         ]);
     }
 
@@ -41,8 +44,9 @@ class PuzzleController extends Controller
             $result = $this->attempts->attempt(
                 $request->user(),
                 $puzzle,
-                $request->string('answer'),
-                $request->boolean('used_hint')
+                (string) $request->input('answer', ''),
+                $request->boolean('used_hint'),
+                (array) $request->input('submission', [])
             );
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);

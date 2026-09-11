@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\GameEngine\GameTypeRegistry;
 use App\Http\Requests\SolvePuzzleRequest;
 use App\Models\Puzzle;
 use App\Models\PuzzleCategory;
@@ -27,7 +28,7 @@ class PuzzleController extends Controller
         return view('puzzles.index', compact('puzzles', 'categories', 'category'));
     }
 
-    public function show(Puzzle $puzzle)
+    public function show(Puzzle $puzzle, GameTypeRegistry $games)
     {
         $user = Auth::user();
 
@@ -36,8 +37,9 @@ class PuzzleController extends Controller
             : 0;
 
         $alreadySolved = $user && $user->hasSolvedPuzzle($puzzle);
+        $renderer = $games->rendererFor($puzzle);
 
-        return view('puzzles.show', compact('puzzle', 'attemptsUsed', 'alreadySolved'));
+        return view('puzzles.show', compact('puzzle', 'attemptsUsed', 'alreadySolved', 'renderer'));
     }
 
     public function attempt(SolvePuzzleRequest $request, Puzzle $puzzle): RedirectResponse
@@ -46,8 +48,9 @@ class PuzzleController extends Controller
             $result = $this->attempts->attempt(
                 Auth::user(),
                 $puzzle,
-                $request->string('answer'),
-                $request->boolean('used_hint')
+                (string) $request->input('answer', ''),
+                $request->boolean('used_hint'),
+                (array) $request->input('submission', [])
             );
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PuzzleResource\Pages;
+use App\GameEngine\GameTypeRegistry;
 use App\Models\Puzzle;
 use App\Models\PuzzleCategory;
 use Filament\Forms;
@@ -38,7 +39,7 @@ class PuzzleResource extends Resource
             Forms\Components\TextInput::make('title')->label('العنوان')->required()->columnSpanFull(),
 
             Forms\Components\Select::make('type')
-                ->label('نوع الأحجية')
+                ->label('نوع الأحجية (الأنواع الكلاسيكية)')
                 ->options([
                     'text' => 'نصية',
                     'image' => 'صورة',
@@ -86,6 +87,36 @@ class PuzzleResource extends Resource
                 ->visible(fn (Get $get) => $get('is_daily_puzzle')),
 
             Forms\Components\Toggle::make('is_active')->label('مفعّلة')->default(true),
+
+            Forms\Components\Section::make('محرك الألعاب التفاعلية (اختياري)')
+                ->description('اتركه فارغاً لأحجية كلاسيكية عادية (النوع أعلاه). اختر نوع لعبة هون فقط لتفعيل تجربة تفاعلية جديدة.')
+                ->schema([
+                    Forms\Components\Select::make('game_type')
+                        ->label('نوع اللعبة التفاعلية')
+                        ->options(fn () => app(GameTypeRegistry::class)->gameTypeOptions())
+                        ->native(false)
+                        ->live()
+                        ->afterStateUpdated(function (Get $get, $state, Forms\Set $set) {
+                            $defaults = app(GameTypeRegistry::class)->defaultsFor($state);
+                            $set('validation_type', $defaults['validation_type'] ?? null);
+                            $set('score_mode', $defaults['score_mode'] ?? 'flat');
+                            $set('renderer', $defaults['renderer'] ?? null);
+                        })
+                        ->columnSpanFull(),
+
+                    Forms\Components\Repeater::make('game_config.items')
+                        ->label('عناصر التسلسل (رتّبها من الأعلى للأسفل بالترتيب الصحيح)')
+                        ->simple(Forms\Components\TextInput::make('item')->required())
+                        ->visible(fn (Get $get) => $get('game_type') === 'sequence')
+                        ->minItems(2)
+                        ->columnSpanFull(),
+
+                    Forms\Components\TextInput::make('validation_type')->label('نوع التحقق (تلقائي)')->disabled()->dehydrated(),
+                    Forms\Components\TextInput::make('score_mode')->label('نمط الاحتساب (تلقائي)')->disabled()->dehydrated(),
+                    Forms\Components\TextInput::make('renderer')->label('العارض (تلقائي)')->disabled()->dehydrated(),
+                ])
+                ->columns(2)
+                ->collapsible(),
         ])->columns(2);
     }
 
@@ -98,6 +129,11 @@ class PuzzleResource extends Resource
                 Tables\Columns\BadgeColumn::make('difficulty')
                     ->label('الصعوبة')
                     ->colors(['success' => 'easy', 'warning' => 'medium', 'danger' => 'hard']),
+                Tables\Columns\TextColumn::make('game_type')
+                    ->label('نوع اللعبة')
+                    ->badge()
+                    ->placeholder('كلاسيكي')
+                    ->color(fn ($state) => $state ? 'info' : 'gray'),
                 Tables\Columns\TextColumn::make('gem_reward')->label('الجواهر'),
                 Tables\Columns\IconColumn::make('is_active')->label('مفعّلة')->boolean(),
                 Tables\Columns\TextColumn::make('attempts_count')->label('عدد المحاولات')->counts('attempts'),
@@ -109,6 +145,9 @@ class PuzzleResource extends Resource
                 Tables\Filters\SelectFilter::make('difficulty')
                     ->label('الصعوبة')
                     ->options(['easy' => 'سهل', 'medium' => 'متوسط', 'hard' => 'صعب']),
+                Tables\Filters\SelectFilter::make('game_type')
+                    ->label('نوع اللعبة')
+                    ->options(fn () => app(GameTypeRegistry::class)->gameTypeOptions()),
             ])
             ->actions([Tables\Actions\EditAction::make(), Tables\Actions\DeleteAction::make()])
             ->defaultSort('created_at', 'desc');

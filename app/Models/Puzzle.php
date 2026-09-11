@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\GameEngine\GameTypeRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -15,6 +16,8 @@ class Puzzle extends Model
         'image_path', 'choices', 'answer_hash', 'answer_raw', 'hint', 'max_attempts',
         'time_limit_seconds', 'gem_reward', 'is_daily_puzzle',
         'daily_puzzle_date', 'is_active',
+        // حقول محرك الألعاب (Phase 1) - كلها Nullable ولا تؤثر على الأحجيات الكلاسيكية
+        'game_type', 'game_config', 'solution_data', 'renderer', 'validation_type', 'score_mode',
     ];
 
     // answer_raw موديل مؤقت (مو عمود بقاعدة البيانات) يستخدم فقط لحظة الإنشاء/التعديل
@@ -25,10 +28,22 @@ class Puzzle extends Model
     {
         return [
             'choices' => 'array',
+            'game_config' => 'array',
+            'solution_data' => 'array',
             'is_daily_puzzle' => 'boolean',
             'is_active' => 'boolean',
             'daily_puzzle_date' => 'date',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // يشتق solution_data من game_config تلقائياً عند كل حفظ (مثلاً: ترتيب
+        // عناصر لعبة sequence). المنطق الفعلي بـ GameTypeRegistry::prepareForSave
+        // عشان إضافة نوع لعبة جديد لاحقاً ما يحتاج تعديل هذا الملف إطلاقاً.
+        static::saving(function (Puzzle $puzzle) {
+            app(GameTypeRegistry::class)->prepareForSave($puzzle);
+        });
     }
 
     public function setAnswerRawAttribute(?string $value): void

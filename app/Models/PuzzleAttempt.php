@@ -9,7 +9,7 @@ class PuzzleAttempt extends Model
 {
     protected $fillable = [
         'user_id', 'puzzle_id', 'attempt_number', 'is_correct',
-        'used_hint', 'time_taken_seconds',
+        'used_hint', 'time_taken_seconds', 'submission_snapshot',
     ];
 
     protected function casts(): array
@@ -17,6 +17,7 @@ class PuzzleAttempt extends Model
         return [
             'is_correct' => 'boolean',
             'used_hint' => 'boolean',
+            'submission_snapshot' => 'array',
         ];
     }
 

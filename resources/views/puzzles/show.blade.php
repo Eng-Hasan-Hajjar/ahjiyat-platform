@@ -44,19 +44,8 @@
                 <form method="POST" action="{{ route('puzzles.attempt', $puzzle) }}" class="mt-6 anim-fade-up d-2">
                     @csrf
 
-                    @if ($puzzle->type === 'multiple_choice' && $puzzle->choices)
-                        <div class="space-y-3 mb-5">
-                            @foreach ($puzzle->choices as $choice)
-                                <label class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-4 cursor-pointer hover:border-amethyst hover:bg-amethyst/10 transition">
-                                    <input type="radio" name="answer" value="{{ $choice }}" required class="accent-amethyst">
-                                    <span class="text-slate-200 font-semibold">{{ $choice }}</span>
-                                </label>
-                            @endforeach
-                        </div>
-                    @else
-                        <input type="text" name="answer" required placeholder="اكتب إجابتك هنا..."
-                               class="input-gem mb-5">
-                    @endif
+                    {{-- ===== واجهة الإجابة الفعلية - تختلف حسب نوع اللعبة ===== --}}
+                    @include($renderer)
 
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <span class="text-sm font-bold text-slate-400">

@@ -127,7 +127,7 @@
 
         @if ($errors->any())
             <div class="mb-6 rounded-xl border border-rose/30 bg-rose/10 text-rose px-4 py-3 text-sm anim-fade-up">
-                <ul class="list-disc pr-5 space-y-1">
+                <ul class="list-disc ps-5 space-y-1">
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
                     @endforeach
