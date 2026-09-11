@@ -111,6 +111,13 @@ class PuzzleResource extends Resource
                         ->minItems(2)
                         ->columnSpanFull(),
 
+                    Forms\Components\Repeater::make('game_config.faces')
+                        ->label('عناصر أزواج الذاكرة (كل عنصر مرة واحدة فقط - سيتكرر تلقائياً بطاقتين)')
+                        ->simple(Forms\Components\TextInput::make('face')->required())
+                        ->visible(fn (Get $get) => $get('game_type') === 'memory')
+                        ->minItems(3)
+                        ->columnSpanFull(),
+
                     Forms\Components\TextInput::make('validation_type')->label('نوع التحقق (تلقائي)')->disabled()->dehydrated(),
                     Forms\Components\TextInput::make('score_mode')->label('نمط الاحتساب (تلقائي)')->disabled()->dehydrated(),
                     Forms\Components\TextInput::make('renderer')->label('العارض (تلقائي)')->disabled()->dehydrated(),

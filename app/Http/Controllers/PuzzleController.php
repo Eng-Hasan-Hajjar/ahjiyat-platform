@@ -44,13 +44,19 @@ class PuzzleController extends Controller
 
     public function attempt(SolvePuzzleRequest $request, Puzzle $puzzle): RedirectResponse
     {
+        $submission = (array) $request->input('submission', []);
+
+        if ($request->filled('start_token')) {
+            $submission['start_token'] = (string) $request->input('start_token');
+        }
+
         try {
             $result = $this->attempts->attempt(
                 Auth::user(),
                 $puzzle,
                 (string) $request->input('answer', ''),
                 $request->boolean('used_hint'),
-                (array) $request->input('submission', [])
+                $submission
             );
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());

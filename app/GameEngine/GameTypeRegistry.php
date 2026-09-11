@@ -7,12 +7,6 @@ use App\GameEngine\Contracts\ScoreCalculator;
 use App\Models\Puzzle;
 use InvalidArgumentException;
 
-/**
- * نقطة الدخول الوحيدة لأي كود يحتاج يعرف "كيف نتحقق من هذه الأحجية"
- * أو "كم جوهرة تستحق" أو "بأي Blade view تُعرض". كل التسجيل الفعلي
- * موجود بـ config/game_types.php - إضافة نوع لعبة جديد لاحقاً يعني
- * تعديل ملف الإعدادات فقط، بدون لمس هذا الصنف.
- */
 class GameTypeRegistry
 {
     protected const LEGACY_VALIDATION_TYPE = 'exact_string';
@@ -40,10 +34,6 @@ class GameTypeRegistry
         return $puzzle->renderer ?: self::DEFAULT_RENDERER;
     }
 
-    /**
-     * القيم الافتراضية لنوع لعبة معيّن - تُستخدم بلوحة إدارة Filament
-     * لتعبئة validation_type/score_mode/renderer تلقائياً عند اختيار game_type.
-     */
     public function defaultsFor(?string $gameType): array
     {
         if (blank($gameType)) {
@@ -53,7 +43,6 @@ class GameTypeRegistry
         return config("game_types.game_types.$gameType", []);
     }
 
-    /** خيارات حقل game_type بلوحة الإدارة */
     public function gameTypeOptions(): array
     {
         return collect(config('game_types.game_types', []))
@@ -63,7 +52,7 @@ class GameTypeRegistry
 
     /**
      * يُستدعى تلقائياً من App\Models\Puzzle::booted() عند كل حفظ - يشتق
-     * solution_data من game_config حسب نوع اللعبة. كل نوع لعبة جديد لاحقاً
+     * solution_data/game_config حسب نوع اللعبة. كل نوع لعبة جديد لاحقاً
      * يضيف حالة هون فقط، بدون أي تعديل على Puzzle model نفسه.
      */
     public function prepareForSave(Puzzle $puzzle): void
@@ -73,9 +62,23 @@ class GameTypeRegistry
             $puzzle->solution_data = ['order' => array_keys($items)];
         }
 
-        // أنواع الألعاب الجديدة لا تستخدم answer_hash إطلاقاً (لكل نوع Validator
-        // خاص)، لكن العمود ما زال NOT NULL بقاعدة البيانات - نعبّئه بقيمة
-        // عشوائية غير قابلة للتخمين بدل تعديل السكيما الحساسة هذه.
+        if ($puzzle->game_type === 'memory') {
+            $config = (array) $puzzle->game_config;
+            $uniqueFaces = array_values(array_filter((array) ($config['faces'] ?? [])));
+
+            $cards = [];
+            $id = 0;
+
+            foreach ($uniqueFaces as $face) {
+                $cards[] = ['id' => $id++, 'face' => $face];
+                $cards[] = ['id' => $id++, 'face' => $face];
+            }
+
+            // نحافظ على faces (كما أدخلها الأدمن، لإعادة عرضها بالتعديل لاحقاً)
+            // بجانب cards المُشتقة (بيانات اللعب الفعلية) - داخل نفس العمود.
+            $puzzle->game_config = ['faces' => $uniqueFaces, 'cards' => $cards];
+        }
+
         if (filled($puzzle->game_type) && blank($puzzle->answer_hash)) {
             $puzzle->answer_hash = hash('sha256', $puzzle->game_type.':'.now()->timestamp.':'.random_int(100000, 999999));
         }

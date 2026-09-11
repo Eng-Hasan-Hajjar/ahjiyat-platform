@@ -13,9 +13,6 @@ class SolvePuzzleRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        // الألعاب الجديدة (Sequence وما بعدها) ترسل حقل submission كنص JSON
-        // من input مخفي - نفكّه هون لمصفوفة عادية قبل التحقق. الأنواع
-        // الكلاسيكية لا ترسل هذا الحقل إطلاقاً فيبقى answer وحده كافي.
         if ($this->has('submission') && is_string($this->input('submission'))) {
             $decoded = json_decode((string) $this->input('submission'), true);
 
@@ -32,6 +29,10 @@ class SolvePuzzleRequest extends FormRequest
             'submission' => ['sometimes', 'array'],
             'submission.order' => ['sometimes', 'array'],
             'submission.order.*' => ['integer'],
+            'submission.matches' => ['sometimes', 'array'],
+            'submission.moves' => ['sometimes', 'integer'],
+            'submission.elapsed_seconds' => ['sometimes', 'integer'],
+            'start_token' => ['sometimes', 'string'],
             'used_hint' => ['sometimes', 'boolean'],
         ];
     }

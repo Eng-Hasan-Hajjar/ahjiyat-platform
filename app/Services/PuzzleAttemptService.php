@@ -18,8 +18,7 @@ class PuzzleAttemptService
     ) {}
 
     /**
-     * @param  array<string, mixed>  $submission  بيانات الحل المُنظّمة (لأنواع الألعاب الجديدة).
-     *                                              للأنواع الكلاسيكية تُبنى تلقائياً من $submittedAnswer إذا تُركت فارغة.
+     * @param  array<string, mixed>  $submission
      * @return array{attempt: PuzzleAttempt, correct: bool, gems_awarded: int, attempts_left: int}
      */
     public function attempt(User $user, Puzzle $puzzle, string $submittedAnswer, bool $usedHint = false, array $submission = []): array
@@ -38,9 +37,11 @@ class PuzzleAttemptService
                 throw new \RuntimeException('سبق أن حللت هذه الأحجية.');
             }
 
-            // للأنواع الكلاسيكية (game_type فارغ) نبني الحمولة تلقائياً من
-            // الحقل النصي القديم - صفر تغيير سلوك لأي استدعاء موجود حالياً.
             $payload = $submission !== [] ? $submission : ['answer' => $submittedAnswer];
+
+            // مُلزم دائماً من المستخدم المُصادَق عليه فعلياً - أي قيمة مشابهة
+            // يحاول العميل إرسالها ضمن submission تُستبدل هون بلا شروط.
+            $payload['_context'] = ['user_id' => $user->id];
 
             $gameResult = $this->games->validatorFor($puzzle)->check($puzzle, $payload);
             $isCorrect = $gameResult->correct;
@@ -79,7 +80,7 @@ class PuzzleAttemptService
         $reward = min($rawReward, max(0, $dailyCap - $alreadyEarnedToday));
 
         if ($reward <= 0) {
-            return 0; // وصل سقف الكسب اليومي - يحمي من الاستغلال الآلي
+            return 0;
         }
 
         $this->wallet->credit($user, $reward, "solved_puzzle:{$puzzle->id}", $puzzle);
@@ -99,10 +100,6 @@ class PuzzleAttemptService
         return $puzzle->hint;
     }
 
-    /**
-     * لو الأحجية تابعة لتحدٍ (أو أكثر) مفتوح حالياً والمستخدم منضم له،
-     * نزيد نقطة واحدة بلوحة صدارة كل تحدٍ من هذول (انظر ChallengeController::join).
-     */
     protected function updateChallengeScoresIfAny(User $user, Puzzle $puzzle): void
     {
         $openChallenges = $puzzle->challenges()

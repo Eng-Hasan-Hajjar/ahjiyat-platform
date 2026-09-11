@@ -32,21 +32,25 @@ class PuzzleController extends Controller
         return $puzzle->only([
             'id', 'title', 'type', 'difficulty', 'prompt', 'choices',
             'image_path', 'max_attempts', 'time_limit_seconds', 'gem_reward',
-            // حقول محرك الألعاب للعرض فقط - solution_data ممنوع تظهر هون
-            // أو بأي استجابة API مهما كان السياق.
             'game_type', 'game_config', 'renderer',
         ]);
     }
 
     public function attempt(SolvePuzzleRequest $request, Puzzle $puzzle)
     {
+        $submission = (array) $request->input('submission', []);
+
+        if ($request->filled('start_token')) {
+            $submission['start_token'] = (string) $request->input('start_token');
+        }
+
         try {
             $result = $this->attempts->attempt(
                 $request->user(),
                 $puzzle,
                 (string) $request->input('answer', ''),
                 $request->boolean('used_hint'),
-                (array) $request->input('submission', [])
+                $submission
             );
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);

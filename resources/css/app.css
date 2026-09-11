@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "./games/games.css";
+
 
 @theme {
     /* نظام الألوان الداكن الفاخر */
