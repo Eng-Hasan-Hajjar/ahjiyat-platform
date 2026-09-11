@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ChallengeParticipant extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'challenge_id', 'user_id', 'score', 'rank', 'bonus_gems_awarded',
     ];

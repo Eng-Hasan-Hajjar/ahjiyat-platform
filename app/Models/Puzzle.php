@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\GameEngine\GameTypeRegistry;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\Hash;
 
 class Puzzle extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'puzzle_category_id', 'title', 'type', 'difficulty', 'prompt',
         'image_path', 'choices', 'answer_hash', 'answer_raw', 'hint', 'max_attempts',
@@ -38,9 +41,6 @@ class Puzzle extends Model
 
     protected static function booted(): void
     {
-        // يشتق solution_data من game_config تلقائياً عند كل حفظ (مثلاً: ترتيب
-        // عناصر لعبة sequence). المنطق الفعلي بـ GameTypeRegistry::prepareForSave
-        // عشان إضافة نوع لعبة جديد لاحقاً ما يحتاج تعديل هذا الملف إطلاقاً.
         static::saving(function (Puzzle $puzzle) {
             app(GameTypeRegistry::class)->prepareForSave($puzzle);
         });
@@ -55,10 +55,8 @@ class Puzzle extends Model
 
     public static function normalizeAndHash(string $answer): string
     {
-        // نطبع الجواب (نشيل الفراغات والتشكيل ونوحد الحالة) قبل التجزئة
-        // حتى ما يفشل المستخدم بسبب فراغ زائد أو حركة إعرابية.
         $normalized = trim(mb_strtolower($answer));
-        $normalized = preg_replace('/[\x{064B}-\x{0652}]/u', '', $normalized); // إزالة التشكيل العربي
+        $normalized = preg_replace('/[\x{064B}-\x{0652}]/u', '', $normalized);
         $normalized = preg_replace('/\s+/', ' ', $normalized);
 
         return hash('sha256', $normalized);

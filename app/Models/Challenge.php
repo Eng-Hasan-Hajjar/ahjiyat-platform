@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Challenge extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'title', 'description', 'type', 'starts_at', 'ends_at',
         'bonus_gem_pool', 'is_active',
