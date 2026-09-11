@@ -41,9 +41,9 @@ class PuzzleAttemptService
 
             // مُلزم دائماً من المستخدم المُصادَق عليه فعلياً - أي قيمة مشابهة
             // يحاول العميل إرسالها ضمن submission تُستبدل هون بلا شروط.
-            $payload['_context'] = ['user_id' => $user->id];
+                        $validatorPayload = $payload + ['_context' => ['user_id' => $user->id]];
 
-            $gameResult = $this->games->validatorFor($puzzle)->check($puzzle, $payload);
+            $gameResult = $this->games->validatorFor($puzzle)->check($puzzle, $validatorPayload);
             $isCorrect = $gameResult->correct;
 
             $puzzleAttempt = PuzzleAttempt::create([
