@@ -49,14 +49,18 @@ test('a guest cannot reveal', function () {
         ->assertUnauthorized();
 });
 
-test('an unverified user cannot start a session', function () {
-    $user = User::factory()->unverified()->create();
-    $puzzle = makeHttpSpotDifferencePuzzle();
 
-    $this->actingAs($user)
-        ->postJson(route('game-sessions.start', $puzzle))
-        ->assertStatus(409);
+test('an unverified user cannot reveal', function () {
+    $owner = User::factory()->create();
+    $unverified = User::factory()->unverified()->create();
+    $puzzle = makeHttpSpotDifferencePuzzle();
+    $session = app(GameSessionService::class)->start($owner, $puzzle);
+
+    $this->actingAs($unverified)
+        ->postJson(route('game-sessions.reveal', $session), ['x' => 0.25, 'y' => 0.25])
+        ->assertForbidden();
 });
+
 
 test('an unverified user cannot reveal', function () {
     $owner = User::factory()->create();
