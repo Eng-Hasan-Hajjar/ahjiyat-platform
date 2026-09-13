@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\GameEngine\GameResult;
 use App\GameEngine\GameTypeRegistry;
+use App\GameEngine\Support\AttemptContext;
 use App\Models\Puzzle;
 use App\Models\PuzzleAttempt;
 use App\Models\User;
@@ -21,9 +22,17 @@ class PuzzleAttemptService
      * @param  array<string, mixed>  $submission
      * @return array{attempt: PuzzleAttempt, correct: bool, gems_awarded: int, attempts_left: int}
      */
-    public function attempt(User $user, Puzzle $puzzle, string $submittedAnswer, bool $usedHint = false, array $submission = []): array
-    {
-        return DB::transaction(function () use ($user, $puzzle, $submittedAnswer, $usedHint, $submission) {
+    public function attempt(
+        User $user,
+        Puzzle $puzzle,
+        string $submittedAnswer,
+        bool $usedHint = false,
+        array $submission = [],
+        ?AttemptContext $context = null,
+    ): array {
+        $context ??= AttemptContext::none();
+
+        return DB::transaction(function () use ($user, $puzzle, $submittedAnswer, $usedHint, $submission, $context) {
             $previousAttempts = PuzzleAttempt::where('user_id', $user->id)
                 ->where('puzzle_id', $puzzle->id)
                 ->lockForUpdate()
@@ -39,9 +48,7 @@ class PuzzleAttemptService
 
             $payload = $submission !== [] ? $submission : ['answer' => $submittedAnswer];
 
-            // مُلزم دائماً من المستخدم المُصادَق عليه فعلياً - أي قيمة مشابهة
-            // يحاول العميل إرسالها ضمن submission تُستبدل هون بلا شروط.
-                        $validatorPayload = $payload + ['_context' => ['user_id' => $user->id]];
+            $validatorPayload = $payload + ['_context' => ['user_id' => $user->id]];
 
             $gameResult = $this->games->validatorFor($puzzle)->check($puzzle, $validatorPayload);
             $isCorrect = $gameResult->correct;
@@ -53,6 +60,7 @@ class PuzzleAttemptService
                 'is_correct' => $isCorrect,
                 'used_hint' => $usedHint,
                 'submission_snapshot' => $payload,
+                ...$context->toAttributes(),
             ]);
 
             $gemsAwarded = 0;

@@ -41,21 +41,30 @@
                     ❌ استنفدت جميع محاولاتك المسموحة لهذه الأحجية
                 </div>
             @else
-                <form method="POST" action="{{ route('puzzles.attempt', $puzzle) }}" class="mt-6 anim-fade-up d-2">
-                    @csrf
-
-                    {{-- ===== واجهة الإجابة الفعلية - تختلف حسب نوع اللعبة ===== --}}
-                    @include($renderer)
-
-                    <div class="flex flex-wrap items-center justify-between gap-3">
-                        <span class="text-sm font-bold text-slate-400">
-                            محاولة {{ $attemptsUsed + 1 }} من {{ $puzzle->max_attempts }}
-                        </span>
-                        <button type="submit" class="btn-gem !py-3 !px-6">
-                            إرسال الإجابة
-                        </button>
+                @if ($usesGameSession)
+                    {{-- أنواع الألعاب المعتمدة على GameSession (مثل spot_difference) تُدير
+                         تفاعلها وإنهاءها بالكامل عبر AJAX - لا فورم تقليدي ولا زر إرسال هون،
+                         الحسم النهائي يحدث سيرفريًا تلقائيًا داخل GameSessionService. --}}
+                    <div class="mt-6 anim-fade-up d-2">
+                        @include($renderer)
                     </div>
-                </form>
+                @else
+                    <form method="POST" action="{{ route('puzzles.attempt', $puzzle) }}" class="mt-6 anim-fade-up d-2">
+                        @csrf
+
+                        {{-- ===== واجهة الإجابة الفعلية - تختلف حسب نوع اللعبة ===== --}}
+                        @include($renderer)
+
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <span class="text-sm font-bold text-slate-400">
+                                محاولة {{ $attemptsUsed + 1 }} من {{ $puzzle->max_attempts }}
+                            </span>
+                            <button type="submit" class="btn-gem !py-3 !px-6">
+                                إرسال الإجابة
+                            </button>
+                        </div>
+                    </form>
+                @endif
 
                 @if ($puzzle->hint)
                     <form method="POST" action="{{ route('puzzles.hint', $puzzle) }}" class="mt-6 pt-6 border-t border-white/5">

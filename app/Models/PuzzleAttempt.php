@@ -13,6 +13,7 @@ class PuzzleAttempt extends Model
     protected $fillable = [
         'user_id', 'puzzle_id', 'attempt_number', 'is_correct',
         'used_hint', 'time_taken_seconds', 'submission_snapshot',
+        'context_type', 'context_id', 'game_session_id',
     ];
 
     protected function casts(): array
@@ -32,5 +33,10 @@ class PuzzleAttempt extends Model
     public function puzzle(): BelongsTo
     {
         return $this->belongsTo(Puzzle::class);
+    }
+
+    public function gameSession(): BelongsTo
+    {
+        return $this->belongsTo(GameSession::class);
     }
 }

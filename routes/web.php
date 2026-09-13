@@ -77,3 +77,14 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:5,60')->name('redemption.store');
     });
 });
+
+
+
+
+
+Route::post('/puzzles/{puzzle}/session', [GameSessionController::class, 'store'])
+    ->middleware('throttle:10,1')->name('game-sessions.start');
+Route::post('/game-sessions/{session}/reveal', [GameSessionController::class, 'reveal'])
+    ->middleware('throttle:60,1')->name('game-sessions.reveal');
+
+    

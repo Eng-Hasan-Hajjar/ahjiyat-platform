@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\GameEngine\Contracts\GameSessionHandler;
 use App\GameEngine\GameTypeRegistry;
 use App\Http\Requests\SolvePuzzleRequest;
 use App\Models\Puzzle;
@@ -38,8 +39,9 @@ class PuzzleController extends Controller
 
         $alreadySolved = $user && $user->hasSolvedPuzzle($puzzle);
         $renderer = $games->rendererFor($puzzle);
+        $usesGameSession = $games->definitionFor($puzzle->game_type) instanceof GameSessionHandler;
 
-        return view('puzzles.show', compact('puzzle', 'attemptsUsed', 'alreadySolved', 'renderer'));
+        return view('puzzles.show', compact('puzzle', 'attemptsUsed', 'alreadySolved', 'renderer', 'usesGameSession'));
     }
 
     public function attempt(SolvePuzzleRequest $request, Puzzle $puzzle): RedirectResponse
