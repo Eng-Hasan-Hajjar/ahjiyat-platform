@@ -10,13 +10,8 @@ use App\GameEngine\Scoring\FlatScoreCalculator;
 use App\GameEngine\Validators\SpotDifferenceValidator;
 use App\Models\GameSession;
 use App\Models\Puzzle;
+use Illuminate\Support\Facades\Storage;
 
-/**
- * "اكتشف الفروق" - Game Type عام بالكامل، لا علاقة له بأي محتوى محدَّد.
- * أي Puzzle جديدة بـ game_type=spot_difference تعمل تلقائياً بنفس الآلية،
- * بدون أي كود إضافي (Controller/Validator/JS جديد) - هذا هو معيار قبول
- * Phase B بالضبط.
- */
 class SpotDifferenceGameTypeDefinition implements GameTypeDefinition, GameSessionHandler
 {
     public function key(): string
@@ -56,9 +51,6 @@ class SpotDifferenceGameTypeDefinition implements GameTypeDefinition, GameSessio
 
     public function normalizeAuthoringData(Puzzle $puzzle): void
     {
-        // الأدمن يُدخل إحداثيات الفروق مباشرة بصيغتها النهائية (لا مضاعفة
-        // ولا اشتقاق كما بـ Sequence/Memory) - فقط نُطبّع الأنواع الرقمية
-        // لأن Filament قد يرسلها كنصوص.
         $hotspots = (array) ($puzzle->solution_data['hotspots'] ?? []);
 
         $puzzle->solution_data = [
@@ -70,17 +62,13 @@ class SpotDifferenceGameTypeDefinition implements GameTypeDefinition, GameSessio
         ];
     }
 
-    /**
-     * الحمولة الآمنة الوحيدة المسموح كشفها للمتصفح - صور العرض وعدد
-     * الفروق المطلوب فقط. لا إحداثيات، لا نصف قطر، لا أي تلميح موقعي.
-     */
     public function publicPayload(Puzzle $puzzle): array
     {
         $config = (array) $puzzle->game_config;
 
         return [
-            'image_before' => $config['image_before'] ?? null,
-            'image_after' => $config['image_after'] ?? null,
+            'image_before' => $this->resolveImageUrl($config['image_before'] ?? null),
+            'image_after' => $this->resolveImageUrl($config['image_after'] ?? null),
             'required_differences' => count((array) ($puzzle->solution_data['hotspots'] ?? [])),
         ];
     }
@@ -99,7 +87,7 @@ class SpotDifferenceGameTypeDefinition implements GameTypeDefinition, GameSessio
 
         foreach ($hotspots as $index => $hotspot) {
             if (in_array($index, $found, true)) {
-                continue; // مُكتشفة مسبقاً - لا تُحتسب مرتين
+                continue;
             }
 
             $dx = $x - (float) $hotspot['x'];
@@ -120,5 +108,26 @@ class SpotDifferenceGameTypeDefinition implements GameTypeDefinition, GameSessio
             'required_count' => count($hotspots),
             'all_found' => count($hotspots) > 0 && count($found) === count($hotspots),
         ];
+    }
+
+    public function isServerStateComplete(Puzzle $puzzle, array $serverState): bool
+    {
+        $required = count((array) ($puzzle->solution_data['hotspots'] ?? []));
+        $found = array_unique((array) ($serverState['found_indices'] ?? []));
+
+        return $required > 0 && count($found) === $required;
+    }
+
+    protected function resolveImageUrl(?string $path): ?string
+    {
+        if (blank($path)) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/')) {
+            return $path;
+        }
+
+        return Storage::url($path);
     }
 }

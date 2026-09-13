@@ -35,6 +35,8 @@ class PuzzleAttemptService
         return DB::transaction(function () use ($user, $puzzle, $submittedAnswer, $usedHint, $submission, $context) {
             $previousAttempts = PuzzleAttempt::where('user_id', $user->id)
                 ->where('puzzle_id', $puzzle->id)
+                ->where('context_type', $context->type)
+                ->where('context_id', $context->id)
                 ->lockForUpdate()
                 ->count();
 
@@ -42,12 +44,16 @@ class PuzzleAttemptService
                 throw new \RuntimeException('استنفدت عدد المحاولات المسموح بها لهذه الأحجية.');
             }
 
-            if ($user->hasSolvedPuzzle($puzzle)) {
+            if ($user->hasSolvedPuzzle($puzzle, $context)) {
                 throw new \RuntimeException('سبق أن حللت هذه الأحجية.');
             }
 
             $payload = $submission !== [] ? $submission : ['answer' => $submittedAnswer];
 
+            // مُلزم دائماً من المستخدم المُصادَق عليه فعلياً - أي قيمة مشابهة
+            // يحاول العميل إرسالها ضمن submission تُستبدل هون بلا شروط. يُضاف
+            // فقط لنسخة الـValidator - submission_snapshot المخزَّنة تبقى نسخة
+            // نظيفة مطابقة تماماً لما أُرسل فعلياً (بدون بيانات داخلية مُحقنة).
             $validatorPayload = $payload + ['_context' => ['user_id' => $user->id]];
 
             $gameResult = $this->games->validatorFor($puzzle)->check($puzzle, $validatorPayload);
