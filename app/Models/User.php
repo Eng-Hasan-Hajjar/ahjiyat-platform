@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\GameEngine\Support\AttemptContext;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -69,11 +70,20 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(FraudFlag::class);
     }
 
-    public function hasSolvedPuzzle(Puzzle $puzzle): bool
+    /**
+     * افتراضياً يفحص الحل المستقل (Standalone) فقط. تمرير Context (لاحقاً من
+     * خطوة حملة/تحدٍّ راعٍ) يفحص الحل ضمن ذاك السياق حصراً - حل مستقل لا
+     * يُعتبر أبداً حلاً لسياق آخر، والعكس صحيح.
+     */
+    public function hasSolvedPuzzle(Puzzle $puzzle, ?AttemptContext $context = null): bool
     {
+        $context ??= AttemptContext::none();
+
         return $this->puzzleAttempts()
             ->where('puzzle_id', $puzzle->id)
             ->where('is_correct', true)
+            ->where('context_type', $context->type)
+            ->where('context_id', $context->id)
             ->exists();
     }
 }

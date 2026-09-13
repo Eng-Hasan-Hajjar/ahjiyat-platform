@@ -170,3 +170,27 @@ test('a standalone playthrough keeps context null while still linking the game s
         ->and($attempt->context_id)->toBeNull()
         ->and($attempt->game_session_id)->toBe($session->id);
 });
+
+test('public payload resolves image paths through Storage::url, not raw storage paths', function () {
+    $puzzle = makeSpotDifferencePuzzle();
+    $payload = (new SpotDifferenceGameTypeDefinition)->publicPayload($puzzle);
+
+    expect($payload['image_before'])->toContain('/storage/')
+        ->and($payload['image_before'])->not->toBe('puzzles/spot-difference/before.png')
+        ->and($payload['image_after'])->toContain('/storage/');
+});
+
+test('finalize() itself refuses to mark an incomplete session as a genuine success, regardless of call path', function () {
+    $user = User::factory()->create();
+    $puzzle = makeSpotDifferencePuzzle();
+    $session = $this->sessions->start($user, $puzzle);
+
+    $this->sessions->reveal($session, 0.2, 0.3);
+
+    $result = $this->sessions->finalize($session->fresh());
+
+    expect($result['correct'])->toBeFalse();
+
+    $user->wallet->refresh();
+    expect($user->wallet->pending_balance)->toBe(0);
+});

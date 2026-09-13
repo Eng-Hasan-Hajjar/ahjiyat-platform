@@ -22,6 +22,8 @@ function makeHttpSpotDifferencePuzzle(array $overrides = []): Puzzle
     ], $overrides));
 }
 
+// ===== A. Authentication =====
+
 test('an authenticated verified user can start a session for a spot_difference puzzle', function () {
     $user = User::factory()->create();
     $puzzle = makeHttpSpotDifferencePuzzle();
@@ -37,6 +39,37 @@ test('a guest cannot start a session', function () {
 
     $this->postJson(route('game-sessions.start', $puzzle))->assertUnauthorized();
 });
+
+test('a guest cannot reveal', function () {
+    $owner = User::factory()->create();
+    $puzzle = makeHttpSpotDifferencePuzzle();
+    $session = app(GameSessionService::class)->start($owner, $puzzle);
+
+    $this->postJson(route('game-sessions.reveal', $session), ['x' => 0.25, 'y' => 0.25])
+        ->assertUnauthorized();
+});
+
+test('an unverified user cannot start a session', function () {
+    $user = User::factory()->unverified()->create();
+    $puzzle = makeHttpSpotDifferencePuzzle();
+
+    $this->actingAs($user)
+        ->postJson(route('game-sessions.start', $puzzle))
+        ->assertStatus(409);
+});
+
+test('an unverified user cannot reveal', function () {
+    $owner = User::factory()->create();
+    $unverified = User::factory()->unverified()->create();
+    $puzzle = makeHttpSpotDifferencePuzzle();
+    $session = app(GameSessionService::class)->start($owner, $puzzle);
+
+    $this->actingAs($unverified)
+        ->postJson(route('game-sessions.reveal', $session), ['x' => 0.25, 'y' => 0.25])
+        ->assertStatus(409);
+});
+
+// ===== D. Security =====
 
 test('a user cannot reveal on another users session', function () {
     $owner = User::factory()->create();
@@ -60,11 +93,21 @@ test('invalid out-of-range coordinates are rejected', function () {
         ->assertUnprocessable();
 });
 
+test('starting a session for an inactive puzzle is rejected via HTTP', function () {
+    $user = User::factory()->create();
+    $puzzle = makeHttpSpotDifferencePuzzle(['is_active' => false]);
+
+    $this->actingAs($user)
+        ->postJson(route('game-sessions.start', $puzzle))
+        ->assertStatus(422);
+});
+
+// ===== Full playthrough =====
+
 test('a correct full playthrough via HTTP awards gems exactly once and never leaks hotspots in the page HTML', function () {
     $user = User::factory()->create();
     $puzzle = makeHttpSpotDifferencePuzzle();
 
-    // صفحة الأحجية نفسها لا تكشف الإحداثيات أو نصف القطر إطلاقاً
     $this->actingAs($user)
         ->get(route('puzzles.show', $puzzle))
         ->assertDontSee('0.25', false)
@@ -101,4 +144,13 @@ test('rate limiting eventually blocks rapid reveal requests from the same user',
     }
 
     expect($lastStatus)->toBe(429);
+});
+
+test('a guest visiting a spot_difference puzzle page sees a login prompt, not a broken game surface', function () {
+    $puzzle = makeHttpSpotDifferencePuzzle();
+
+    $this->get(route('puzzles.show', $puzzle))
+        ->assertOk()
+        ->assertSee('تسجيل الدخول')
+        ->assertDontSee('x-init="init()"', false);
 });

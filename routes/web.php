@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\ChallengeController;
+use App\Http\Controllers\GameSessionController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\PageController;
@@ -15,10 +16,6 @@ use App\Http\Controllers\PuzzleController;
 use App\Http\Controllers\RedemptionController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
-
-use App\Http\Controllers\GameSessionController;
-
-
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
@@ -71,38 +68,6 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:20,1')->name('puzzles.attempt');
         Route::post('/puzzles/{puzzle}/hint', [PuzzleController::class, 'hint'])->name('puzzles.hint');
 
-        Route::post('/challenges/{challenge}/join', [ChallengeController::class, 'join'])->name('challenges.join');
-
-        Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
-
-        Route::get('/redemption', [RedemptionController::class, 'index'])->name('redemption.index');
-        Route::get('/redemption/create', [RedemptionController::class, 'create'])->name('redemption.create');
-        Route::post('/redemption', [RedemptionController::class, 'store'])
-            ->middleware('throttle:5,60')->name('redemption.store');
-    });
-});
-
-
-
-
-
-Route::post('/puzzles/{puzzle}/session', [GameSessionController::class, 'store'])
-    ->middleware('throttle:10,1')->name('game-sessions.start');
-Route::post('/game-sessions/{session}/reveal', [GameSessionController::class, 'reveal'])
-    ->middleware('throttle:60,1')->name('game-sessions.reveal');
-
-    
-
-
-
-
-
-
-    Route::middleware('verified')->group(function () {
-        Route::post('/puzzles/{puzzle}/attempt', [PuzzleController::class, 'attempt'])
-            ->middleware('throttle:20,1')->name('puzzles.attempt');
-        Route::post('/puzzles/{puzzle}/hint', [PuzzleController::class, 'hint'])->name('puzzles.hint');
-
         // مسارات عامة لأي نوع لعبة Stateful (Spot Difference اليوم، وغيرها لاحقاً) -
         // لا شيء خاص بأصيل هون ولا بأي محتوى محدَّد.
         Route::post('/puzzles/{puzzle}/session', [GameSessionController::class, 'store'])
@@ -119,3 +84,4 @@ Route::post('/game-sessions/{session}/reveal', [GameSessionController::class, 'r
         Route::post('/redemption', [RedemptionController::class, 'store'])
             ->middleware('throttle:5,60')->name('redemption.store');
     });
+});

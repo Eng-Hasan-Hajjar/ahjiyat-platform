@@ -11,6 +11,13 @@ use App\Models\PuzzleAttempt;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * الأورشستريتور الوحيد لدورة حياة أي جلسة لعبة Stateful - عام تمامًا، لا
+ * يعرف شيئًا عن spot_difference بالاسم (يفوّض التفاعل الفعلي لِـ
+ * GameSessionHandler الخاص بنوع اللعبة). كل عملية حسم (Finalize) تمر
+ * بمعاملة واحدة مع قفل صف، وتُنتج محاولة PuzzleAttempt واحدة بالضبط عبر
+ * PuzzleAttemptService الموجود فعلياً - لا تكرار لمنطق المكافأة هون إطلاقاً.
+ */
 class GameSessionService
 {
     public function __construct(
@@ -18,6 +25,10 @@ class GameSessionService
         protected PuzzleAttemptService $attempts,
     ) {}
 
+    /**
+     * $context اختياري وسيرفري بحت - Standalone (الافتراضي) لا يتقاطع أبداً
+     * مع أي سياق آخر (حملة/تحدٍّ راعٍ لاحقاً)، ولا العكس.
+     */
     public function start(User $user, Puzzle $puzzle, ?AttemptContext $context = null): GameSession
     {
         $context ??= AttemptContext::none();
@@ -43,7 +54,7 @@ class GameSessionService
 
             if ($existing) {
                 if (! $existing->isExpired()) {
-                    return $existing;
+                    return $existing; // جلسة نشطة صالحة فعلاً بنفس السياق - نعيد استخدامها بدل التكرار
                 }
 
                 $this->finalize($existing);
@@ -77,6 +88,9 @@ class GameSessionService
         });
     }
 
+    /**
+     * @return array{hit: bool, found: int, required: int, completed: bool, correct: ?bool, gems_awarded: ?int, session_status: string}
+     */
     public function reveal(GameSession $session, float $x, float $y): array
     {
         return DB::transaction(function () use ($session, $x, $y) {
@@ -125,6 +139,17 @@ class GameSessionService
         });
     }
 
+    /**
+     * الحسم النهائي - Idempotent بالكامل. يُستدعى إما تلقائياً من reveal()
+     * عند اكتمال كل الفروق، أو عند اكتشاف انتهاء الوقت. لا يمنح مكافأة
+     * مرتين مهما استُدعي، بفضل قفل الصف + فحص الحالة قبل أي تعديل.
+     *
+     * Invariant حقيقي: الجلسة لا تُختم "مكتملة" إلا إذا أكّد Game Type نفسه
+     * (عبر isServerStateComplete) أن server_state تمثّل حلاً كاملاً صحيحاً -
+     * بغض النظر عمّن استدعى finalize ولماذا.
+     *
+     * @return array{correct: bool, gems_awarded: int, already_finalized: bool}
+     */
     public function finalize(GameSession $session): array
     {
         return DB::transaction(function () use ($session) {
@@ -152,6 +177,8 @@ class GameSessionService
                 'completed_at' => now(),
             ]);
 
+            // Context يُستخرَج من الجلسة نفسها - أبداً لا يُفرَض none() قسراً
+            // إذا كانت الجلسة تحمل سياقاً حقيقياً (حملة/تحدٍّ راعٍ لاحقاً).
             $context = $locked->context_type
                 ? AttemptContext::for($locked->context_type, $locked->context_id)
                 : AttemptContext::none();
@@ -179,6 +206,7 @@ class GameSessionService
         });
     }
 
+    /** @return array{hit: bool, found: int, required: int, completed: bool, correct: ?bool, gems_awarded: ?int, session_status: string} */
     protected function staleResponse(GameSession $session): array
     {
         return [

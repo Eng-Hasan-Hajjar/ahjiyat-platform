@@ -12,6 +12,12 @@ use App\Models\GameSession;
 use App\Models\Puzzle;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * "اكتشف الفروق" - Game Type عام بالكامل، لا علاقة له بأي محتوى محدَّد.
+ * أي Puzzle جديدة بـ game_type=spot_difference تعمل تلقائياً بنفس الآلية،
+ * بدون أي كود إضافي (Controller/Validator/JS جديد) - هذا هو معيار قبول
+ * Phase B بالضبط.
+ */
 class SpotDifferenceGameTypeDefinition implements GameTypeDefinition, GameSessionHandler
 {
     public function key(): string
@@ -51,6 +57,9 @@ class SpotDifferenceGameTypeDefinition implements GameTypeDefinition, GameSessio
 
     public function normalizeAuthoringData(Puzzle $puzzle): void
     {
+        // الأدمن يُدخل إحداثيات الفروق مباشرة بصيغتها النهائية (لا مضاعفة
+        // ولا اشتقاق كما بـ Sequence/Memory) - فقط نُطبّع الأنواع الرقمية
+        // لأن Filament قد يرسلها كنصوص.
         $hotspots = (array) ($puzzle->solution_data['hotspots'] ?? []);
 
         $puzzle->solution_data = [
@@ -62,6 +71,11 @@ class SpotDifferenceGameTypeDefinition implements GameTypeDefinition, GameSessio
         ];
     }
 
+    /**
+     * الحمولة الآمنة الوحيدة المسموح كشفها للمتصفح - روابط عرض صالحة فعلياً
+     * (لا مسار تخزين خام) وعدد الفروق المطلوب فقط. لا إحداثيات، لا نصف
+     * قطر، لا أي تلميح موقعي.
+     */
     public function publicPayload(Puzzle $puzzle): array
     {
         $config = (array) $puzzle->game_config;
@@ -87,7 +101,7 @@ class SpotDifferenceGameTypeDefinition implements GameTypeDefinition, GameSessio
 
         foreach ($hotspots as $index => $hotspot) {
             if (in_array($index, $found, true)) {
-                continue;
+                continue; // مُكتشفة مسبقاً - لا تُحتسب مرتين
             }
 
             $dx = $x - (float) $hotspot['x'];
@@ -118,6 +132,10 @@ class SpotDifferenceGameTypeDefinition implements GameTypeDefinition, GameSessio
         return $required > 0 && count($found) === $required;
     }
 
+    /**
+     * يدعم مسار تخزين خام (يُحوَّل عبر Storage::url() - يعمل مع أي Disk
+     * حالي أو مستقبلي بما فيها S3) أو رابطاً مطلقاً محفوظاً مسبقاً كما هو.
+     */
     protected function resolveImageUrl(?string $path): ?string
     {
         if (blank($path)) {
