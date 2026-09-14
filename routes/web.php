@@ -16,6 +16,7 @@ use App\Http\Controllers\PuzzleController;
 use App\Http\Controllers\RedemptionController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\CampaignStepController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
@@ -85,3 +86,9 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:5,60')->name('redemption.store');
     });
 });
+
+
+        // مسار Narrative فقط بـC3 - Puzzle Step integration تأتي C4 بمسارات
+        // خاصة بها (attempt/session) لا تستخدم هذا الـController إطلاقاً.
+        Route::post('/campaigns/{campaign:slug}/steps/{step}/complete', [CampaignStepController::class, 'complete'])
+            ->name('campaigns.steps.complete');
