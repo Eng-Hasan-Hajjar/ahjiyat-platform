@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\CampaignStepController;
 use App\Http\Controllers\ChallengeController;
 use App\Http\Controllers\GameSessionController;
 use App\Http\Controllers\HomeController;
@@ -16,7 +17,6 @@ use App\Http\Controllers\PuzzleController;
 use App\Http\Controllers\RedemptionController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\CampaignStepController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
@@ -78,6 +78,11 @@ Route::middleware('auth')->group(function () {
 
         Route::post('/challenges/{challenge}/join', [ChallengeController::class, 'join'])->name('challenges.join');
 
+        // مسار Narrative فقط بـC3 - Puzzle Step integration تأتي C4 بمسارات
+        // خاصة بها (attempt/session) لا تستخدم هذا الـController إطلاقاً.
+        Route::post('/campaigns/{campaign:slug}/steps/{step}/complete', [CampaignStepController::class, 'complete'])
+            ->name('campaigns.steps.complete');
+
         Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
 
         Route::get('/redemption', [RedemptionController::class, 'index'])->name('redemption.index');
@@ -86,9 +91,3 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:5,60')->name('redemption.store');
     });
 });
-
-
-        // مسار Narrative فقط بـC3 - Puzzle Step integration تأتي C4 بمسارات
-        // خاصة بها (attempt/session) لا تستخدم هذا الـController إطلاقاً.
-        Route::post('/campaigns/{campaign:slug}/steps/{step}/complete', [CampaignStepController::class, 'complete'])
-            ->name('campaigns.steps.complete');
