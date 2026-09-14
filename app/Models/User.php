@@ -86,4 +86,24 @@ class User extends Authenticatable implements MustVerifyEmail
             ->where('context_id', $context->id)
             ->exists();
     }
+
+
+
+        public function campaignProgress(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(UserCampaignProgress::class);
+    }
+
+    public function campaignQualifications(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CampaignGateQualification::class);
+    }
+
+    public function createdCampaigns(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Campaign::class, 'created_by');
+    }
+
+
+
 }

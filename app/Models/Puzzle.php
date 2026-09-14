@@ -81,4 +81,10 @@ class Puzzle extends Model
     {
         return $this->belongsToMany(Challenge::class, 'challenge_puzzle');
     }
+
+        public function campaignSteps(): HasMany
+    {
+        return $this->hasMany(CampaignStep::class);
+    }
+
 }
