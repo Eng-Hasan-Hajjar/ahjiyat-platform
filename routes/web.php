@@ -90,4 +90,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/redemption', [RedemptionController::class, 'store'])
             ->middleware('throttle:5,60')->name('redemption.store');
     });
+
+
+
+    // Puzzle Step (C4) - نفس معدلات Throttle المطابقة لنظيراتها المستقلة
+    // (puzzles.attempt وgame-sessions.start) بالضبط. لا reveal هون - المسار
+    // العام /game-sessions/{session}/reveal يبقى الوحيد (Context بالجلسة نفسها).
+    Route::post('/campaigns/{campaign:slug}/steps/{step}/attempt', [CampaignStepController::class, 'attempt'])
+        ->middleware('throttle:20,1')->name('campaigns.steps.attempt');
+    Route::post('/campaigns/{campaign:slug}/steps/{step}/session', [CampaignStepController::class, 'startSession'])
+        ->middleware('throttle:10,1')->name('campaigns.steps.session');
+
+
 });
