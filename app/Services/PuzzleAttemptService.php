@@ -16,6 +16,7 @@ class PuzzleAttemptService
         protected GemWalletService $wallet,
         protected FraudDetectionService $fraud,
         protected GameTypeRegistry $games,
+        protected AttemptRewardResolver $rewards,
     ) {}
 
     /**
@@ -72,7 +73,7 @@ class PuzzleAttemptService
             $gemsAwarded = 0;
 
             if ($isCorrect) {
-                $gemsAwarded = $this->awardGemsForSolve($user, $puzzle);
+                $gemsAwarded = $this->awardGemsForSolve($user, $puzzle, $context);
                 $this->updateChallengeScoresIfAny($user, $puzzle);
             }
 
@@ -85,12 +86,20 @@ class PuzzleAttemptService
         });
     }
 
-    protected function awardGemsForSolve(User $user, Puzzle $puzzle): int
+    protected function awardGemsForSolve(User $user, Puzzle $puzzle, AttemptContext $context): int
     {
+        $directive = $this->rewards->resolve($puzzle, $context);
+
         $dailyCap = config('gems.daily_earn_cap');
         $alreadyEarnedToday = $this->wallet->dailyEarnedToday($user);
 
-        $rawReward = $this->games->scorerFor($puzzle)->calculate($puzzle, new GameResult(correct: true));
+        // inherit (أو Standalone) يستخدم Scorer الطبيعي بلا أي تغيير - نفس
+        // السطر القديم حرفياً. override/none يستبدلانه بقيمة الـDirective فقط،
+        // لكن يبقيان خاضعين لنفس Daily Cap وFraudDetectionService أدناه بلا استثناء.
+        $rawReward = $directive->useDefault
+            ? $this->games->scorerFor($puzzle)->calculate($puzzle, new GameResult(correct: true))
+            : $directive->amount;
+
         $reward = min($rawReward, max(0, $dailyCap - $alreadyEarnedToday));
 
         if ($reward <= 0) {

@@ -37,4 +37,20 @@ class CampaignGate extends Model
     {
         return $this->hasMany(CampaignGateQualification::class);
     }
+
+    /**
+     * تطبيع بسيط جداً: يمسح qualification_config المتبقّي فقط إذا أُزيل
+     * qualification_rule بالكامل (تبديل first_n → بلا Qualification). لا
+     * يلمس قيمة limit نفسها إطلاقاً حين تبقى Rule مضبوطة - القيد الفعلي
+     * (integer > 0) مسؤولية نموذج Filament (C7)، لا الـModel، لأن limit=0
+     * حالة تخزين صالحة معنوياً ("لا أحد يتأهّل") لا حالة بيانات فاسدة.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (CampaignGate $gate) {
+            if ($gate->qualification_rule === null) {
+                $gate->qualification_config = null;
+            }
+        });
+    }
 }

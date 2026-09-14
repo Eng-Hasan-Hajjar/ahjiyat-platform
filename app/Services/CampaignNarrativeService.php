@@ -8,24 +8,13 @@ use App\Models\UserCampaignProgress;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
-/**
- * أول Write Flow فعلي بمحرك الحملات - مخصَّصة حصراً لخطوات narrative.
- * Puzzle Step لها Workflow مختلف كلياً قادم بـC4 (عبر PuzzleAttemptService/
- * GameSessionService الموجودتين فعلاً) - لا تُدمَج هون أبداً، ولهذا
- * لا توجد Method عامة completeStep() تتعامل مع كل الأنواع.
- *
- * المصدر الوحيد للحقيقة يبقى UserCampaignProgress - لا PuzzleAttempt ولا
- * أي جدول آخر لهذا النوع. CampaignProgressService (C2) هي المرجع الوحيد
- * لمنطق الوصول (Unlock) - لا يُعاد كتابته هون بأي شكل.
- */
 class CampaignNarrativeService
 {
-    public function __construct(protected CampaignProgressService $progress) {}
+    public function __construct(
+        protected CampaignProgressService $progress,
+        protected QualificationService $qualification,
+    ) {}
 
-    /**
-     * Idempotent بالكامل: استدعاؤها 10 مرات على نفس (user, step) ينتج صفاً
-     * واحداً فقط. لا تُرجع completed_at إلى null أبداً إن كانت موجودة أصلاً.
-     */
     public function markStarted(User $user, CampaignStep $step): UserCampaignProgress
     {
         $this->assertNarrative($step);
@@ -53,17 +42,12 @@ class CampaignNarrativeService
         });
     }
 
-    /**
-     * Idempotent بالكامل ومحمية من التزامن (راجع lockUserForWrite). طلبان
-     * complete متزامنان لنفس (user, step) ينتجان صفاً واحداً وcompleted_at
-     * واحداً منطقياً - لا استثناء يصل للمستخدم الطبيعي.
-     */
     public function complete(User $user, CampaignStep $step): UserCampaignProgress
     {
         $this->assertNarrative($step);
         $this->assertUnlocked($user, $step);
 
-        return DB::transaction(function () use ($user, $step) {
+        $progress = DB::transaction(function () use ($user, $step) {
             $this->lockUserForWrite($user);
 
             $existing = $this->findProgress($user, $step);
@@ -93,6 +77,12 @@ class CampaignNarrativeService
 
             return $existing->fresh();
         });
+
+        // بعد نجاح Commit فعلياً (لا داخل القفل) - Idempotent بذاتها (C6)،
+        // آمنة الاستدعاء بلا شرط حتى لو لم يتغيّر شيء بهذا الاستدعاء تحديداً.
+        $this->qualification->afterStepCompletion($user, $step);
+
+        return $progress;
     }
 
     protected function findProgress(User $user, CampaignStep $step): ?UserCampaignProgress
@@ -109,12 +99,6 @@ class CampaignNarrativeService
         }
     }
 
-    /**
-     * المصدر الوحيد لقرار الوصول هو CampaignProgressService::isStepUnlocked()
-     * (يشمل بداخله فحص توفر الحملة أصلاً - لا حاجة لتكراره هون). وجود صف
-     * UserCampaignProgress قديم/غير منطقي لا يعني أبداً أن الخطوة مفتوحة -
-     * هذا الفحص لا يستثني حالة كهذه إطلاقاً.
-     */
     protected function assertUnlocked(User $user, CampaignStep $step): void
     {
         if (! $this->progress->isStepUnlocked($user, $step)) {
@@ -122,12 +106,6 @@ class CampaignNarrativeService
         }
     }
 
-    /**
-     * قفل محدود النطاق (صف هذا المستخدم فقط - ليس Global، وليس قفل جدول)
-     * يُسلسِل طلبات هذا المستخدم المتزامنة بالذات على أي خطوة، دون التأثير
-     * إطلاقاً على مستخدمين آخرين. يُعمل صفّه أصلاً (بعكس صف Progress الذي
-     * قد لا يكون موجوداً بعد)، فـlockForUpdate يقفل شيئاً فعلياً دائماً.
-     */
     protected function lockUserForWrite(User $user): void
     {
         User::whereKey($user->id)->lockForUpdate()->first();

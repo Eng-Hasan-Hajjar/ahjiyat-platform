@@ -4,11 +4,17 @@
             $spotPayload = app(\App\GameEngine\GameTypeRegistry::class)
                 ->definitionFor($puzzle->game_type)
                 ->publicPayload($puzzle);
+
+            // Refactor صغير عام (C8.8): الـView نفسها تُعاد استخدامها حرفياً
+            // بالحملة (campaigns.steps.session) والاستقلال (game-sessions.start)
+            // - لا نسخة "campaign-spot-difference" منفصلة. المتصل يمرر
+            // sessionStartUrl صراحة؛ الافتراضي هون فقط شبكة أمان للاستقلال.
+            $sessionStartUrl ??= route('game-sessions.start', $puzzle);
         @endphp
 
         <div
             class="game-surface"
-            x-data="spotDifferenceGame({{ Illuminate\Support\Js::from($spotPayload) }}, {{ $puzzle->id }})"
+            x-data="spotDifferenceGame({{ Illuminate\Support\Js::from($spotPayload) }}, '{{ $sessionStartUrl }}')"
             x-init="init()"
         >
             <div class="game-hud">

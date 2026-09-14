@@ -11,13 +11,6 @@ use App\Models\Puzzle;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 
-/**
- * التوأم لـCampaignNarrativeService، لكن لنوع puzzle - يتحقق من الشروط
- * المشتركة (Kind/Puzzle/Unlock) ثم يفوّض بالكامل لِـ PuzzleAttemptService
- * (Stateless) أو GameSessionService (Stateful) الموجودتين فعلاً بلا أي
- * تعديل عليهما. AttemptContext::campaignStep() هي الجسر الوحيد بين
- * الحملة ومحرك الألعاب - لا نسخ لمنطق تحقق أو مكافأة أو Session هون إطلاقاً.
- */
 class CampaignPuzzleService
 {
     public function __construct(
@@ -25,6 +18,7 @@ class CampaignPuzzleService
         protected GameTypeRegistry $games,
         protected PuzzleAttemptService $attempts,
         protected GameSessionService $sessions,
+        protected QualificationService $qualification,
     ) {}
 
     /**
@@ -44,10 +38,10 @@ class CampaignPuzzleService
             throw new \RuntimeException('هذه الأحجية تتطلب بدء جلسة تفاعلية أولاً، لا إرسال إجابة مباشرة.');
         }
 
-        // C5 ستُدخل هون RewardDirective (inherit/override/none) - الآن لا
-        // نمرّر شيئاً، فتستمر PuzzleAttemptService بسلوك المكافأة الافتراضي
-        // الطبيعي (inherit ضمنياً) - نفس ما تفعله للأحجيات المستقلة تماماً.
-        return $this->attempts->attempt(
+        // Reward Policy (inherit/override/none) تُحسم بالكامل داخل
+        // PuzzleAttemptService عبر AttemptRewardResolver (C5) - يستخرجها من
+        // نفس Context هذه تلقائياً. لا شيء يُمرَّر أو يُحسب هون إطلاقاً.
+        $result = $this->attempts->attempt(
             $user,
             $puzzle,
             $submittedAnswer,
@@ -55,6 +49,12 @@ class CampaignPuzzleService
             $submission,
             AttemptContext::campaignStep($step->id),
         );
+
+        if ($result['correct']) {
+            $this->qualification->afterStepCompletion($user, $step);
+        }
+
+        return $result;
     }
 
     public function startSession(User $user, CampaignStep $step): GameSession
@@ -68,11 +68,6 @@ class CampaignPuzzleService
         return $this->sessions->start($user, $puzzle, AttemptContext::campaignStep($step->id));
     }
 
-    /**
-     * الفحوصات المشتركة بين attempt() وstartSession() قبل أي تفويض:
-     * Kind، وجود Puzzle وتفعيلها، ثم Unlock (يشمل توفر الحملة تلقائياً عبر
-     * CampaignProgressService - لا تكرار لهذا المنطق هون بأي شكل).
-     */
     protected function assertPuzzleStepReady(User $user, CampaignStep $step): Puzzle
     {
         if ($step->kind !== CampaignStep::KIND_PUZZLE) {

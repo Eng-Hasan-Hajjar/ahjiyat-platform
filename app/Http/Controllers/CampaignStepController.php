@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\GameEngine\Contracts\GameSessionHandler;
 use App\GameEngine\GameTypeRegistry;
 use App\Http\Requests\SolvePuzzleRequest;
 use App\Models\Campaign;
 use App\Models\CampaignStep;
+use App\Models\PuzzleAttempt;
 use App\Services\CampaignNarrativeService;
+use App\Services\CampaignProgressService;
 use App\Services\CampaignPuzzleService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -18,7 +21,8 @@ use Illuminate\Support\Facades\Auth;
  * (IDOR) ثم يفوّض بالكامل لخدمة النوع المناسبة. لا Validation، لا حساب
  * مكافأة، لا تلاعب بحالة Session هون - فقط علاقة/تفويض/استجابة.
  *
- * complete()      -> C3، narrative فقط، بلا تغيير.
+ * show()          -> C8، صفحة عرض الخطوة (GET) - يشتق الحالة فقط، لا يكتب شيئاً.
+ * complete()      -> C3، narrative فقط.
  * attempt()       -> C4، Puzzle Stateless (نفس UX/أخطاء PuzzleController).
  * startSession()  -> C4، Puzzle Stateful (نفس UX/أخطاء GameSessionController).
  * لا reveal() هون إطلاقاً - المسار العام /game-sessions/{session}/reveal
@@ -29,8 +33,42 @@ class CampaignStepController extends Controller
     public function __construct(
         protected CampaignNarrativeService $narrative,
         protected CampaignPuzzleService $puzzle,
+        protected CampaignProgressService $progress,
         protected GameTypeRegistry $games,
     ) {}
+
+    public function show(Campaign $campaign, CampaignStep $step)
+    {
+        $this->assertStepBelongsToCampaign($campaign, $step);
+
+        $user = Auth::user();
+
+        // Server-side أولاً ودائماً (C8.11) - لا اعتماد على UI مخفي. خطوة
+        // مقفلة لا تكشف حتى وجود محتواها (سردي مستقبلي أو غيره).
+        if (! $this->progress->isStepUnlocked($user, $step)) {
+            return view('campaigns.steps.locked', compact('campaign', 'step'));
+        }
+
+        if ($step->kind === CampaignStep::KIND_NARRATIVE) {
+            $completed = $this->progress->isStepCompleted($user, $step);
+
+            return view('campaigns.steps.narrative', compact('campaign', 'step', 'completed'));
+        }
+
+        $puzzle = $step->puzzle;
+        $renderer = $this->games->rendererFor($puzzle);
+        $usesGameSession = $this->games->definitionFor($puzzle->game_type) instanceof GameSessionHandler;
+        $completed = $this->progress->isStepCompleted($user, $step);
+        $attemptsUsed = PuzzleAttempt::where('user_id', $user->id)
+            ->where('puzzle_id', $puzzle->id)
+            ->where('context_type', 'campaign_step')
+            ->where('context_id', $step->id)
+            ->count();
+
+        return view('campaigns.steps.puzzle', compact(
+            'campaign', 'step', 'puzzle', 'renderer', 'usesGameSession', 'completed', 'attemptsUsed'
+        ));
+    }
 
     public function complete(Campaign $campaign, CampaignStep $step): RedirectResponse
     {
@@ -44,7 +82,15 @@ class CampaignStepController extends Controller
             abort(422, $e->getMessage());
         }
 
-        return back()->with('success', 'تم إكمال هذه الخطوة.');
+        // بعد الإكمال: الخطوة التالية المتاحة، أو صفحة الحملة إن لم توجد
+        // (C8.6) - مُشتقّة الآن، لا next_step_id مخزَّن بأي مكان.
+        $next = $this->progress->currentStepFor(Auth::user(), $campaign->fresh());
+
+        $redirect = $next
+            ? redirect()->route('campaigns.steps.show', [$campaign, $next])
+            : redirect()->route('campaigns.show', $campaign);
+
+        return $redirect->with('success', 'تم إكمال هذه الخطوة.');
     }
 
     public function attempt(SolvePuzzleRequest $request, Campaign $campaign, CampaignStep $step): RedirectResponse
@@ -66,13 +112,8 @@ class CampaignStepController extends Controller
                 $submission,
             );
         } catch (AuthorizationException $e) {
-            // مقفلة/الحملة غير متاحة - حالة لا يفترض أن يصلها مستخدم يتّبع
-            // واجهة تحترم Unlock فعلياً، فنعاملها كـC3 بالضبط: Abort صريح.
             abort(403, $e->getMessage());
         } catch (\RuntimeException $e) {
-            // بقية أخطاء النطاق (نوع خاطئ، أحجية غير مفعَّلة، سبق حلّها،
-            // استُنفدت المحاولات...) تُعامَل بنفس UX الأحجية المستقلة تماماً -
-            // Redirect + رسالة، لا Abort قاسٍ لكل هذه الحالات.
             return back()->with('error', $e->getMessage());
         }
 
@@ -99,8 +140,6 @@ class CampaignStepController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        // نفس سطر GameSessionController::store() حرفياً - لا نسخ منطق
-        // publicPayload، فقط استدعاء نفس الـDefinition الموجودة أصلاً.
         $payload = $this->games->definitionFor($step->puzzle->game_type)->publicPayload($step->puzzle);
 
         return response()->json([
@@ -113,8 +152,6 @@ class CampaignStepController extends Controller
 
     protected function assertStepBelongsToCampaign(Campaign $campaign, CampaignStep $step): void
     {
-        // IDOR: لا نثق بمعرّف step وحده - يجب أن تنتمي فعلياً لنفس campaign
-        // بالـURL عبر step→gate→stage→campaign_id، وليس عبر أي حقل يرسله العميل.
         abort_unless($step->gate->stage->campaign_id === $campaign->id, 404);
     }
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\CampaignStepController;
 use App\Http\Controllers\ChallengeController;
 use App\Http\Controllers\GameSessionController;
@@ -31,6 +32,11 @@ Route::get('/challenges/{challenge}', [ChallengeController::class, 'show'])->nam
 
 Route::get('/terms', [PageController::class, 'terms'])->name('pages.terms');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('pages.privacy');
+
+// --- عام بالكامل حتى للضيف (C8.2 - تسويقياً) - Campaign غير متاحة = 404،
+// لا كتابة إطلاقاً هون، فقط عرض. ---
+Route::get('/campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
+Route::get('/campaigns/{campaign:slug}', [CampaignController::class, 'show'])->name('campaigns.show');
 
 // --- ضيوف فقط ---
 Route::middleware('guest')->group(function () {
@@ -78,10 +84,17 @@ Route::middleware('auth')->group(function () {
 
         Route::post('/challenges/{challenge}/join', [ChallengeController::class, 'join'])->name('challenges.join');
 
-        // مسار Narrative فقط بـC3 - Puzzle Step integration تأتي C4 بمسارات
-        // خاصة بها (attempt/session) لا تستخدم هذا الـController إطلاقاً.
+        // Campaign Step (C3/C4/C8) - صفحة العرض عامة الشكل لكن داخل verified
+        // (أبسط وأكثر أماناً من صفحة عامة + AJAX يفشل بصمت - C8.2/C8.10).
+        // لا reveal هون - المسار العام /game-sessions/{session}/reveal يبقى الوحيد.
+        Route::get('/campaigns/{campaign:slug}/steps/{step}', [CampaignStepController::class, 'show'])
+            ->name('campaigns.steps.show');
         Route::post('/campaigns/{campaign:slug}/steps/{step}/complete', [CampaignStepController::class, 'complete'])
             ->name('campaigns.steps.complete');
+        Route::post('/campaigns/{campaign:slug}/steps/{step}/attempt', [CampaignStepController::class, 'attempt'])
+            ->middleware('throttle:20,1')->name('campaigns.steps.attempt');
+        Route::post('/campaigns/{campaign:slug}/steps/{step}/session', [CampaignStepController::class, 'startSession'])
+            ->middleware('throttle:10,1')->name('campaigns.steps.session');
 
         Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
 
@@ -90,16 +103,4 @@ Route::middleware('auth')->group(function () {
         Route::post('/redemption', [RedemptionController::class, 'store'])
             ->middleware('throttle:5,60')->name('redemption.store');
     });
-
-
-
-    // Puzzle Step (C4) - نفس معدلات Throttle المطابقة لنظيراتها المستقلة
-    // (puzzles.attempt وgame-sessions.start) بالضبط. لا reveal هون - المسار
-    // العام /game-sessions/{session}/reveal يبقى الوحيد (Context بالجلسة نفسها).
-    Route::post('/campaigns/{campaign:slug}/steps/{step}/attempt', [CampaignStepController::class, 'attempt'])
-        ->middleware('throttle:20,1')->name('campaigns.steps.attempt');
-    Route::post('/campaigns/{campaign:slug}/steps/{step}/session', [CampaignStepController::class, 'startSession'])
-        ->middleware('throttle:10,1')->name('campaigns.steps.session');
-
-
 });

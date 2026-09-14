@@ -52,4 +52,24 @@ class CampaignStep extends Model
     {
         return $this->hasMany(UserCampaignProgress::class, 'campaign_step_id');
     }
+
+    /**
+     * تطبيع قبل الحفظ (C7.5) - بنفس فلسفة Puzzle::booted() تماماً: بيانات
+     * غير متّسقة (مثلاً puzzle_id متبقٍّ من تبديل narrative→puzzle، أو
+     * reward_override_amount متبقٍّ من تبديل override→inherit) لا تبقى
+     * مخفية بصمت. يعمل من أي مصدر كتابة (Filament، Factory، Tinker) - ليس
+     * خاصاً بـFilament إطلاقاً.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (CampaignStep $step) {
+            if ($step->kind !== self::KIND_PUZZLE) {
+                $step->puzzle_id = null;
+            }
+
+            if ($step->reward_mode !== self::REWARD_MODE_OVERRIDE) {
+                $step->reward_override_amount = null;
+            }
+        });
+    }
 }

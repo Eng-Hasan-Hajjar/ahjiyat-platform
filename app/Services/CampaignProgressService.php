@@ -5,6 +5,7 @@ namespace App\Services;
 use App\GameEngine\Support\AttemptContext;
 use App\Models\Campaign;
 use App\Models\CampaignGate;
+use App\Models\CampaignGateQualification;
 use App\Models\CampaignStage;
 use App\Models\CampaignStep;
 use App\Models\GameSession;
@@ -15,16 +16,9 @@ use Illuminate\Support\Collection;
 
 /**
  * الخدمة الوحيدة المسؤولة عن اشتقاق حالة الحملة بالكامل - Store Facts,
- * Derive States. لا Writes هون إطلاقاً (Phase C2 قراءة بحتة)، ولا استدعاء
- * لأي خدمة أخرى (Reward/Qualification تأتي لاحقاً بخدماتها الخاصة).
- *
- * قرار معماري: خدمة واحدة لا اثنتان (Access + Progress). فحص "هل هذه
- * البوابة مفتوحة؟" يحتاج بالضرورة معرفة "هل البوابات السابقة مكتملة؟" -
- * فصلهما كان سيفرض على إحداهما حقن الأخرى لكل دالة تقريباً، أي حد فاصل
- * مصطنع بلا فائدة حقيقية. تبقى هذه الصنف صغيرة النطاق عمداً: لا شيء هون
- * يكتب لقاعدة البيانات، ولا شيء يستدعي GemWalletService أو
- * FraudDetectionService أو أي منطق مكافأة/تأهّل - تلك خدمات منفصلة قادمة
- * (C5/C6) بمسؤولياتها الخاصة تماماً.
+ * Derive States. لا Writes هون إطلاقاً، ولا استدعاء لأي خدمة أخرى (Reward
+ * Resolver/QualificationService تعتمدان عليها هي، لا العكس - لتفادي أي
+ * Dependency دائري).
  */
 class CampaignProgressService
 {
@@ -35,6 +29,8 @@ class CampaignProgressService
     public const STATE_IN_PROGRESS = 'in_progress';
 
     public const STATE_AVAILABLE = 'available';
+
+    public const STATE_NOT_QUALIFIED = 'not_qualified';
 
     // ===================================================================
     // Campaign Availability
@@ -66,9 +62,6 @@ class CampaignProgressService
         return match ($step->kind) {
             CampaignStep::KIND_NARRATIVE => $this->isNarrativeStepCompleted($user, $step),
             CampaignStep::KIND_PUZZLE => $this->isPuzzleStepCompleted($user, $step),
-            // Kind غير مدعوم حالياً - نتعامل معه بأمان صريح: لا نعتبره
-            // مكتملاً أبداً (لا نفتح ما بعده بالخطأ)، ولا نرمي استثناء يكسر
-            // عرض الحملة كاملة بسبب خطوة واحدة غير معروفة.
             default => false,
         };
     }
@@ -84,7 +77,7 @@ class CampaignProgressService
     protected function isPuzzleStepCompleted(User $user, CampaignStep $step): bool
     {
         if ($step->puzzle_id === null) {
-            return false; // بيانات غير سليمة (خطوة puzzle بلا Puzzle مرتبطة) - أبداً لا تُعتبر مكتملة
+            return false;
         }
 
         return $user->hasSolvedPuzzle($step->puzzle, $this->contextFor($step));
@@ -129,10 +122,6 @@ class CampaignProgressService
             return true;
         }
 
-        // جلسات نشطة قليلة جداً عملياً لكل (user, puzzle, context) - GameSessionService
-        // يعيد استخدام الجلسة النشطة بدل تكرارها، فهذا استعلام صغير مستهدَف
-        // وليس مسحاً واسعاً. isExpired() منطق محسوب على الـModel نفسه، فنجلب
-        // الصفوف القليلة ونفحصها بالـPHP بدل تكرار حساب انتهاء الصلاحية بـSQL خام.
         return GameSession::where('user_id', $user->id)
             ->where('puzzle_id', $step->puzzle_id)
             ->where('context_type', $context->type)
@@ -143,8 +132,7 @@ class CampaignProgressService
     }
 
     // ===================================================================
-    // Unlock (Linear Progression - يفحص كل الأسلاف/الأشقاء السابقين، لا
-    // العنصر السابق مباشرة فقط - أكثر أماناً عند إعادة الترتيب لاحقاً)
+    // Unlock (Linear Progression)
     // ===================================================================
 
     public function isStepUnlocked(User $user, CampaignStep $step): bool
@@ -163,11 +151,29 @@ class CampaignProgressService
             return false;
         }
 
-        // Qualification (qualification_rule/config) مقصود تجاهله بالكامل هون -
-        // Phase C2 Linear بحتة. سيدخل في C6 كطبقة إضافية فوق isGateUnlocked،
-        // لا بديلاً عنها.
+        // C6: بوابة سابقة "مكتملة" لا تكفي وحدها إن كانت تملك Qualification Rule -
+        // يجب أيضاً أن يكون المستخدم مؤهَّلاً فعلياً ضمنها (completed != qualified).
+        // فحص مباشر هون (بدل حقن QualificationService) لتفادي أي اعتماد دائري:
+        // QualificationService نفسها تعتمد على CampaignProgressService، لا العكس.
         return $this->precedingSiblings($gate->stage->gates, $gate)
-            ->every(fn (CampaignGate $previous) => $this->isGateCompleted($user, $previous));
+            ->every(fn (CampaignGate $previous) => $this->isGateCompleted($user, $previous)
+                && $this->isGateQualificationSatisfied($user, $previous));
+    }
+
+    /**
+     * qualification_rule=null (الافتراضي لأي بوابة عادية - C6.9) = تأهّل
+     * غير مشروط، لا صف Qualification مطلوب إطلاقاً. غير ذلك، يُشترط وجود
+     * صف CampaignGateQualification فعلي لهذا المستخدم بالذات.
+     */
+    protected function isGateQualificationSatisfied(User $user, CampaignGate $gate): bool
+    {
+        if ($gate->qualification_rule === null) {
+            return true;
+        }
+
+        return CampaignGateQualification::where('campaign_gate_id', $gate->id)
+            ->where('user_id', $user->id)
+            ->exists();
     }
 
     public function isStageUnlocked(User $user, CampaignStage $stage): bool
@@ -218,7 +224,7 @@ class CampaignProgressService
     }
 
     // ===================================================================
-    // Derived Step State (ترتيب أولوية ثابت: completed > locked > in_progress > available)
+    // Derived State
     // ===================================================================
 
     /** @return self::STATE_* */
@@ -239,6 +245,50 @@ class CampaignProgressService
         return self::STATE_AVAILABLE;
     }
 
+    /**
+     * حالة على مستوى Gate تحديداً - تميّز "أكملها لكن لم يتأهّل" (C6) عن
+     * "أكملها" ببساطة. لا "in_progress" مفاهيمياً على مستوى Gate نفسها -
+     * ذلك مفهوم خاص بالـSteps الداخلية فقط.
+     *
+     * @return self::STATE_*
+     */
+    public function gateState(User $user, CampaignGate $gate): string
+    {
+        if ($this->isGateCompleted($user, $gate)) {
+            if ($gate->qualification_rule !== null && ! $this->isGateQualificationSatisfied($user, $gate)) {
+                return self::STATE_NOT_QUALIFIED;
+            }
+
+            return self::STATE_COMPLETED;
+        }
+
+        if (! $this->isGateUnlocked($user, $gate)) {
+            return self::STATE_LOCKED;
+        }
+
+        return self::STATE_AVAILABLE;
+    }
+
+    /**
+     * "المهمة الحالية" لعرض الواجهة (C8) - أول خطوة غير مكتملة بترتيب
+     * العرض الطبيعي. Convenience للعرض فقط (ليست حرجة أمنياً كـprecedingSiblings)،
+     * لذا تستخدم sort_order وحده دون Tie-break صارم بالـid.
+     */
+    public function currentStepFor(User $user, Campaign $campaign): ?CampaignStep
+    {
+        foreach ($campaign->stages->sortBy('sort_order') as $stage) {
+            foreach ($stage->gates->sortBy('sort_order') as $gate) {
+                foreach ($gate->steps->sortBy('sort_order') as $step) {
+                    if (! $this->isStepCompleted($user, $step)) {
+                        return $step;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
     // ===================================================================
     // Helpers
     // ===================================================================
@@ -249,12 +299,6 @@ class CampaignProgressService
     }
 
     /**
-     * كل عناصر $siblings التي تسبق $current وفق ترتيب مستقر (sort_order ثم
-     * id) - وليس فقط العنصر السابق مباشرة. مصمَّمة للاستفادة من علاقات
-     * مُحمَّلة مسبقاً (Eager Loaded) عند توفرها: الوصول لخاصية العلاقة
-     * (->gates وليس ->gates()->get()) لا يُعيد الاستعلام إن كانت محمَّلة
-     * سلفاً، ويحمّلها مرة واحدة ويُخزّنها إن لم تكن كذلك.
-     *
      * @template TModel of \Illuminate\Database\Eloquent\Model
      * @param  Collection<int, TModel>  $siblings
      * @param  TModel  $current

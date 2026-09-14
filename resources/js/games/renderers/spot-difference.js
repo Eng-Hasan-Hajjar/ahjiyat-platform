@@ -1,4 +1,4 @@
-export default function spotDifferenceGame(payload, puzzleId) {
+export default function spotDifferenceGame(payload, sessionStartUrl) {
     return {
         images: { before: payload.image_before, after: payload.image_after },
         required: payload.required_differences,
@@ -16,7 +16,7 @@ export default function spotDifferenceGame(payload, puzzleId) {
 
         async init() {
             try {
-                const res = await fetch(`/puzzles/${puzzleId}/session`, {
+                const res = await fetch(sessionStartUrl, {
                     method: 'POST',
                     headers: { 'X-CSRF-TOKEN': this.csrfToken, Accept: 'application/json' },
                 });
