@@ -14,12 +14,6 @@ use App\Models\User;
 use App\Models\UserCampaignProgress;
 use Illuminate\Support\Collection;
 
-/**
- * الخدمة الوحيدة المسؤولة عن اشتقاق حالة الحملة بالكامل - Store Facts,
- * Derive States. لا Writes هون إطلاقاً، ولا استدعاء لأي خدمة أخرى (Reward
- * Resolver/QualificationService تعتمدان عليها هي، لا العكس - لتفادي أي
- * Dependency دائري).
- */
 class CampaignProgressService
 {
     public const STATE_COMPLETED = 'completed';
@@ -54,19 +48,21 @@ class CampaignProgressService
     }
 
     // ===================================================================
-    // Completion (مصدر الحقيقة يختلف حسب Kind - أبداً لا يُخزَّن مرتين)
+    // Completion
     // ===================================================================
 
     public function isStepCompleted(User $user, CampaignStep $step): bool
     {
         return match ($step->kind) {
-            CampaignStep::KIND_NARRATIVE => $this->isNarrativeStepCompleted($user, $step),
+            // narrative وreflection (D2) يتشاركان نفس مصدر الحقيقة بالضبط:
+            // UserCampaignProgress.completed_at - لا PuzzleAttempt لأي منهما.
+            CampaignStep::KIND_NARRATIVE, CampaignStep::KIND_REFLECTION => $this->isProgressStepCompleted($user, $step),
             CampaignStep::KIND_PUZZLE => $this->isPuzzleStepCompleted($user, $step),
             default => false,
         };
     }
 
-    protected function isNarrativeStepCompleted(User $user, CampaignStep $step): bool
+    protected function isProgressStepCompleted(User $user, CampaignStep $step): bool
     {
         return UserCampaignProgress::where('user_id', $user->id)
             ->where('campaign_step_id', $step->id)
@@ -84,7 +80,7 @@ class CampaignProgressService
     }
 
     // ===================================================================
-    // In-Progress (فقط عندما لا تكون مكتملة بعد)
+    // In-Progress
     // ===================================================================
 
     public function isStepInProgress(User $user, CampaignStep $step): bool
@@ -94,6 +90,10 @@ class CampaignProgressService
         }
 
         return match ($step->kind) {
+            // narrative تُظهر in_progress إن بدأها المستخدم (markStarted) بدون
+            // إكمال. reflection تصميم أبسط عمداً (D2): إجراء واحد (Submit) =
+            // إكمال مباشر - لا حالة "بدأ لكن لم يُرسل" مُتتبَّعة، فتبقى Available
+            // حتى الإرسال، بلا تعقيد إضافي غير مطلوب صراحة بالمواصفة.
             CampaignStep::KIND_NARRATIVE => UserCampaignProgress::where('user_id', $user->id)
                 ->where('campaign_step_id', $step->id)
                 ->whereNotNull('started_at')
@@ -132,7 +132,7 @@ class CampaignProgressService
     }
 
     // ===================================================================
-    // Unlock (Linear Progression)
+    // Unlock
     // ===================================================================
 
     public function isStepUnlocked(User $user, CampaignStep $step): bool
@@ -151,20 +151,11 @@ class CampaignProgressService
             return false;
         }
 
-        // C6: بوابة سابقة "مكتملة" لا تكفي وحدها إن كانت تملك Qualification Rule -
-        // يجب أيضاً أن يكون المستخدم مؤهَّلاً فعلياً ضمنها (completed != qualified).
-        // فحص مباشر هون (بدل حقن QualificationService) لتفادي أي اعتماد دائري:
-        // QualificationService نفسها تعتمد على CampaignProgressService، لا العكس.
         return $this->precedingSiblings($gate->stage->gates, $gate)
             ->every(fn (CampaignGate $previous) => $this->isGateCompleted($user, $previous)
                 && $this->isGateQualificationSatisfied($user, $previous));
     }
 
-    /**
-     * qualification_rule=null (الافتراضي لأي بوابة عادية - C6.9) = تأهّل
-     * غير مشروط، لا صف Qualification مطلوب إطلاقاً. غير ذلك، يُشترط وجود
-     * صف CampaignGateQualification فعلي لهذا المستخدم بالذات.
-     */
     protected function isGateQualificationSatisfied(User $user, CampaignGate $gate): bool
     {
         if ($gate->qualification_rule === null) {
@@ -187,7 +178,7 @@ class CampaignProgressService
     }
 
     // ===================================================================
-    // Container Completion (Derived فقط - Empty Container أبداً لا تُعتبر مكتملة)
+    // Container Completion
     // ===================================================================
 
     public function isGateCompleted(User $user, CampaignGate $gate): bool
@@ -245,13 +236,7 @@ class CampaignProgressService
         return self::STATE_AVAILABLE;
     }
 
-    /**
-     * حالة على مستوى Gate تحديداً - تميّز "أكملها لكن لم يتأهّل" (C6) عن
-     * "أكملها" ببساطة. لا "in_progress" مفاهيمياً على مستوى Gate نفسها -
-     * ذلك مفهوم خاص بالـSteps الداخلية فقط.
-     *
-     * @return self::STATE_*
-     */
+    /** @return self::STATE_* */
     public function gateState(User $user, CampaignGate $gate): string
     {
         if ($this->isGateCompleted($user, $gate)) {
@@ -269,11 +254,6 @@ class CampaignProgressService
         return self::STATE_AVAILABLE;
     }
 
-    /**
-     * "المهمة الحالية" لعرض الواجهة (C8) - أول خطوة غير مكتملة بترتيب
-     * العرض الطبيعي. Convenience للعرض فقط (ليست حرجة أمنياً كـprecedingSiblings)،
-     * لذا تستخدم sort_order وحده دون Tie-break صارم بالـid.
-     */
     public function currentStepFor(User $user, Campaign $campaign): ?CampaignStep
     {
         foreach ($campaign->stages->sortBy('sort_order') as $stage) {

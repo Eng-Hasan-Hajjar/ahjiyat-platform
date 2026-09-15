@@ -16,11 +16,12 @@
                 <p class="text-slate-400 mb-6">{{ $step->subtitle }}</p>
             @endif
 
-            @if ($image = data_get($step->content, 'image'))
-                <div class="rounded-2xl overflow-hidden border border-white/10 mb-6">
-                    <img src="{{ \Illuminate\Support\Facades\Storage::url($image) }}"
-                         alt="{{ $step->title }}" class="w-full h-auto">
-                </div>
+            @if (data_get($step->content, 'media_path'))
+                <x-media-or-placeholder
+                    :path="data_get($step->content, 'media_path')"
+                    :type="data_get($step->content, 'media_type', 'image')"
+                    :caption="data_get($step->content, 'caption')"
+                />
             @endif
 
             @if ($body = data_get($step->content, 'body'))

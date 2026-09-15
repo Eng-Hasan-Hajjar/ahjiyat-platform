@@ -8,9 +8,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Kind مدعومة فعلياً اليوم فقط: narrative و puzzle (ثابتة أدناه). لا Registry
- * ولا Contract الآن - عندما يظهر Kind ثالث فعلي (reflection/external_event)
- * تُعاد دراسة الحاجة لتجريد أوسع (نفس درس Phase A مع Sequence/Memory).
+ * Kind مدعومة فعلياً: narrative, puzzle, وreflection (D2 - عامة تماماً،
+ * ليست خاصة بأي موسم). عندما يظهر Kind رابع فعلي تُعاد دراسة الحاجة
+ * لـRegistry/Contract أوسع (نفس درس Phase A).
+ *
+ * content.status (اختياري، لكل الأنواع): 'final'|'placeholder'|
+ * 'content_pending'|'technical_pending' - Metadata عرض للـAdmin فقط
+ * (SeasonReadinessService تستخدمها لمنع نشر غير آمن)، لا تُقرأ إطلاقاً
+ * بمنطق الإكمال/المكافأة/التأهّل.
  */
 class CampaignStep extends Model
 {
@@ -20,11 +25,21 @@ class CampaignStep extends Model
 
     public const KIND_PUZZLE = 'puzzle';
 
+    public const KIND_REFLECTION = 'reflection';
+
     public const REWARD_MODE_INHERIT = 'inherit';
 
     public const REWARD_MODE_OVERRIDE = 'override';
 
     public const REWARD_MODE_NONE = 'none';
+
+    public const CONTENT_STATUS_FINAL = 'final';
+
+    public const CONTENT_STATUS_PLACEHOLDER = 'placeholder';
+
+    public const CONTENT_STATUS_CONTENT_PENDING = 'content_pending';
+
+    public const CONTENT_STATUS_TECHNICAL_PENDING = 'technical_pending';
 
     protected $fillable = [
         'campaign_gate_id', 'kind', 'sort_order', 'title', 'subtitle',
@@ -53,13 +68,11 @@ class CampaignStep extends Model
         return $this->hasMany(UserCampaignProgress::class, 'campaign_step_id');
     }
 
-    /**
-     * تطبيع قبل الحفظ (C7.5) - بنفس فلسفة Puzzle::booted() تماماً: بيانات
-     * غير متّسقة (مثلاً puzzle_id متبقٍّ من تبديل narrative→puzzle، أو
-     * reward_override_amount متبقٍّ من تبديل override→inherit) لا تبقى
-     * مخفية بصمت. يعمل من أي مصدر كتابة (Filament، Factory، Tinker) - ليس
-     * خاصاً بـFilament إطلاقاً.
-     */
+    public function contentStatus(): string
+    {
+        return $this->content['status'] ?? self::CONTENT_STATUS_FINAL;
+    }
+
     protected static function booted(): void
     {
         static::saving(function (CampaignStep $step) {

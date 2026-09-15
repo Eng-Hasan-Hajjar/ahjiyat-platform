@@ -16,6 +16,7 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PuzzleController;
 use App\Http\Controllers\RedemptionController;
+use App\Http\Controllers\SeasonController;
 use App\Http\Controllers\WalletController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,10 +34,15 @@ Route::get('/challenges/{challenge}', [ChallengeController::class, 'show'])->nam
 Route::get('/terms', [PageController::class, 'terms'])->name('pages.terms');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('pages.privacy');
 
-// --- عام بالكامل حتى للضيف (C8.2 - تسويقياً) - Campaign غير متاحة = 404،
+// --- عام بالكامل حتى للضيف (تسويقياً) - Campaign غير متاحة = 404،
 // لا كتابة إطلاقاً هون، فقط عرض. ---
 Route::get('/campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
 Route::get('/campaigns/{campaign:slug}', [CampaignController::class, 'show'])->name('campaigns.show');
+
+// --- Official Seasons (D0) - طبقة عرض فوق Campaign. is_published يحدد
+// الظهور للجمهور، Admin يستطيع المعاينة قبل النشر (Server-side بالكامل). ---
+Route::get('/seasons', [SeasonController::class, 'index'])->name('seasons.index');
+Route::get('/seasons/{season:slug}', [SeasonController::class, 'show'])->name('seasons.show');
 
 // --- ضيوف فقط ---
 Route::middleware('guest')->group(function () {
@@ -84,13 +90,15 @@ Route::middleware('auth')->group(function () {
 
         Route::post('/challenges/{challenge}/join', [ChallengeController::class, 'join'])->name('challenges.join');
 
-        // Campaign Step (C3/C4/C8) - صفحة العرض عامة الشكل لكن داخل verified
-        // (أبسط وأكثر أماناً من صفحة عامة + AJAX يفشل بصمت - C8.2/C8.10).
+        // Campaign Step - صفحة العرض عامة الشكل لكن داخل verified
+        // (أبسط وأكثر أماناً من صفحة عامة + AJAX يفشل بصمت).
         // لا reveal هون - المسار العام /game-sessions/{session}/reveal يبقى الوحيد.
         Route::get('/campaigns/{campaign:slug}/steps/{step}', [CampaignStepController::class, 'show'])
             ->name('campaigns.steps.show');
         Route::post('/campaigns/{campaign:slug}/steps/{step}/complete', [CampaignStepController::class, 'complete'])
             ->name('campaigns.steps.complete');
+        Route::post('/campaigns/{campaign:slug}/steps/{step}/reflect', [CampaignStepController::class, 'reflect'])
+            ->name('campaigns.steps.reflect');
         Route::post('/campaigns/{campaign:slug}/steps/{step}/attempt', [CampaignStepController::class, 'attempt'])
             ->middleware('throttle:20,1')->name('campaigns.steps.attempt');
         Route::post('/campaigns/{campaign:slug}/steps/{step}/session', [CampaignStepController::class, 'startSession'])

@@ -42,7 +42,18 @@
             @endif
         </div>
     </section>
-
+{{-- ===== الموسم الرسمي الحالي - Section مدمجة، لا إعادة تصميم Home ===== --}}
+@if ($featuredSeason)
+    <section class="mb-12 anim-fade-up d-1">
+        <x-season-hero
+            :season="$featuredSeason"
+            :campaign="$featuredSeason->campaign"
+            :availability-label="'مباشر الآن'"
+            :current-step="$featuredSeasonCurrentStep"
+            :percentage="$featuredSeasonPercentage"
+        />
+    </section>
+@endif
     {{-- ===== التصنيفات ===== --}}
     <section class="anim-fade-up d-2">
         <div class="flex items-center justify-between mb-6">

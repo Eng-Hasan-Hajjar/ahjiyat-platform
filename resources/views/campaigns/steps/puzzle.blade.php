@@ -12,8 +12,6 @@
         <div class="puzzle-card !p-6 md:!p-9 anim-fade-up d-1">
             <div class="flex flex-wrap items-center gap-2 mb-5">
                 <span class="chip !py-1 !px-3">{{ $step->title }}</span>
-                {{-- Reward UX (C8.13): القيمة المعروضة تأتي من نفس بيانات reward_mode
-                     المخزَّنة سيرفرياً - لا حساب JS، ولا قيمة مستقلة عن الـBackend. --}}
                 @if ($step->reward_mode === \App\Models\CampaignStep::REWARD_MODE_NONE)
                     <span class="ms-auto text-sm font-black text-slate-500">بلا مكافأة</span>
                 @elseif ($step->reward_mode === \App\Models\CampaignStep::REWARD_MODE_OVERRIDE)
@@ -27,6 +25,14 @@
                 {{ $puzzle->prompt }}
             </h1>
 
+            @if (data_get($step->content, 'media_path'))
+                <x-media-or-placeholder
+                    :path="data_get($step->content, 'media_path')"
+                    :type="data_get($step->content, 'media_type', 'image')"
+                    :caption="data_get($step->content, 'caption')"
+                />
+            @endif
+
             @if ($completed)
                 <div class="rounded-xl border border-emerald/30 bg-emerald/10 text-emerald px-5 py-4 font-bold anim-fade-up d-2">
                     🎉 أحسنت! أكملت هذه الخطوة
@@ -37,8 +43,6 @@
                 </div>
             @else
                 @if ($usesGameSession)
-                    {{-- نفس Renderer المستقل حرفياً (games.spot-difference) - يتلقى
-                         sessionStartUrl مختلفاً فقط عبر @php أدناه (C8.8). --}}
                     @php($sessionStartUrl = route('campaigns.steps.session', [$campaign, $step]))
                     <div class="mt-6 anim-fade-up d-2">
                         @include($renderer)
@@ -46,9 +50,7 @@
                 @else
                     <form method="POST" action="{{ route('campaigns.steps.attempt', [$campaign, $step]) }}" class="mt-6 anim-fade-up d-2">
                         @csrf
-
                         @include($renderer)
-
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <span class="text-sm font-bold text-slate-400">
                                 محاولة {{ $attemptsUsed + 1 }} من {{ $puzzle->max_attempts }}

@@ -7,10 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * سجل تقدّم عام لأي CampaignStep لا تُبنى على PuzzleAttempt (اليوم: narrative
- * فقط). مصدر حقيقة خطوة puzzle يبقى دائماً PuzzleAttempt + AttemptContext -
- * هذا الجدول لا يُستخدم له إطلاقاً ولن يُستخدم. مصمَّم ليخدم لاحقاً
- * reflection/manual_review/external_event بلا أي تعديل Schema.
+ * مصدر حقيقة narrative وreflection معاً - كلاهما "لا PuzzleAttempt، فقط
+ * completed_at". response_payload تُستخدم فقط لـreflection (نص الإجابة)،
+ * تبقى null لأي narrative عادية.
  */
 class UserCampaignProgress extends Model
 {
@@ -19,7 +18,7 @@ class UserCampaignProgress extends Model
     protected $table = 'user_campaign_progress';
 
     protected $fillable = [
-        'user_id', 'campaign_step_id', 'started_at', 'completed_at',
+        'user_id', 'campaign_step_id', 'started_at', 'completed_at', 'response_payload',
     ];
 
     protected function casts(): array
@@ -27,6 +26,7 @@ class UserCampaignProgress extends Model
         return [
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'response_payload' => 'array',
         ];
     }
 

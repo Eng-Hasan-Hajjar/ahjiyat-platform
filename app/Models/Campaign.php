@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Campaign extends Model
 {
@@ -33,5 +34,11 @@ class Campaign extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** Campaign عادية أو راعٍ لا تملك Season - Nullable عمداً. */
+    public function season(): HasOne
+    {
+        return $this->hasOne(Season::class);
     }
 }

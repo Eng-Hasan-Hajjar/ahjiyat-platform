@@ -11,28 +11,30 @@ use App\Models\PuzzleAttempt;
 use App\Services\CampaignNarrativeService;
 use App\Services\CampaignProgressService;
 use App\Services\CampaignPuzzleService;
+use App\Services\CampaignReflectionService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 /**
  * Thin عمداً على طول الخط: كل Method يتحقق فقط من علاقة campaign↔step
- * (IDOR) ثم يفوّض بالكامل لخدمة النوع المناسبة. لا Validation، لا حساب
- * مكافأة، لا تلاعب بحالة Session هون - فقط علاقة/تفويض/استجابة.
+ * (IDOR) ثم يفوّض بالكامل لخدمة النوع المناسبة.
  *
- * show()          -> C8، صفحة عرض الخطوة (GET) - يشتق الحالة فقط، لا يكتب شيئاً.
- * complete()      -> C3، narrative فقط.
- * attempt()       -> C4، Puzzle Stateless (نفس UX/أخطاء PuzzleController).
- * startSession()  -> C4، Puzzle Stateful (نفس UX/أخطاء GameSessionController).
- * لا reveal() هون إطلاقاً - المسار العام /game-sessions/{session}/reveal
- * يبقى الوحيد، لأن الـSession نفسها تحمل Context بعد B.1.
+ * show()          -> صفحة عرض الخطوة (GET) - يشتق الحالة فقط.
+ * complete()      -> narrative فقط.
+ * attempt()       -> Puzzle Stateless.
+ * startSession()  -> Puzzle Stateful.
+ * reflect()       -> reflection فقط (D2) - جديد.
+ * لا reveal() هون إطلاقاً - المسار العام /game-sessions/{session}/reveal يبقى الوحيد.
  */
 class CampaignStepController extends Controller
 {
     public function __construct(
         protected CampaignNarrativeService $narrative,
         protected CampaignPuzzleService $puzzle,
+        protected CampaignReflectionService $reflection,
         protected CampaignProgressService $progress,
         protected GameTypeRegistry $games,
     ) {}
@@ -43,8 +45,6 @@ class CampaignStepController extends Controller
 
         $user = Auth::user();
 
-        // Server-side أولاً ودائماً (C8.11) - لا اعتماد على UI مخفي. خطوة
-        // مقفلة لا تكشف حتى وجود محتواها (سردي مستقبلي أو غيره).
         if (! $this->progress->isStepUnlocked($user, $step)) {
             return view('campaigns.steps.locked', compact('campaign', 'step'));
         }
@@ -53,6 +53,12 @@ class CampaignStepController extends Controller
             $completed = $this->progress->isStepCompleted($user, $step);
 
             return view('campaigns.steps.narrative', compact('campaign', 'step', 'completed'));
+        }
+
+        if ($step->kind === CampaignStep::KIND_REFLECTION) {
+            $completed = $this->progress->isStepCompleted($user, $step);
+
+            return view('campaigns.steps.reflection', compact('campaign', 'step', 'completed'));
         }
 
         $puzzle = $step->puzzle;
@@ -82,15 +88,22 @@ class CampaignStepController extends Controller
             abort(422, $e->getMessage());
         }
 
-        // بعد الإكمال: الخطوة التالية المتاحة، أو صفحة الحملة إن لم توجد
-        // (C8.6) - مُشتقّة الآن، لا next_step_id مخزَّن بأي مكان.
-        $next = $this->progress->currentStepFor(Auth::user(), $campaign->fresh());
+        return $this->redirectToNext($campaign, 'تم إكمال هذه الخطوة.');
+    }
 
-        $redirect = $next
-            ? redirect()->route('campaigns.steps.show', [$campaign, $next])
-            : redirect()->route('campaigns.show', $campaign);
+    public function reflect(Request $request, Campaign $campaign, CampaignStep $step): RedirectResponse
+    {
+        $this->assertStepBelongsToCampaign($campaign, $step);
 
-        return $redirect->with('success', 'تم إكمال هذه الخطوة.');
+        try {
+            $this->reflection->submit(Auth::user(), $step, (string) $request->input('response', ''));
+        } catch (AuthorizationException $e) {
+            abort(403, $e->getMessage());
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return $this->redirectToNext($campaign, 'شكرًا لمشاركتك.');
     }
 
     public function attempt(SolvePuzzleRequest $request, Campaign $campaign, CampaignStep $step): RedirectResponse
@@ -118,7 +131,7 @@ class CampaignStepController extends Controller
         }
 
         if ($result['correct']) {
-            return back()->with('success', "إجابة صحيحة! حصلت على {$result['gems_awarded']} جوهرة معلقة.");
+            return $this->redirectToNext($campaign, "إجابة صحيحة! حصلت على {$result['gems_awarded']} جوهرة معلقة.");
         }
 
         $message = $result['attempts_left'] > 0
@@ -148,6 +161,18 @@ class CampaignStepController extends Controller
             'found' => count($session->server_state['found_indices'] ?? []),
             'required' => $payload['required_differences'] ?? 0,
         ]);
+    }
+
+    /** بعد أي إكمال ناجح: الخطوة التالية المتاحة، أو صفحة الحملة إن لم توجد - مُشتقّة، لا next_step_id مخزَّن. */
+    protected function redirectToNext(Campaign $campaign, string $message): RedirectResponse
+    {
+        $next = $this->progress->currentStepFor(Auth::user(), $campaign->fresh());
+
+        $redirect = $next
+            ? redirect()->route('campaigns.steps.show', [$campaign, $next])
+            : redirect()->route('campaigns.show', $campaign);
+
+        return $redirect->with('success', $message);
     }
 
     protected function assertStepBelongsToCampaign(Campaign $campaign, CampaignStep $step): void

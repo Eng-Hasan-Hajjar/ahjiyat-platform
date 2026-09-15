@@ -1,0 +1,130 @@
+/*
+ * طبقة CSS واحدة مشتركة لكل المواسم الرسمية (لا ملف منفصل لكل Season) -
+ * الفرق بين المواسم فقط عبر Class إضافي مشتق من Season.theme_config.preset
+ * (مثلاً .theme-aseel)، لا أي CSS/JS حر قادم من الـAdmin.
+ */
+
+.season-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.5rem;
+    padding: 2.5rem 1.75rem;
+    background:
+        radial-gradient(600px 300px at 90% -10%, rgba(139, 92, 246, .35), transparent 60%),
+        radial-gradient(500px 300px at 0% 100%, rgba(252, 211, 77, .12), transparent 60%);
+    border: 1px solid rgba(255, 255, 255, .08);
+}
+
+@media (min-width: 768px) {
+    .season-hero { padding: 4rem 3rem; }
+}
+
+.season-hero.theme-aseel {
+    background:
+        radial-gradient(650px 350px at 85% -10%, rgba(139, 92, 246, .3), transparent 60%),
+        radial-gradient(550px 320px at 5% 100%, rgba(34, 211, 238, .12), transparent 60%);
+}
+
+.season-hero.theme-aseel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: .05;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(255, 255, 255, .5) 1px, transparent 1px);
+    background-size: 3px 3px;
+}
+
+.season-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .35rem .9rem;
+    border-radius: 999px;
+    font-weight: 900;
+    font-size: .7rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    background: rgba(139, 92, 246, .15);
+    border: 1px solid rgba(139, 92, 246, .35);
+    color: #c4b5fd;
+}
+
+.theme-aseel .season-badge {
+    background: rgba(34, 211, 238, .12);
+    border-color: rgba(34, 211, 238, .3);
+    color: #67e8f9;
+}
+
+.story-map {
+    position: relative;
+    padding-inline-start: 1.25rem;
+    border-inline-start: 2px solid rgba(255, 255, 255, .08);
+}
+
+.story-map-stage + .story-map-stage {
+    margin-top: 2.5rem;
+}
+
+.mission-node {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .85rem 1.1rem;
+    border-radius: .9rem;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .06);
+    transition: background-color .15s ease, border-color .15s ease;
+}
+
+a.mission-node:hover {
+    background: rgba(255, 255, 255, .08);
+    border-color: rgba(139, 92, 246, .3);
+}
+
+.mission-node--locked {
+    color: #64748b;
+    cursor: not-allowed;
+}
+
+.mission-node--available {
+    animation: mission-pulse 2.4s ease-in-out infinite;
+}
+
+.mission-node--technical_pending,
+.mission-node--content_pending {
+    border-style: dashed;
+    border-color: rgba(252, 211, 77, .35);
+}
+
+@keyframes mission-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(252, 211, 77, 0); }
+    50% { box-shadow: 0 0 0 4px rgba(252, 211, 77, .08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mission-node--available { animation: none; }
+}
+
+.media-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    min-height: 10rem;
+    border-radius: 1rem;
+    border: 1px dashed rgba(255, 255, 255, .15);
+    background:
+        radial-gradient(300px 150px at 30% 20%, rgba(139, 92, 246, .18), transparent 60%),
+        radial-gradient(300px 150px at 70% 80%, rgba(252, 211, 77, .1), transparent 60%);
+    color: #94a3b8;
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.media-placeholder .media-placeholder-icon {
+    font-size: 1.75rem;
+    opacity: .6;
+}
