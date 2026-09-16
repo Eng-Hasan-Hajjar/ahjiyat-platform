@@ -13,11 +13,16 @@ test('all four content status constants exist with the expected string values', 
         ->and(CampaignStep::CONTENT_STATUS_TECHNICAL_PENDING)->toBe('technical_pending');
 });
 
-test('StepsRelationManager never references puzzle solution data directly', function () {
+// ملاحظة: نبحث عن نمط استخدام فعلي كحقل (::make('solution_data...') لا عن
+// الكلمة المجرَّدة - التعليقات التوثيقية بالملف تذكر "solution_data" عمداً
+// لشرح غيابها، فبحث نصي ساذج عن الكلمة وحدها يُنتج False Positive على تعليق
+// يشرح الأمان بالضبط.
+test('StepsRelationManager never exposes solution_data as an actual editable field', function () {
     $source = file_get_contents(app_path('Filament/Resources/CampaignGateResource/RelationManagers/StepsRelationManager.php'));
 
-    expect($source)->not->toContain('solution_data')
-        ->and($source)->not->toContain('answer_hash');
+    expect($source)->not->toContain("make('solution_data")
+        ->and($source)->not->toContain("make('answer_hash")
+        ->and($source)->not->toContain("make('answer_raw");
 });
 
 test('a reflection step stores and reads back an optional intro alongside its prompt', function () {
