@@ -14,10 +14,9 @@ use Filament\Tables\Table;
 use Illuminate\Support\Str;
 
 /**
- * أعلى مستوى بالتسلسل الإداري (C7.7): Campaign page → Manage Stages →
- * Manage Gates → Manage Steps. Stages/Gates/Steps تُدار عبر Resources
- * متتالية مخفية عن التنقّل الرئيسي (CampaignStageResource/CampaignGateResource)
- * - لا Giant Nested Form واحد، ولا Visual Campaign Builder كامل.
+ * أعلى مستوى بالتسلسل الإداري: Campaign page → Manage Stages → Manage
+ * Gates → Manage Steps. Stages/Gates/Steps تُدار عبر Resources متتالية
+ * مخفية عن التنقّل الرئيسي - لا Giant Nested Form، ولا Visual Builder كامل.
  */
 class CampaignResource extends Resource
 {
@@ -55,7 +54,11 @@ class CampaignResource extends Resource
             Forms\Components\FileUpload::make('cover_image')
                 ->label('صورة الغلاف')
                 ->image()
-                ->directory('campaigns/covers'),
+                ->imageEditor()
+                ->disk('public')
+                ->directory('campaigns/covers')
+                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                ->maxSize(4096),
 
             Forms\Components\Toggle::make('is_active')->label('مفعّلة')->default(false),
 

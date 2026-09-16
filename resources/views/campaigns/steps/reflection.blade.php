@@ -14,6 +14,10 @@
 
             <h1 class="font-display font-black text-2xl md:text-3xl text-white mb-4">{{ $step->title }}</h1>
 
+            @if ($intro = data_get($step->content, 'intro'))
+                <p class="text-slate-400 leading-relaxed mb-4">{{ $intro }}</p>
+            @endif
+
             @if ($prompt = data_get($step->content, 'prompt', $step->subtitle))
                 <p class="text-slate-300 leading-relaxed mb-6">{{ $prompt }}</p>
             @endif

@@ -10,13 +10,14 @@ use Filament\Forms\Get;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * الطبقة الأدنى بالتسلسل - لا Resource خاص للخطوات. الحقول الشرطية حسب
- * kind/reward_mode عبر Get/live() (نفس فلسفة PuzzleResource). D2 يضيف:
- * kind=reflection (Prompt/Min/Max)، حقول Media عامة (image/audio) لكل
- * الأنواع، وContent Status إداري (لا يُقرأ بمنطق الإكمال إطلاقاً).
- * Puzzle.solution_data لا تظهر هون إطلاقاً - فقط Select لأحجية موجودة مسبقاً.
+ * kind/reward_mode عبر Get/live(). Media عامة (صورة/صوت) لكل الأنواع (تُستخدم
+ * فعلياً بأصيل مثلاً لخطوات puzzle كأدلة صوتية، لا حصراً narrative) - Content
+ * Status إداري بحت لا يُقرأ بمنطق الإكمال إطلاقاً. Puzzle.solution_data لا
+ * تظهر هون إطلاقاً - فقط Select لأحجية موجودة مسبقاً.
  */
 class StepsRelationManager extends RelationManager
 {
@@ -46,7 +47,12 @@ class StepsRelationManager extends RelationManager
                 ->visible(fn (Get $get) => $get('kind') === CampaignStep::KIND_NARRATIVE)
                 ->columnSpanFull(),
 
-            // ===== reflection فقط (D2) =====
+            // ===== reflection فقط =====
+            Forms\Components\Textarea::make('content.intro')
+                ->label('مقدّمة اختيارية قبل السؤال')
+                ->rows(2)
+                ->visible(fn (Get $get) => $get('kind') === CampaignStep::KIND_REFLECTION)
+                ->columnSpanFull(),
             Forms\Components\Textarea::make('content.prompt')
                 ->label('سؤال التأمّل')->rows(3)
                 ->required(fn (Get $get) => $get('kind') === CampaignStep::KIND_REFLECTION)
@@ -59,18 +65,43 @@ class StepsRelationManager extends RelationManager
                 ->label('الحد الأقصى لعدد الأحرف')->numeric()->minValue(1)->default(2000)
                 ->visible(fn (Get $get) => $get('kind') === CampaignStep::KIND_REFLECTION),
 
-            // ===== Media عامة (D2) - لكل الأنواع، اختيارية =====
+            // ===== Media عامة - لكل الأنواع، اختيارية دائماً =====
             Forms\Components\Section::make('وسائط مرافقة (اختياري)')
+                ->description('صورة أو مقطع صوتي يظهر مع هذه الخطوة للاعب - اختياري تماماً.')
                 ->schema([
                     Forms\Components\Select::make('content.media_type')
                         ->label('نوع الوسائط')
                         ->options(['image' => 'صورة', 'audio' => 'مقطع صوتي'])
-                        ->native(false),
+                        ->placeholder('بدون وسائط')
+                        ->native(false)
+                        ->live(),
+
                     Forms\Components\FileUpload::make('content.media_path')
                         ->label('الملف')
+                        ->disk('public')
                         ->directory('campaigns/media')
-                        ->disk('public'),
-                    Forms\Components\TextInput::make('content.caption')->label('تعليق توضيحي (اختياري)')->columnSpanFull(),
+                        ->acceptedFileTypes(fn (Get $get) => $get('content.media_type') === 'audio'
+                            ? ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/x-m4a']
+                            : ['image/jpeg', 'image/png', 'image/webp'])
+                        ->maxSize(8192)
+                        ->visible(fn (Get $get) => filled($get('content.media_type'))),
+
+                    Forms\Components\TextInput::make('content.caption')
+                        ->label('تعليق توضيحي (اختياري)')
+                        ->visible(fn (Get $get) => filled($get('content.media_type')))
+                        ->columnSpanFull(),
+
+                    // تحذير إداري فقط - لا يمنع الحفظ، فقط يُنبِّه إن أشار المسار
+                    // لملف غير موجود فعلياً بالتخزين (مثلاً بعد نقل/حذف يدوي خارجي).
+                    Forms\Components\Placeholder::make('media_missing_warning')
+                        ->label('')
+                        ->content('⚠️ هذا الملف غير موجود فعلياً بالتخزين - ارفع الملف من جديد.')
+                        ->visible(function (Get $get) {
+                            $path = $get('content.media_path');
+
+                            return filled($path) && ! Storage::disk('public')->exists($path);
+                        })
+                        ->columnSpanFull(),
                 ])
                 ->columns(2)
                 ->collapsed()
@@ -86,18 +117,18 @@ class StepsRelationManager extends RelationManager
                 ->helperText('تعديل محتوى/حل الأحجية نفسها يتم من صفحة الأحجيات، لا هون.')
                 ->columnSpanFull(),
 
-            // ===== المكافأة =====
+            // ===== المكافأة - لخطوات الأحجية فقط =====
             Forms\Components\Select::make('reward_mode')
                 ->label('سياسة المكافأة')
                 ->options([
-                    CampaignStep::REWARD_MODE_INHERIT => 'وراثة مكافأة الأحجية الطبيعية',
-                    CampaignStep::REWARD_MODE_OVERRIDE => 'قيمة مخصَّصة لهذه الخطوة',
-                    CampaignStep::REWARD_MODE_NONE => 'بلا مكافأة إطلاقاً',
+                    CampaignStep::REWARD_MODE_INHERIT => 'استخدام مكافأة الأحجية الطبيعية',
+                    CampaignStep::REWARD_MODE_OVERRIDE => 'جائزة مخصَّصة لهذه الخطوة',
+                    CampaignStep::REWARD_MODE_NONE => 'بلا جائزة',
                 ])
                 ->default(CampaignStep::REWARD_MODE_INHERIT)->required()->live()
                 ->visible(fn (Get $get) => $get('kind') === CampaignStep::KIND_PUZZLE),
             Forms\Components\TextInput::make('reward_override_amount')
-                ->label('قيمة المكافأة المخصَّصة (جواهر)')->numeric()->minValue(0)
+                ->label('قيمة الجائزة المخصَّصة (جواهر)')->numeric()->minValue(0)
                 ->required(fn (Get $get) => $get('reward_mode') === CampaignStep::REWARD_MODE_OVERRIDE)
                 ->visible(fn (Get $get) => $get('kind') === CampaignStep::KIND_PUZZLE
                     && $get('reward_mode') === CampaignStep::REWARD_MODE_OVERRIDE),

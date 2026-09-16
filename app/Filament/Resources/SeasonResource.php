@@ -4,10 +4,12 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\CampaignResource;
 use App\Filament\Resources\SeasonResource\Pages;
+use App\Models\Campaign;
 use App\Models\Season;
 use App\Services\SeasonReadinessService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -34,41 +36,78 @@ class SeasonResource extends Resource
                     Forms\Components\Select::make('campaign_id')
                         ->relationship('campaign', 'title')
                         ->label('الحملة المرتبطة')
-                        ->helperText('إدارة المحتوى الفعلي (المراحل/البوابات/المهام) تتم من صفحة الحملة.')
+                        ->helperText('إدارة المحتوى الفعلي (المراحل/البوابات/المهام) تتم من صفحة الحملة عبر زر "إدارة القصة" أدناه.')
                         ->searchable()
                         ->required()
                         ->unique(ignoreRecord: true)
+                        ->live()
+                        ->columnSpanFull(),
+
+                    // عرض عنوان الحملة كمرجع سريع فقط (Read-only) - التعديل الفعلي
+                    // للعنوان يتم من صفحة الحملة نفسها، لا هون، تفاديًا لمصدرَي تحرير.
+                    Forms\Components\Placeholder::make('campaign_title_display')
+                        ->label('عنوان الحملة الحالي')
+                        ->content(fn (Get $get) => Campaign::find($get('campaign_id'))?->title ?? '—')
                         ->columnSpanFull(),
 
                     Forms\Components\TextInput::make('code')->label('رمز الموسم')->placeholder('S01')->required(),
                     Forms\Components\TextInput::make('slug')->label('المعرّف بالرابط (slug)')->required()->unique(ignoreRecord: true),
                 ])->columns(2),
 
-            Forms\Components\Section::make('الهوية والعرض')
+            Forms\Components\Section::make('الهوية البصرية')
                 ->schema([
-                    Forms\Components\FileUpload::make('banner_image')->label('صورة الغلاف (Banner)')->image()->directory('seasons/aseel/banner'),
-                    Forms\Components\FileUpload::make('logo_image')->label('شعار الموسم (اختياري)')->image()->directory('seasons/aseel/logo'),
+                    Forms\Components\FileUpload::make('logo_image')
+                        ->label('شعار الموسم (اختياري)')
+                        ->image()
+                        ->imageEditor()
+                        ->disk('public')
+                        // مسار عام ثابت (لا يعتمد على Slug/ID غير موجودين بعد عند
+                        // الإنشاء) - آمن للاستخدام بأي موسم مستقبلي، لا "aseel" هون.
+                        ->directory('seasons/branding')
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                        ->maxSize(2048),
+
+                    Forms\Components\FileUpload::make('banner_image')
+                        ->label('صورة الغلاف الرئيسية (Hero Banner)')
+                        ->image()
+                        ->imageEditor()
+                        ->disk('public')
+                        ->directory('seasons/branding')
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                        ->maxSize(4096)
+                        ->helperText('تظهر خلف عنوان الموسم بصفحة الـHero وبالصفحة الرئيسية.'),
+
+                    Forms\Components\TextInput::make('theme_config.hero_tagline')
+                        ->label('الجملة التعريفية (Tagline)')
+                        ->columnSpanFull(),
+
                     Forms\Components\Textarea::make('grand_prize_description')
                         ->label('وصف الجائزة الكبرى')
-                        ->helperText('اترك فارغاً لعرض "سيتم الإعلان عن الجائزة الكبرى قريباً".')
+                        ->helperText('اترك فارغاً لعرض "سيتم الإعلان عن الجائزة الكبرى قريباً" تلقائياً للاعبين.')
                         ->columnSpanFull(),
-                ])->columns(2),
 
-            Forms\Components\Section::make('الثيم البصري')
-                ->description('خيارات آمنة ومحدَّدة مسبقاً فقط - لا كتابة CSS/JS حرة.')
-                ->schema([
                     Forms\Components\Select::make('theme_config.preset')
                         ->label('نمط الثيم')
                         ->options(['generic' => 'عام (هوية المنصة القياسية)', 'aseel' => 'أصيل (غموض وتحقيق رقمي)'])
-                        ->default('generic')->native(false)->required(),
-                    Forms\Components\TextInput::make('theme_config.hero_tagline')->label('الجملة التعريفية (Tagline)')->columnSpanFull(),
+                        ->default('generic')
+                        ->native(false)
+                        ->required()
+                        ->helperText('خيارات آمنة محدَّدة مسبقاً فقط - لا كتابة CSS/JS حرة.'),
                 ])->columns(2),
+
+            Forms\Components\Section::make('إدارة القصة')
+                ->schema([
+                    Forms\Components\Placeholder::make('manage_story_hint')
+                        ->label('')
+                        ->content('استخدم زرَّي "إدارة القصة" و"معاينة الموسم" أعلى صفحة القائمة أو أسفل صفحة التعديل بعد الحفظ، للانتقال إلى إدارة المراحل/البوابات/المهام أو معاينة تجربة اللاعب الفعلية.')
+                        ->columnSpanFull(),
+                ]),
 
             Forms\Components\Section::make('النشر')
                 ->schema([
                     Forms\Components\Toggle::make('is_published')
                         ->label('نشر الموسم')
-                        ->helperText('لن يُحفظ منشوراً إذا كانت هناك عناصر تقنية معلَّقة تمنع النشر العام - سيظهر تنبيه.'),
+                        ->helperText('لن يُحفظ منشوراً إذا كانت هناك عناصر تقنية معلَّقة تمنع النشر العام - سيظهر تنبيه بدلاً من ذلك.'),
                     Forms\Components\Toggle::make('is_featured')->label('إبرازه في الصفحة الرئيسية'),
                 ])->columns(2),
         ]);
