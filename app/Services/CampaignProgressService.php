@@ -269,6 +269,42 @@ class CampaignProgressService
         return null;
     }
 
+
+
+
+        /**
+     * الرقم التسلسلي لخطوة عبر كامل الحملة (E2) - نفس منطق العدّ المستخدم
+     * بخريطة القصة بالضبط، مُستخرَج هون كمصدر وحيد يشاركه Story Map وصفحة
+     * الخطوة (Step Shell) بلا ازدواجية. Convenience للعرض - $campaign يجب
+     * أن تكون مُحمَّلة مسبقاً (stages.gates.steps) لتفادي N+1.
+     */
+    public function missionNumberFor(Campaign $campaign, CampaignStep $step): int
+    {
+        $number = 0;
+
+        foreach ($campaign->stages->sortBy('sort_order') as $stage) {
+            foreach ($stage->gates->sortBy('sort_order') as $gate) {
+                foreach ($gate->steps->sortBy('sort_order') as $s) {
+                    $number++;
+
+                    if ($s->is($step)) {
+                        return $number;
+                    }
+                }
+            }
+        }
+
+        return $number;
+    }
+
+    /** ترتيب المستخدم إن كان مؤهَّلاً فعلياً بهذه البوابة (First-N)، أو null. */
+    public function qualifiedRankFor(User $user, CampaignGate $gate): ?int
+    {
+        return CampaignGateQualification::where('campaign_gate_id', $gate->id)
+            ->where('user_id', $user->id)
+            ->value('rank');
+    }
+    
     // ===================================================================
     // Helpers
     // ===================================================================

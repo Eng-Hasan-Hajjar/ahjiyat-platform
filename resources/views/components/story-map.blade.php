@@ -22,16 +22,23 @@
             <div class="space-y-4">
                 @foreach ($stageView->gates as $gateView)
                     <div class="rounded-xl border border-white/10 p-4">
-                        <div class="flex items-center justify-between mb-3">
+                                                <div class="flex items-center justify-between mb-3">
                             <span class="font-bold text-white text-sm">{{ $gateView->model->title }}</span>
-                            <x-campaign-state-badge :state="$gateView->state" small />
+                            <span class="flex items-center gap-1.5">
+                                @if ($gateView->qualifiedRank ?? null)
+                                    <span class="chip !py-0.5 !px-2 text-[10px] !text-gold">تأهّلت - الترتيب #{{ $gateView->qualifiedRank }}</span>
+                                @endif
+                                <x-campaign-state-badge :state="$gateView->state" small />
+                            </span>
                         </div>
 
                         @if ($gateView->state === \App\Services\CampaignProgressService::STATE_NOT_QUALIFIED)
                             <p class="text-xs text-slate-400 mb-3">
-                                اكتملت هذه المرحلة، لكن لم يتم التأهل للمرحلة التالية.
+                                أكملت هذه المرحلة، لكن المقاعد المتاحة للتأهل للمرحلة التالية اكتملت.
                             </p>
                         @endif
+
+                    
 
                         <div class="grid gap-2">
                             @foreach ($gateView->steps as $stepView)

@@ -238,7 +238,19 @@
 }
 
 .spot-difference-stage.is-locked { cursor: default; pointer-events: none; }
+.spot-difference-image-wrap { position: relative; }
 
+.spot-difference-image-label {
+    display: inline-block;
+    margin-bottom: 0.4rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
 .spot-difference-image {
     width: 100%;
     border-radius: 1rem;

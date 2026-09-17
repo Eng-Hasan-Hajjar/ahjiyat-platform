@@ -49,16 +49,22 @@ class CampaignStepController extends Controller
             return view('campaigns.steps.locked', compact('campaign', 'step'));
         }
 
+        // E2: رقم المهمة التسلسلي + Stage/Gate الحاليين - عرض فقط (Step Shell)،
+        // لا علاقة له بمنطق القفل/الإكمال أعلاه.
+        $campaign->loadMissing('stages.gates.steps');
+        $step->loadMissing('gate.stage');
+        $missionNumber = $this->progress->missionNumberFor($campaign, $step);
+
         if ($step->kind === CampaignStep::KIND_NARRATIVE) {
             $completed = $this->progress->isStepCompleted($user, $step);
 
-            return view('campaigns.steps.narrative', compact('campaign', 'step', 'completed'));
+            return view('campaigns.steps.narrative', compact('campaign', 'step', 'completed', 'missionNumber'));
         }
 
         if ($step->kind === CampaignStep::KIND_REFLECTION) {
             $completed = $this->progress->isStepCompleted($user, $step);
 
-            return view('campaigns.steps.reflection', compact('campaign', 'step', 'completed'));
+            return view('campaigns.steps.reflection', compact('campaign', 'step', 'completed', 'missionNumber'));
         }
 
         $puzzle = $step->puzzle;
@@ -72,7 +78,7 @@ class CampaignStepController extends Controller
             ->count();
 
         return view('campaigns.steps.puzzle', compact(
-            'campaign', 'step', 'puzzle', 'renderer', 'usesGameSession', 'completed', 'attemptsUsed'
+            'campaign', 'step', 'puzzle', 'renderer', 'usesGameSession', 'completed', 'attemptsUsed', 'missionNumber'
         ));
     }
 

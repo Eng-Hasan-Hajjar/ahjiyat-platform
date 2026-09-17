@@ -16,15 +16,16 @@
             :availability-label="$availabilityLabel"
             :current-step="$currentStep"
             :percentage="$percentage"
+            :campaign-available="$campaignAvailable"
         />
 
         @auth
-            @if (! $campaignAvailable)
-                <div class="rounded-xl border border-rose/30 bg-rose/10 text-rose px-5 py-4 font-bold anim-fade-up">
-                    {{ $availabilityLabel }} - لا يمكن اللعب حالياً.
-                </div>
-            @elseif ($currentStep)
-                <x-mission-card :campaign="$campaign" :step="$currentStep" />
+            @if ($campaignAvailable && $currentStep)
+                <x-mission-card
+                    :campaign="$campaign"
+                    :step="$currentStep"
+                    :mission-number="$currentStepMissionNumber"
+                />
             @endif
         @endauth
 

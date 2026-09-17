@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Campaign;
 use App\Models\Season;
 use App\Services\CampaignProgressService;
 use Illuminate\Support\Facades\Auth;
@@ -17,11 +18,18 @@ class SeasonController extends Controller
 
     public function index()
     {
+        // E2: مواسم "قريباً"/"انتهى" تبقى ظاهرة بالقائمة العامة (تسويقياً)
+        // بدل الاختفاء الكامل - is_published فقط يتحكم بالظهور من الأساس.
+        // كل موسم يحمل حالته الخاصة (state) بدل فلترة ثنائية قديمة كانت
+        // تُخفي أي موسم "قريباً" بالكامل.
         $seasons = Season::with('campaign')
             ->where('is_published', true)
             ->get()
-            ->filter(fn (Season $season) => $this->progress->isCampaignAvailable($season->campaign))
-            ->sortByDesc('is_featured')
+            ->map(fn (Season $season) => (object) [
+                'model' => $season,
+                'state' => $this->availabilityState($season->campaign),
+            ])
+            ->sortByDesc(fn ($item) => $item->model->is_featured)
             ->values();
 
         return view('seasons.index', compact('seasons'));
@@ -41,6 +49,7 @@ class SeasonController extends Controller
 
         $campaignAvailable = $this->progress->isCampaignAvailable($campaign);
         $currentStep = $user ? $this->progress->currentStepFor($user, $campaign) : null;
+        $currentStepMissionNumber = $currentStep ? $this->progress->missionNumberFor($campaign, $currentStep) : null;
 
         $stagesView = $campaign->stages->sortBy('sort_order')->map(function ($stage) use ($user, $isAdmin) {
             return (object) [
@@ -50,6 +59,8 @@ class SeasonController extends Controller
                     return (object) [
                         'model' => $gate,
                         'state' => $user ? $this->progress->gateState($user, $gate) : \App\Services\CampaignProgressService::STATE_LOCKED,
+                        // Rank فقط إن كان المستخدم مؤهَّلاً فعلياً - null غير ذلك (E2 بند 17).
+                        'qualifiedRank' => $user ? $this->progress->qualifiedRankFor($user, $gate) : null,
                         'steps' => $gate->steps->sortBy('sort_order')->map(function ($step) use ($user, $isAdmin) {
                             return (object) [
                                 'model' => $step,
@@ -71,16 +82,32 @@ class SeasonController extends Controller
             : 0;
         $percentage = $totalSteps > 0 ? (int) round($completedSteps / $totalSteps * 100) : 0;
 
-        $availabilityLabel = match (true) {
-            ! $campaign->is_active => 'غير متاحة حالياً',
-            $campaign->starts_at?->isFuture() => 'قريباً',
-            $campaign->ends_at?->isPast() => 'انتهى الموسم',
-            default => 'مباشر الآن',
-        };
+        $availabilityLabel = $this->availabilityLabel($campaign);
 
         return view('seasons.show', compact(
-            'season', 'campaign', 'stagesView', 'currentStep', 'percentage',
+            'season', 'campaign', 'stagesView', 'currentStep', 'currentStepMissionNumber', 'percentage',
             'campaignAvailable', 'availabilityLabel', 'isAdmin'
         ));
+    }
+
+    /** @return 'live'|'upcoming'|'finished'|'inactive' */
+    protected function availabilityState(Campaign $campaign): string
+    {
+        return match (true) {
+            ! $campaign->is_active => 'inactive',
+            $campaign->starts_at?->isFuture() => 'upcoming',
+            $campaign->ends_at?->isPast() => 'finished',
+            default => 'live',
+        };
+    }
+
+    protected function availabilityLabel(Campaign $campaign): string
+    {
+        return match ($this->availabilityState($campaign)) {
+            'inactive' => 'غير متاحة حالياً',
+            'upcoming' => 'قريباً',
+            'finished' => 'انتهى الموسم',
+            default => 'مباشر الآن',
+        };
     }
 }

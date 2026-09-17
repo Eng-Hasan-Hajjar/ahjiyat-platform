@@ -1,9 +1,9 @@
 {{--
     Hero الموسم الرسمي - كل النصوص/الحالة قادمة Server-side (لا حساب
-    Countdown/Progress بالـJS). صورة الغلاف تمر عبر فحص وجود فعلي (لا
-    Broken Image إن لم تُرفَع بعد).
+    Countdown/Progress بالـJS). صورة الغلاف والشعار يمرّان عبر فحص وجود
+    فعلي (لا Broken Image إن لم تُرفَع بعد).
 --}}
-@props(['season', 'campaign', 'availabilityLabel', 'currentStep', 'percentage'])
+@props(['season', 'campaign', 'availabilityLabel', 'currentStep', 'percentage', 'campaignAvailable' => true])
 
 <section class="season-hero {{ $season->themePreset() === 'aseel' ? 'theme-aseel' : '' }} anim-fade-up">
     @if ($season->banner_image && \Illuminate\Support\Facades\Storage::disk('public')->exists($season->banner_image))
@@ -13,7 +13,16 @@
     @endif
 
     <div class="relative max-w-2xl">
-        <span class="season-badge mb-4">موسم {{ $season->code }}</span>
+        <div class="flex items-center gap-3 mb-4">
+            @if ($season->logo_image && \Illuminate\Support\Facades\Storage::disk('public')->exists($season->logo_image))
+                <img
+                    src="{{ \Illuminate\Support\Facades\Storage::url($season->logo_image) }}"
+                    alt="{{ $campaign->title }}"
+                    class="season-logo"
+                >
+            @endif
+            <span class="season-badge">موسم {{ $season->code }}</span>
+        </div>
 
         <h1 class="font-display font-black text-3xl md:text-5xl text-white mb-3 leading-tight">
             {{ $campaign->title }}
@@ -29,6 +38,13 @@
 
         <div class="flex flex-wrap items-center gap-3 mb-6">
             <span class="chip !py-1.5">{{ $availabilityLabel }}</span>
+
+            @if ($campaign->starts_at?->isFuture())
+                <span class="chip !py-1.5">يبدأ {{ $campaign->starts_at->translatedFormat('j F') }}</span>
+            @elseif ($campaign->ends_at && ! $campaign->ends_at->isPast())
+                <span class="chip !py-1.5">ينتهي {{ $campaign->ends_at->translatedFormat('j F') }}</span>
+            @endif
+
             @if ($season->grand_prize_description)
                 <span class="chip !py-1.5 !text-gold">🏆 {{ $season->grand_prize_description }}</span>
             @else
@@ -49,7 +65,13 @@
                 </div>
             @endif
 
-            @if ($currentStep)
+            @if (! $campaignAvailable)
+                {{-- الحملة غير متاحة حالياً (قريباً/انتهت) - لا CTA للعب رغم وجود
+                     currentStep تقنياً (isStepUnlocked ستمنعه أصلاً عند الدخول). --}}
+                <div class="rounded-xl border border-white/10 bg-white/5 text-slate-300 px-5 py-3 font-bold inline-block">
+                    {{ $availabilityLabel }}
+                </div>
+            @elseif ($currentStep)
                 <a href="{{ route('campaigns.steps.show', [$campaign, $currentStep]) }}" class="btn-gem !py-3 !px-6">
                     {{ $percentage > 0 ? 'متابعة الرحلة' : 'ابدأ الرحلة' }} ←
                 </a>
