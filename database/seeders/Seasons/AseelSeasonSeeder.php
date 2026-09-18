@@ -14,9 +14,18 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * Data creation فقط - صفر Business Logic هون. لا كلاسات باسم Aseel داخل
- * Game/Campaign Engine - هذا الملف الوحيد الذي "يعرف" أصيل. Idempotent
- * بالكامل عبر updateOrCreate() بمفاتيح مستقرة (slug/sort_order/title) -
- * إعادة التشغيل لا تُنشئ نسخاً مكرَّرة ولا تعتمد على IDs ثابتة.
+ * Game/Campaign Engine - هذا الملف الوحيد الذي "يعرف" أصيل.
+ *
+ * Idempotent بالكامل عبر firstOrCreate() بمفاتيح مستقرة (slug/sort_order/
+ * title) - إعادة التشغيل لا تُنشئ نسخاً مكرَّرة ولا تعتمد على IDs ثابتة.
+ *
+ * E3 (Seeder Safety): كانت تستخدم updateOrCreate() سابقاً، ما يعني إعادة
+ * تشغيلها تكتب فوق أي تعديل أجراه Admin لاحقاً من Filament (النصوص، الصور،
+ * المكافآت...) وتُعيدها لقيم Demo الافتراضية بصمت. الآن firstOrCreate():
+ * الصف يُنشأ بمحتوى Demo فقط أول مرة؛ أي إعادة تشغيل لاحقة تترك الصفوف
+ * الموجودة كما هي بالكامل - مهما عدّلها Admin. لإعادة ضبط أصيل بالكامل
+ * لقيم Demo الأصلية عمداً: احذف صف Campaign (aseel-season-01) يدويًا -
+ * الحذف المتسلسل (Cascade) يزيل كل شيء تحته، ثم أعد تشغيل الـSeeder.
  *
  * 3 Stages / 6 Gates / 22 Steps (Full Prototype). كل محتوى غير نهائي
  * مُعلَّم بتعليقات المطوّر فقط (لا يظهر للاعب حرفياً) - راجع
@@ -30,12 +39,12 @@ class AseelSeasonSeeder extends Seeder
         // مفقوداً بالنسخة السابقة فتسبَّب بفشل كل الاختبارات فوراً. slug
         // ثابت وآمن (لا تحويل تلقائي Str::slug() من نص عربي، لتفادي أي
         // نتيجة فارغة/ملتبسة).
-        $category = PuzzleCategory::updateOrCreate(
+        $category = PuzzleCategory::firstOrCreate(
             ['slug' => 'official-seasons'],
             ['name' => 'المواسم الرسمية', 'is_active' => true, 'sort_order' => 999],
         );
 
-        $campaign = Campaign::updateOrCreate(
+        $campaign = Campaign::firstOrCreate(
             ['slug' => 'aseel-season-01'],
             [
                 'title' => 'أصيل — الفتى الذي يسمع أكثر مما ينبغي',
@@ -46,7 +55,7 @@ class AseelSeasonSeeder extends Seeder
             ],
         );
 
-        $season = Season::updateOrCreate(
+        $season = Season::firstOrCreate(
             ['campaign_id' => $campaign->id],
             [
                 'code' => 'S01',
@@ -62,12 +71,12 @@ class AseelSeasonSeeder extends Seeder
         );
 
         // ================= STAGE 1 — الأثر =================
-        $stage1 = CampaignStage::updateOrCreate(
+        $stage1 = CampaignStage::firstOrCreate(
             ['campaign_id' => $campaign->id, 'sort_order' => 1],
             ['title' => 'المرحلة الأولى — الأثر', 'subtitle' => null],
         );
 
-        $gate1 = CampaignGate::updateOrCreate(
+        $gate1 = CampaignGate::firstOrCreate(
             ['campaign_stage_id' => $stage1->id, 'sort_order' => 1],
             [
                 'title' => 'البوابة الأولى — أول الأدلة',
@@ -120,7 +129,7 @@ class AseelSeasonSeeder extends Seeder
         ], $notebookPuzzle);
 
         // ----- Gate 2: القبول -----
-        $gate2 = CampaignGate::updateOrCreate(
+        $gate2 = CampaignGate::firstOrCreate(
             ['campaign_stage_id' => $stage1->id, 'sort_order' => 2],
             ['title' => 'البوابة الثانية — القبول', 'subtitle' => null, 'narrative_intro' => null, 'qualification_rule' => null],
         );
@@ -168,12 +177,12 @@ class AseelSeasonSeeder extends Seeder
         ]);
 
         // ================= STAGE 2 — خلف الحسابات =================
-        $stage2 = CampaignStage::updateOrCreate(
+        $stage2 = CampaignStage::firstOrCreate(
             ['campaign_id' => $campaign->id, 'sort_order' => 2],
             ['title' => 'المرحلة الثانية — خلف الحسابات', 'subtitle' => null],
         );
 
-        $gate3 = CampaignGate::updateOrCreate(
+        $gate3 = CampaignGate::firstOrCreate(
             ['campaign_stage_id' => $stage2->id, 'sort_order' => 1],
             ['title' => 'البوابة الثالثة — فك الحسابات', 'subtitle' => null, 'narrative_intro' => null, 'qualification_rule' => null],
         );
@@ -203,7 +212,7 @@ class AseelSeasonSeeder extends Seeder
             'status' => CampaignStep::CONTENT_STATUS_CONTENT_PENDING,
         ]);
 
-        $gate4 = CampaignGate::updateOrCreate(
+        $gate4 = CampaignGate::firstOrCreate(
             ['campaign_stage_id' => $stage2->id, 'sort_order' => 2],
             ['title' => 'البوابة الرابعة — أدلة صوتية وبصرية', 'subtitle' => null, 'narrative_intro' => null, 'qualification_rule' => null],
         );
@@ -256,7 +265,7 @@ class AseelSeasonSeeder extends Seeder
             'status' => CampaignStep::CONTENT_STATUS_CONTENT_PENDING,
         ], $audioSpeedPuzzle);
 
-        $gate5 = CampaignGate::updateOrCreate(
+        $gate5 = CampaignGate::firstOrCreate(
             ['campaign_stage_id' => $stage2->id, 'sort_order' => 3],
             ['title' => 'البوابة الخامسة — التحديات الكبرى', 'subtitle' => null, 'narrative_intro' => null, 'qualification_rule' => null],
         );
@@ -297,12 +306,12 @@ class AseelSeasonSeeder extends Seeder
         ], $storyAccountPuzzle);
 
         // ================= STAGE 3 — العودة =================
-        $stage3 = CampaignStage::updateOrCreate(
+        $stage3 = CampaignStage::firstOrCreate(
             ['campaign_id' => $campaign->id, 'sort_order' => 3],
             ['title' => 'المرحلة الثالثة — العودة', 'subtitle' => null],
         );
 
-        $gate6 = CampaignGate::updateOrCreate(
+        $gate6 = CampaignGate::firstOrCreate(
             ['campaign_stage_id' => $stage3->id, 'sort_order' => 1],
             ['title' => 'البوابة السادسة — الرجوع', 'subtitle' => null, 'narrative_intro' => null, 'qualification_rule' => null],
         );
@@ -327,7 +336,7 @@ class AseelSeasonSeeder extends Seeder
 
     protected function step(CampaignGate $gate, int $sortOrder, string $kind, string $title, array $content, ?Puzzle $puzzle = null): CampaignStep
     {
-        return CampaignStep::updateOrCreate(
+        return CampaignStep::firstOrCreate(
             ['campaign_gate_id' => $gate->id, 'sort_order' => $sortOrder],
             [
                 'kind' => $kind,
@@ -342,7 +351,7 @@ class AseelSeasonSeeder extends Seeder
 
     protected function puzzle(string $title, PuzzleCategory $category, array $attributes): Puzzle
     {
-        return Puzzle::updateOrCreate(
+        return Puzzle::firstOrCreate(
             ['title' => $title],
             array_merge(['puzzle_category_id' => $category->id], $attributes),
         );
