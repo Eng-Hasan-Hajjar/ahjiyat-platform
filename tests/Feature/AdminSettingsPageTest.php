@@ -3,6 +3,29 @@
 use App\Models\PlatformSetting;
 use App\Models\User;
 
+test('DIAGNOSTIC v4 - verify the admin user actually has role=admin at request time', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    dump('role right after create(): '.var_export($admin->role, true));
+    dump('isAdmin() right after create(): '.var_export($admin->isAdmin(), true));
+    dump('fresh() role from DB: '.var_export($admin->fresh()->role, true));
+    dump('default auth guard config: '.var_export(config('auth.defaults.guard'), true));
+    try {
+        dump('filament panel auth guard: '.var_export(\Filament\Facades\Filament::getCurrentOrDefaultPanel()?->getAuthGuard(), true));
+    } catch (\Throwable $e) {
+        dump('filament panel auth guard check failed: '.$e->getMessage());
+    }
+
+    $this->actingAs($admin);
+
+    dump('auth()->id() after actingAs: '.var_export(auth()->id(), true));
+    dump('auth()->user()?->role after actingAs: '.var_export(auth()->user()?->role, true));
+    dump('auth()->user()?->isAdmin() after actingAs: '.var_export(auth()->user()?->isAdmin(), true));
+
+    expect(true)->toBeTrue();
+});
+
+
 test('an admin can access the platform settings page', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
