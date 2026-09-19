@@ -3,13 +3,11 @@
 @import "./seasons.css";
 
 @theme {
-    /* نظام الألوان الداكن الفاخر */
     --color-night-950: #060a17;
     --color-night-900: #0b1226;
     --color-night-800: #101a38;
     --color-night-700: #1a2347;
 
-    /* إعادة تعريف الألوان الأصلية بظلال أعمق */
     --color-ink: #e2e8f0;
     --color-parchment: #0b1226;
 
@@ -23,34 +21,65 @@
     --color-emerald: #34d399;
     --color-rose: #fb7185;
 
-    /* خطوط */
     --font-display: "Cairo", ui-sans-serif, system-ui, sans-serif;
     --font-body: "Cairo", ui-sans-serif, system-ui, sans-serif;
 }
 
+/*
+ * ===== طبقة Design Tokens الديناميكية (E4) =====
+ * القيم هنا افتراضية فقط - تُستبدَل فعليًا بقيم لوحة الإدارة عبر <style>
+ * مضمَّنة بالـ<head> تُحقَن بعد هذا الملف - بلا أي npm run build عند تغيير لون.
+ */
+:root {
+    --color-primary: #8b5cf6;
+    --color-secondary: #22d3ee;
+    --color-accent: #fcd34d;
+    --color-success: #34d399;
+    --color-warning: #fbbf24;
+    --color-danger: #fb7185;
+
+    --color-bg: #060a17;
+    --color-surface: rgba(255, 255, 255, .04);
+    --color-surface-border: rgba(255, 255, 255, .08);
+    --color-text: #e2e8f0;
+    --color-text-strong: #ffffff;
+    --color-muted: #94a3b8;
+    --ui-radius: 1rem;
+}
+
+:root[data-theme="light"] {
+    --color-bg: #f7f5fb;
+    --color-surface: rgba(139, 92, 246, .05);
+    --color-surface-border: rgba(15, 23, 42, .08);
+    --color-text: #1e1b2e;
+    --color-text-strong: #0f0b1f;
+    --color-muted: #64748b;
+}
+
 html { scroll-behavior: smooth; }
 
-/* يمنع وميض عناصر Alpine (مثل قائمة الموبايل) قبل تحميل JS */
 [x-cloak] { display: none !important; }
 
 body {
     font-family: var(--font-body);
-    background-color: var(--color-night-950);
-    color: #cbd5e1;
+    background-color: var(--color-bg);
+    color: var(--color-text);
     min-height: 100vh;
+    transition: background-color .25s ease, color .25s ease;
 }
 
-/* ===== خلفية Aurora متوهجة (ميزة 2025/2026 العالمية) ===== */
 .aurora-bg {
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
     background:
-        radial-gradient(700px 400px at 90% -5%, rgba(139, 92, 246, .25), transparent 60%),
-        radial-gradient(800px 450px at 5% 5%, rgba(56, 189, 248, .15), transparent 60%),
+        radial-gradient(700px 400px at 90% -5%, color-mix(in srgb, var(--color-primary) 25%, transparent), transparent 60%),
+        radial-gradient(800px 450px at 5% 5%, color-mix(in srgb, var(--color-secondary) 15%, transparent), transparent 60%),
         radial-gradient(1000px 600px at 50% 110%, rgba(217, 70, 239, .12), transparent 60%);
 }
+
+:root[data-theme="light"] .aurora-bg { opacity: .5; }
 
 .aurora-bg::after {
     content: "";
@@ -63,68 +92,64 @@ body {
     -webkit-mask-image: radial-gradient(ellipse at top, black 0%, transparent 75%);
 }
 
-/* ===== تأثير Glassmorphism للأسطح ===== */
+:root[data-theme="light"] .aurora-bg::after { opacity: .08; }
+
 .glass {
-    background: rgba(255, 255, 255, .04);
-    border: 1px solid rgba(255, 255, 255, .08);
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-border);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
 }
 
-/* ===== نص متدرج فاخر ===== */
 .text-gradient-gem {
-    background: linear-gradient(135deg, #c4b5fd 0%, #f0abfc 45%, #fcd34d 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, #f0abfc 45%, var(--color-accent) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
 }
 
-/* ===== الشكل السداسي المميز (gem-facet) ===== */
 .gem-facet {
     clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
 }
 
-/* ===== تأثيرات الإضاءة (Glow) ===== */
 .glow-amethyst {
-    box-shadow: 0 0 20px rgba(139, 92, 246, .4),
-                0 0 40px rgba(139, 92, 246, .2);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 40%, transparent),
+                0 0 40px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
 .glow-gold {
-    box-shadow: 0 0 20px rgba(252, 211, 77, .4),
-                0 0 40px rgba(252, 211, 77, .2);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent) 40%, transparent),
+                0 0 40px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
-/* ===== زر رئيسي متدرج ===== */
 .btn-gem {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: .5rem;
-    border-radius: 1rem;
+    border-radius: var(--ui-radius);
     padding: .85rem 1.8rem;
     font-weight: 800;
     color: #fff;
-    background: linear-gradient(135deg, #7c3aed 0%, #d946ef 55%, #f59e0b 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, #d946ef 55%, var(--color-accent) 100%);
     background-size: 180% 180%;
     transition: all .3s ease;
-    box-shadow: 0 8px 30px -10px rgba(217, 70, 239, .5);
+    box-shadow: 0 8px 30px -10px color-mix(in srgb, var(--color-primary) 50%, transparent);
 }
 
 .btn-gem:hover {
     background-position: 90% 50%;
     transform: translateY(-2px);
-    box-shadow: 0 12px 40px -10px rgba(217, 70, 239, .7);
+    box-shadow: 0 12px 40px -10px color-mix(in srgb, var(--color-primary) 70%, transparent);
 }
 
 .btn-gem:active { transform: scale(.97); }
 
-/* ===== بطاقات الأحجيات ===== */
 .puzzle-card {
-    border-radius: 1.4rem;
+    border-radius: calc(var(--ui-radius) * 1.4);
     padding: 1.5rem;
-    background: rgba(255, 255, 255, .04);
-    border: 1px solid rgba(255, 255, 255, .08);
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-border);
     backdrop-filter: blur(14px);
     transition: all .3s ease;
     position: relative;
@@ -137,61 +162,58 @@ body {
     inset: 0;
     opacity: 0;
     transition: opacity .3s;
-    background: radial-gradient(400px 160px at 80% -10%, rgba(139, 92, 246, .2), transparent 60%);
+    background: radial-gradient(400px 160px at 80% -10%, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent 60%);
 }
 
 .puzzle-card:hover {
     transform: translateY(-6px);
-    border-color: rgba(167, 139, 250, .4);
-    box-shadow: 0 18px 50px -18px rgba(139, 92, 246, .5);
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    box-shadow: 0 18px 50px -18px color-mix(in srgb, var(--color-primary) 50%, transparent);
 }
 
 .puzzle-card:hover::before { opacity: 1; }
 
-/* ===== شارات التصنيفات ===== */
 .chip {
     border-radius: 9999px;
     padding: .5rem 1.1rem;
     font-size: .85rem;
     font-weight: 700;
-    background: rgba(255, 255, 255, .05);
-    border: 1px solid rgba(255, 255, 255, .1);
-    color: #cbd5e1;
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-border);
+    color: var(--color-text);
     transition: all .25s ease;
 }
 
 .chip:hover {
-    border-color: rgba(167, 139, 250, .6);
-    color: #fff;
+    border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+    color: var(--color-text-strong);
     transform: translateY(-2px);
 }
 
 .chip-active {
-    background: linear-gradient(135deg, rgba(139, 92, 246, .3), rgba(217, 70, 239, .2));
-    border-color: rgba(167, 139, 250, .6);
-    color: #fff;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 30%, transparent), rgba(217, 70, 239, .2));
+    border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+    color: var(--color-text-strong);
 }
 
-/* ===== حقول الإدخال ===== */
 .input-gem {
     width: 100%;
-    border-radius: 1rem;
+    border-radius: var(--ui-radius);
     padding: .9rem 1.2rem;
     outline: none;
-    background: rgba(255, 255, 255, .05);
-    border: 1px solid rgba(255, 255, 255, .1);
-    color: #fff;
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-border);
+    color: var(--color-text-strong);
     transition: all .25s ease;
 }
 
-.input-gem::placeholder { color: #64748b; }
+.input-gem::placeholder { color: var(--color-muted); }
 
 .input-gem:focus {
-    border-color: rgba(167, 139, 250, .7);
-    box-shadow: 0 0 0 4px rgba(139, 92, 246, .15);
+    border-color: color-mix(in srgb, var(--color-primary) 70%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
-/* ===== حركات (Animations) ===== */
 @keyframes fadeUp {
     from { opacity: 0; transform: translateY(18px); }
     to { opacity: 1; transform: none; }
@@ -216,10 +238,51 @@ body {
 .anim-float { animation: floaty 5s ease-in-out infinite; }
 .anim-pulse-glow { animation: pulseGlow 3s ease-in-out infinite; }
 
-/* ===== Scrollbar مخصص ===== */
+@media (prefers-reduced-motion: reduce) {
+    .anim-fade-up, .anim-float, .anim-pulse-glow { animation: none !important; }
+    .btn-gem, .puzzle-card, .chip { transition: none !important; }
+    .btn-gem:hover, .puzzle-card:hover { transform: none !important; }
+    * { scroll-behavior: auto !important; }
+}
+
 ::-webkit-scrollbar { width: 10px; }
-::-webkit-scrollbar-track { background: var(--color-night-900); }
+::-webkit-scrollbar-track { background: var(--color-bg); }
 ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #7c3aed, #d946ef);
+    background: linear-gradient(180deg, var(--color-primary), #d946ef);
     border-radius: 10px;
 }
+
+/*
+ * ===== طبقة توافق الثيم الفاتح (E4) =====
+ * بدل إعادة كتابة كل Class Tailwind بكل ملف Blade، نُعيد توجيه أكثر
+ * الأصناف استخدامًا للنص/الخلفية عبر الموقع نحو Design Tokens فقط عند
+ * data-theme="light". صفحات Filament لها نظام ثيم خاص بها، غير متأثرة.
+ */
+:root[data-theme="light"] {
+    color-scheme: light;
+}
+
+:root[data-theme="light"] .text-white,
+:root[data-theme="light"] .text-slate-100,
+:root[data-theme="light"] .text-slate-200 { color: var(--color-text-strong) !important; }
+
+:root[data-theme="light"] .text-slate-300,
+:root[data-theme="light"] .text-slate-400 { color: var(--color-text) !important; }
+
+:root[data-theme="light"] .text-slate-500,
+:root[data-theme="light"] .text-slate-600 { color: var(--color-muted) !important; }
+
+:root[data-theme="light"] .bg-night-950,
+:root[data-theme="light"] .bg-night-900,
+:root[data-theme="light"] .bg-night-800 { background-color: var(--color-bg) !important; }
+
+:root[data-theme="light"] .border-white\/10,
+:root[data-theme="light"] .border-white\/5,
+:root[data-theme="light"] .border-white\/20 { border-color: var(--color-surface-border) !important; }
+
+:root[data-theme="light"] .bg-white\/5,
+:root[data-theme="light"] .bg-white\/4,
+:root[data-theme="light"] .bg-white\/10 { background-color: var(--color-surface) !important; }
+
+:root[data-theme="light"] .hover\:bg-white\/5:hover,
+:root[data-theme="light"] .hover\:bg-white\/10:hover { background-color: color-mix(in srgb, var(--color-primary) 8%, transparent) !important; }
