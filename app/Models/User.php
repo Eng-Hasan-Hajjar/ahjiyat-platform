@@ -10,10 +10,11 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements MustVerifyEmail, FilamentUser
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     protected $fillable = [
         'name',
@@ -36,15 +37,22 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         ];
     }
 
+    /**
+     * @deprecated (E5) — users.role القديم يبقى مؤقتاً للتوافق والـRollback
+     * فقط، وليس مصدر الحقيقة بعد الآن. استخدم hasRole()/hasPermissionTo()
+     * (من HasRoles) أو AuthorizationSafetyService بدلاً منها.
+     */
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
     }
 
-    // Filament يستخدم هذه لتحديد من يقدر يدخل لوحة الإدارة
-    public function canAccessPanel(\Filament\Panel $panel): bool
+    // Filament يستخدم هذه لتحديد من يقدر يدخل لوحة الإدارة - E5: مبنية على
+    // صلاحية admin.access الحقيقية. Super Admin يتجاوز هذا تلقائياً عبر
+    // Gate::before (AppServiceProvider) قبل أن تُستدعى هذه الدالة أصلاً.
+    public function canAccessPanel(Panel $panel): bool
     {
-        return $this->isAdmin();
+        return $this->can('admin.access');
     }
 
     public function wallet(): \Illuminate\Database\Eloquent\Relations\HasOne
@@ -72,11 +80,6 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         return $this->hasMany(FraudFlag::class);
     }
 
-    /**
-     * افتراضياً يفحص الحل المستقل (Standalone) فقط. تمرير Context (لاحقاً من
-     * خطوة حملة/تحدٍّ راعٍ) يفحص الحل ضمن ذاك السياق حصراً - حل مستقل لا
-     * يُعتبر أبداً حلاً لسياق آخر، والعكس صحيح.
-     */
     public function hasSolvedPuzzle(Puzzle $puzzle, ?AttemptContext $context = null): bool
     {
         $context ??= AttemptContext::none();
@@ -89,9 +92,7 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
             ->exists();
     }
 
-
-
-        public function campaignProgress(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function campaignProgress(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(UserCampaignProgress::class);
     }
@@ -105,7 +106,4 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
     {
         return $this->hasMany(Campaign::class, 'created_by');
     }
-
-
-
 }

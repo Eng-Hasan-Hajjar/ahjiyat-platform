@@ -32,13 +32,17 @@ class PlatformSettingsPage extends Page implements HasForms
     protected static string $view = 'filament.pages.platform-settings-page';
 
     public array $data = [];
-    // تصريح صريح - لوحة الإدارة نفسها محمية بـcanAccessPanel() (isAdmin())
-    // أصلاً، وهذا التصريح يضمن عدم تعارض أي فحص إضافي على مستوى الصفحة
-    // تحديدًا مهما كان الإعداد الافتراضي الداخلي لإصدار Filament الحالي.
+
+        // E5: كانت canAccess() تُعيد true دائماً (Bug تاريخي من E4 أُصلح
+    // بتصريح صريح وقتها) - الآن الفحص الفعلي: صلاحية settings.view.
+    // Super Admin يتجاوز هذا تلقائياً عبر Gate::before قبل وصوله هون أصلاً.
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('settings.view') ?? false;
     }
+
+
+
     public function mount(): void
     {
         $settings = app(PlatformSettingsService::class);
@@ -260,6 +264,8 @@ class PlatformSettingsPage extends Page implements HasForms
 
     public function save(): void
     {
+                abort_unless(auth()->user()?->can('settings.update'), 403, 'ليس لديك صلاحية تعديل الإعدادات - يمكنك العرض فقط.');
+ 
         $state = $this->form->getState();
         $settings = app(PlatformSettingsService::class);
 
@@ -272,6 +278,9 @@ class PlatformSettingsPage extends Page implements HasForms
 
     public function resetAppearance(): void
     {
+                abort_unless(auth()->user()?->can('settings.update'), 403, 'ليس لديك صلاحية تعديل الإعدادات.');
+
+                
         $defaults = config('platform.appearance');
         $resetValues = collect($defaults)->map(fn ($definition) => $definition['default'])->all();
 

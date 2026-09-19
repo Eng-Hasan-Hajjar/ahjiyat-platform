@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Forms\Components\PermissionMatrix;
 use App\Filament\Resources\UserResource\Pages;
+use App\Models\Role;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -17,7 +19,7 @@ class UserResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
-    protected static ?string $navigationGroup = 'المستخدمون';
+    protected static ?string $navigationGroup = 'إدارة الوصول';
 
     protected static ?string $navigationLabel = 'المستخدمون';
 
@@ -28,12 +30,40 @@ class UserResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\TextInput::make('name')->label('الاسم')->required(),
-            Forms\Components\TextInput::make('email')->label('البريد الإلكتروني')->email()->required(),
-            Forms\Components\Select::make('role')->label('الصلاحية')->options(['user' => 'مستخدم', 'admin' => 'مدير'])->required(),
-            Forms\Components\Toggle::make('is_frozen')->label('محسوب مجمّد')->live(),
-            Forms\Components\TextInput::make('frozen_reason')->label('سبب التجميد')
-                ->visible(fn (Forms\Get $get) => $get('is_frozen')),
+            Forms\Components\Section::make('البيانات الأساسية')
+                ->schema([
+                    Forms\Components\TextInput::make('name')->label('الاسم')->required(),
+                    Forms\Components\TextInput::make('email')->label('البريد الإلكتروني')->email()->required(),
+                    Forms\Components\Toggle::make('is_frozen')->label('محسوب مجمّد')->live(),
+                    Forms\Components\TextInput::make('frozen_reason')->label('سبب التجميد')
+                        ->visible(fn (Forms\Get $get) => $get('is_frozen')),
+                ])->columns(2),
+
+            Forms\Components\Section::make('الأدوار والصلاحيات')
+                ->schema([
+                    Forms\Components\Select::make('roles')
+                        ->label('الأدوار')
+                        ->relationship('roles', 'name')
+                        ->getOptionLabelFromRecordUsing(fn (Role $role) => $role->displayLabel())
+                        ->multiple()
+                        ->preload()
+                        ->searchable()
+                        ->saveRelationshipsUsing(function (User $record, $state) {
+                            app(\App\Filament\Resources\UserResource\RoleAssignmentSaver::class)->save($record, $state);
+                        }),
+
+                    Forms\Components\Placeholder::make('effective_access')
+                        ->label('الوصول الفعلي (بعد آخر حفظ)')
+                        ->content(fn (?User $record) => $record ? view('filament.resources.user-resource.effective-access', ['user' => $record]) : 'احفظ المستخدم أولاً لعرض وصوله الفعلي.')
+                        ->columnSpanFull(),
+                ]),
+
+            Forms\Components\Section::make('صلاحيات مباشرة (استثنائية)')
+                ->description('يُفضَّل التحكم بالصلاحيات عبر الأدوار أعلاه دائماً - استخدم هذا القسم فقط لحالات استثنائية نادرة.')
+                ->collapsed()
+                ->schema([
+                    PermissionMatrix::make('direct_permissions_matrix')->label(''),
+                ]),
         ]);
     }
 
@@ -43,6 +73,8 @@ class UserResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')->label('الاسم')->searchable(),
                 Tables\Columns\TextColumn::make('email')->label('البريد')->searchable(),
+                Tables\Columns\TextColumn::make('roles.label_ar')->label('الأدوار')->badge()
+                    ->formatStateUsing(fn ($state, User $record) => $record->roles->map(fn (Role $r) => $r->displayLabel())->implode(', ') ?: '—'),
                 Tables\Columns\IconColumn::make('email_verified_at')->label('موثّق')->boolean(),
                 Tables\Columns\TextColumn::make('wallet.available_balance')->label('الرصيد المتاح'),
                 Tables\Columns\TextColumn::make('wallet.pending_balance')->label('الرصيد المعلق'),
@@ -51,6 +83,9 @@ class UserResource extends Resource
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_frozen')->label('مجمّد'),
+                Tables\Filters\SelectFilter::make('roles')->label('الدور')
+                    ->relationship('roles', 'name')
+                    ->getOptionLabelFromRecordUsing(fn (Role $role) => $role->displayLabel()),
             ])
             ->actions([
                 Tables\Actions\Action::make('toggle_freeze')
@@ -63,6 +98,7 @@ class UserResource extends Resource
                         Notification::make()->title('تم تحديث حالة الحساب')->success()->send();
                     }),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ]);
     }
 
