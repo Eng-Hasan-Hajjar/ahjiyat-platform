@@ -6,6 +6,13 @@ use App\Models\User;
 
 beforeEach(function () {
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+
+    // إصلاح: Cache الصلاحيات الداخلية بحزمة Spatie قد تبقى من حالة سابقة
+    // ضمن نفس عملية الاختبارات - أي givePermissionTo()/syncPermissions()
+    // بالاسم النصي مباشرة (لا عبر نماذج فعلية) قد تفشل زوراً بخطأ
+    // PermissionDoesNotExist رغم وجود الصلاحية فعلياً بقاعدة البيانات.
+    // مسح صريح هنا يضمن حالة نظيفة قبل كل اختبار.
+    app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
 });
 
 test('assigning a role via RoleAssignmentSaver grants the target user its permissions', function () {

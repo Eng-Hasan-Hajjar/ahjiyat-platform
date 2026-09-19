@@ -7,28 +7,30 @@ use Illuminate\Support\Facades\Gate;
 
 beforeEach(function () {
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+
+    // إصلاح: Cache الصلاحيات الداخلية بحزمة Spatie قد تبقى من حالة سابقة
+    // ضمن نفس عملية الاختبارات - أي givePermissionTo()/syncPermissions()
+    // بالاسم النصي مباشرة (لا عبر نماذج فعلية) قد تفشل زوراً بخطأ
+    // PermissionDoesNotExist رغم وجود الصلاحية فعلياً بقاعدة البيانات.
+    // مسح صريح هنا يضمن حالة نظيفة قبل كل اختبار.
+    app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
 });
 
 test('a user with roles.create can create a new role', function () {
     $user = User::factory()->create();
     $role = Role::create(['name' => 'granter', 'guard_name' => 'web']);
-    $role->givePermissionTo('roles.create');
+    $permission = \Spatie\Permission\Models\Permission::where('name', 'roles.create')->where('guard_name', 'web')->firstOrFail();
+    $role->givePermissionTo($permission);
     $user->assignRole('granter');
 
     expect(Gate::forUser($user)->allows('create', Role::class))->toBeTrue();
 });
 
-test('a user without roles.create cannot create a new role', function () {
-    $user = User::factory()->create();
-    $user->assignRole('player');
-
-    expect(Gate::forUser($user)->allows('create', Role::class))->toBeFalse();
-});
-
 test('a user with roles.update can update a role, without it enforced there is no access', function () {
     $withPermission = User::factory()->create();
     $role = Role::create(['name' => 'updater', 'guard_name' => 'web']);
-    $role->givePermissionTo('roles.update');
+    $permission = \Spatie\Permission\Models\Permission::where('name', 'roles.update')->where('guard_name', 'web')->firstOrFail();
+    $role->givePermissionTo($permission);
     $withPermission->assignRole('updater');
 
     $withoutPermission = User::factory()->create();
@@ -39,6 +41,15 @@ test('a user with roles.update can update a role, without it enforced there is n
     expect(Gate::forUser($withPermission)->allows('update', $target))->toBeTrue()
         ->and(Gate::forUser($withoutPermission)->allows('update', $target))->toBeFalse();
 });
+
+test('a user without roles.create cannot create a new role', function () {
+    $user = User::factory()->create();
+    $user->assignRole('player');
+
+    expect(Gate::forUser($user)->allows('create', Role::class))->toBeFalse();
+});
+
+
 
 test('a system role (player) cannot be deleted', function () {
     $playerRole = Role::where('name', 'player')->firstOrFail();

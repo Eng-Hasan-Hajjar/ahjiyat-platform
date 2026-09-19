@@ -3,9 +3,15 @@
 use App\Models\Role;
 use App\Models\User;
 use App\Services\AuthorizationSafetyService;
-
 beforeEach(function () {
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+
+    // إصلاح: Cache الصلاحيات الداخلية بحزمة Spatie قد تبقى من حالة سابقة
+    // ضمن نفس عملية الاختبارات - أي givePermissionTo()/syncPermissions()
+    // بالاسم النصي مباشرة (لا عبر نماذج فعلية) قد تفشل زوراً بخطأ
+    // PermissionDoesNotExist رغم وجود الصلاحية فعلياً بقاعدة البيانات.
+    // مسح صريح هنا يضمن حالة نظيفة قبل كل اختبار.
+    app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
 });
 
 test('a non-super-admin cannot grant the super-admin role to another user', function () {
