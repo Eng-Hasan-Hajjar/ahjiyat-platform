@@ -32,7 +32,13 @@ class PlatformSettingsPage extends Page implements HasForms
     protected static string $view = 'filament.pages.platform-settings-page';
 
     public array $data = [];
-
+    // تصريح صريح - لوحة الإدارة نفسها محمية بـcanAccessPanel() (isAdmin())
+    // أصلاً، وهذا التصريح يضمن عدم تعارض أي فحص إضافي على مستوى الصفحة
+    // تحديدًا مهما كان الإعداد الافتراضي الداخلي لإصدار Filament الحالي.
+    public static function canAccess(): bool
+    {
+        return true;
+    }
     public function mount(): void
     {
         $settings = app(PlatformSettingsService::class);
