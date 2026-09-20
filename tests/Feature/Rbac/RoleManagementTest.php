@@ -5,6 +5,19 @@ use App\Models\User;
 use App\Services\AuthorizationSafetyService;
 use Illuminate\Support\Facades\Gate;
 
+
+
+test('DIAGNOSTIC - verify permissions actually exist after seeding', function () {
+    dump('config(permissions) module count: '.count(config('permissions', [])));
+    dump('roles module permissions: '.json_encode(config('permissions.roles.permissions', [])));
+    dump('Permission rows in DB: '.\Spatie\Permission\Models\Permission::count());
+    dump('roles.create exists as a row: '.var_export(\Spatie\Permission\Models\Permission::where('name', 'roles.create')->exists(), true));
+    dump('all permission names in DB: '.\Spatie\Permission\Models\Permission::pluck('name')->implode(', '));
+
+    expect(true)->toBeTrue();
+});
+
+
 beforeEach(function () {
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
 
