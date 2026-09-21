@@ -8,16 +8,19 @@ beforeEach(function () {
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
 });
 
-test('operations.dashboard_view permission is required to access the Operations Center', function () {
+test('an authorized admin can access the Operations Center', function () {
     $authorized = User::factory()->create();
     $authorized->assignRole('administrator');
 
+    $this->actingAs($authorized)->get(\App\Filament\Pages\OperationsCenter::getUrl())->assertOk();
+});
+
+test('a role without operations.dashboard_view is denied access to the Operations Center', function () {
     $unauthorized = User::factory()->create();
     $unauthorized->assignRole('content-manager');
 
-    $this->actingAs($authorized)->get(\App\Filament\Pages\OperationsCenter::getUrl())->assertOk();
-
     $response = $this->actingAs($unauthorized)->get(\App\Filament\Pages\OperationsCenter::getUrl());
+
     expect($response->status())->toBe(403);
 });
 

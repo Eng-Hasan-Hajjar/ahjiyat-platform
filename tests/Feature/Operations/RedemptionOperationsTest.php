@@ -30,7 +30,7 @@ test('rejecting a pending request refunds the gems exactly once', function () {
     $admin->assignRole('administrator');
 
     $user = User::factory()->create();
-    Wallet::factory()->create(['user_id' => $user->id, 'available_balance' => 0]);
+    Wallet::updateOrCreate(['user_id' => $user->id], ['available_balance' => 0]);
 
     $request = RedemptionRequest::factory()->create([
         'user_id' => $user->id, 'status' => RedemptionRequest::STATUS_PENDING, 'gems_amount' => 100,
@@ -47,7 +47,7 @@ test('approving a request does not deduct gems again - they were already deducte
     $admin->assignRole('administrator');
 
     $user = User::factory()->create();
-    Wallet::factory()->create(['user_id' => $user->id, 'available_balance' => 500]);
+    Wallet::updateOrCreate(['user_id' => $user->id], ['available_balance' => 500]);
 
     $request = RedemptionRequest::factory()->create([
         'user_id' => $user->id, 'status' => RedemptionRequest::STATUS_PENDING, 'gems_amount' => 100,

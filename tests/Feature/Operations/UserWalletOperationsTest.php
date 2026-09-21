@@ -33,7 +33,7 @@ test('a manual gem adjustment requires wallet.adjust permission', function () {
 
 test('a manual gem adjustment creates a real GemTransaction and updates the balance through the service', function () {
     $target = User::factory()->create();
-    Wallet::factory()->create(['user_id' => $target->id, 'available_balance' => 100]);
+    Wallet::updateOrCreate(['user_id' => $target->id], ['available_balance' => 100]);
 
     app(GemWalletService::class)->adjustAvailable($target, 50, 'تعويض دعم فني');
 
@@ -43,7 +43,7 @@ test('a manual gem adjustment creates a real GemTransaction and updates the bala
 
 test('a manual gem deduction works and creates a negative-amount transaction', function () {
     $target = User::factory()->create();
-    Wallet::factory()->create(['user_id' => $target->id, 'available_balance' => 100]);
+    Wallet::updateOrCreate(['user_id' => $target->id], ['available_balance' => 100]);
 
     app(GemWalletService::class)->adjustAvailable($target, -30, 'تصحيح رصيد');
 
@@ -53,7 +53,7 @@ test('a manual gem deduction works and creates a negative-amount transaction', f
 
 test('a manual adjustment that would push the balance negative is prevented', function () {
     $target = User::factory()->create();
-    Wallet::factory()->create(['user_id' => $target->id, 'available_balance' => 20]);
+    Wallet::updateOrCreate(['user_id' => $target->id], ['available_balance' => 20]);
 
     expect(fn () => app(GemWalletService::class)->adjustAvailable($target, -50, 'خصم كبير'))
         ->toThrow(\RuntimeException::class);
@@ -63,7 +63,7 @@ test('a manual adjustment that would push the balance negative is prevented', fu
 
 test('a zero-amount adjustment is rejected', function () {
     $target = User::factory()->create();
-    Wallet::factory()->create(['user_id' => $target->id, 'available_balance' => 20]);
+    Wallet::updateOrCreate(['user_id' => $target->id], ['available_balance' => 20]);
 
     expect(fn () => app(GemWalletService::class)->adjustAvailable($target, 0, 'بلا قيمة'))
         ->toThrow(\InvalidArgumentException::class);
