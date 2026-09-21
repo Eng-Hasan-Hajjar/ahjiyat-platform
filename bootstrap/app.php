@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAccountIsNotFrozen;
 use App\Http\Middleware\TrackDeviceFingerprint;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -24,6 +25,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->throttleApi();
+
+        // E6: يُطبَّق صراحة فقط على مجموعة الأفعال الحساسة بـroutes/web.php
+        // (انظر EnsureAccountIsNotFrozen) - لا على كل الموقع.
+        $middleware->alias([
+            'account.active' => EnsureAccountIsNotFrozen::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

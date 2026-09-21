@@ -7,20 +7,6 @@ use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
-/**
- * Idempotent بالكامل: تُنشئ الأدوار الافتراضية وصلاحياتها فقط إن كانت
- * ناقصة. درس Aseel Seeder (E3) مُطبَّق هنا حرفياً: firstOrCreate() للدور
- * نفسه، وsyncPermissions() تُستدعى فقط عند إنشاء الدور لأول مرة.
- *
- * إصلاح حرج (جولة ثانية): مسح الـCache وحده لم يكفِ - syncPermissions()
- * بالأسماء النصية تعتمد داخلياً على Permission::findByName() التي تقرأ من
- * نفس تلك الـCache الداخلية، وقد تبقى عرضة لحالة سباق ضمن بيئة الاختبارات
- * (Transaction Rollback بين الاختبارات لا يُفرِّغ Cache الحزمة الداخلية
- * بالضرورة بنفس لحظة استئناف الاختبار التالي). الحل القاطع: تجاوز البحث
- * بالاسم كلياً - جلب نماذج Permission الفعلية بـQuery مباشرة طازجة، ثم
- * تمريرها كـCollection من الكائنات لـsyncPermissions() بدل الأسماء
- * النصية - هذا المسار لا يمر بآلية الـCache الداخلية إطلاقاً.
- */
 class RolesAndPermissionsSeeder extends Seeder
 {
     public function run(): void
@@ -54,12 +40,25 @@ class RolesAndPermissionsSeeder extends Seeder
 
         $this->role('player', 'لاعب', 'الدور الافتراضي لأي مستخدم جديد - بلا وصول للوحة الإدارة.', true, '#64748b', 99, []);
 
+        $this->grantIfMissing('administrator', [
+            'users.freeze', 'users.unfreeze', 'users.view_security', 'users.view_wallet',
+            'users.view_activity', 'users.manage_roles', 'wallet.adjust',
+            'security.sessions_view', 'security.sessions_revoke', 'operations.dashboard_view',
+        ]);
+
+        $this->grantIfMissing('moderator', [
+            'users.view_security', 'users.view_activity', 'operations.dashboard_view',
+        ]);
+
+        $this->grantIfMissing('support', [
+            'users.view_activity',
+        ]);
+
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         \Illuminate\Support\Facades\Artisan::call('rbac:migrate-legacy-roles');
     }
 
-    /** Query مباشرة طازجة - لا اعتماد على أي Cache حزمة داخلية. */
     protected function allPermissionNames(): array
     {
         return Permission::query()->where('guard_name', 'web')->pluck('name')->all();
@@ -73,8 +72,6 @@ class RolesAndPermissionsSeeder extends Seeder
         );
 
         if ($role->wasRecentlyCreated && ! empty($permissionNames)) {
-            // نماذج فعلية بـQuery طازجة مباشرة - يتجاوز Permission::findByName()
-            // الداخلية بالحزمة كلياً، فلا يتأثر بأي حالة سباق بالـCache إطلاقاً.
             $models = Permission::query()
                 ->where('guard_name', 'web')
                 ->whereIn('name', $permissionNames)
@@ -82,5 +79,17 @@ class RolesAndPermissionsSeeder extends Seeder
 
             $role->syncPermissions($models);
         }
+    }
+
+    protected function grantIfMissing(string $roleName, array $permissionNames): void
+    {
+        $role = Role::where('name', $roleName)->where('guard_name', 'web')->first();
+
+        if (! $role) {
+            return;
+        }
+
+        $models = Permission::query()->where('guard_name', 'web')->whereIn('name', $permissionNames)->get();
+        $role->givePermissionTo($models);
     }
 }

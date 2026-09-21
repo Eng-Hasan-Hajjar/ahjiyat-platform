@@ -76,7 +76,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/confirm-password', [ConfirmablePasswordController::class, 'store']);
 
     // فتح الأحجيات والاستبدال يتطلب توثيق البريد
-    Route::middleware('verified')->group(function () {
+    Route::middleware(['verified', 'account.active'])->group(function () {
         Route::post('/puzzles/{puzzle}/attempt', [PuzzleController::class, 'attempt'])
             ->middleware('throttle:20,1')->name('puzzles.attempt');
         Route::post('/puzzles/{puzzle}/hint', [PuzzleController::class, 'hint'])->name('puzzles.hint');

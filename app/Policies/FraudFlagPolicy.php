@@ -27,6 +27,11 @@ class FraudFlagPolicy
         return $user->can('fraud.resolve');
     }
 
+    public function resolve(User $user, FraudFlag $model): bool
+    {
+        return $user->can('fraud.resolve');
+    }
+
     public function delete(User $user, FraudFlag $model): bool
     {
         return false;

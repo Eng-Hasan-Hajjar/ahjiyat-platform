@@ -8,16 +8,8 @@ use App\Models\Wallet;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
-/**
- * كل حركة على محفظة الجواهر (إضافة/تحويل/خصم) تمر من هنا فقط،
- * ومحاطة بمعاملة قاعدة بيانات + قفل صف (lockForUpdate) لمنع
- * أي تضارب لو صار طلبين متزامنين لنفس المستخدم.
- */
 class GemWalletService
 {
-    /**
-     * إضافة جواهر "معلقة" (مثلاً بعد حل لغز) بانتظار فترة التعليق.
-     */
     public function credit(User $user, int $amount, string $reason, ?Model $reference = null): GemTransaction
     {
         return DB::transaction(function () use ($user, $amount, $reason, $reference) {
@@ -37,9 +29,6 @@ class GemWalletService
         });
     }
 
-    /**
-     * تحويل الجواهر المعلقة إلى متاحة بعد انتهاء فترة التعليق (تنفذها job مجدولة).
-     */
     public function releasePendingToAvailable(User $user, int $amount, string $reason): GemTransaction
     {
         return DB::transaction(function () use ($user, $amount, $reason) {
@@ -59,10 +48,6 @@ class GemWalletService
         });
     }
 
-    /**
-     * خصم مباشر من الرصيد المتاح (تلميح، طلب استبدال...).
-     * يرمي استثناء لو الرصيد غير كافٍ - يجب التحقق من كفاية الرصيد قبل الاستدعاء بمنطق العمل.
-     */
     public function debitAvailable(User $user, int $amount, string $reason, ?Model $reference = null): GemTransaction
     {
         return DB::transaction(function () use ($user, $amount, $reason, $reference) {
@@ -85,9 +70,6 @@ class GemWalletService
         });
     }
 
-    /**
-     * إعادة جواهر لطلب استبدال مرفوض/ملغي.
-     */
     public function refundAvailable(User $user, int $amount, string $reason, ?Model $reference = null): GemTransaction
     {
         return DB::transaction(function () use ($user, $amount, $reason, $reference) {
@@ -101,6 +83,35 @@ class GemWalletService
                 'reason' => $reason,
                 'reference_type' => $reference?->getMorphClass(),
                 'reference_id' => $reference?->getKey(),
+            ]);
+        });
+    }
+
+    /**
+     * تعديل يدوي من الإدارة على الرصيد المتاح - E6. amount موجب (إضافة) أو
+     * سالب (خصم)؛ يمنع نزول الرصيد تحت الصفر. يُستخدم فقط عبر
+     * wallet.adjust (صلاحية منفصلة وقوية). التدقيق مسؤولية المستدعي.
+     */
+    public function adjustAvailable(User $user, int $amount, string $reason): GemTransaction
+    {
+        if ($amount === 0) {
+            throw new \InvalidArgumentException('قيمة التعديل يجب ألا تساوي صفراً.');
+        }
+
+        return DB::transaction(function () use ($user, $amount, $reason) {
+            $wallet = $this->lockedWallet($user);
+
+            if ($amount < 0 && $wallet->available_balance + $amount < 0) {
+                throw new \RuntimeException('لا يمكن إتمام هذا الخصم - سيجعل الرصيد المتاح سالباً.');
+            }
+
+            $wallet->increment('available_balance', $amount);
+
+            return GemTransaction::create([
+                'user_id' => $user->id,
+                'amount' => $amount,
+                'type' => GemTransaction::TYPE_ADMIN_ADJUSTMENT,
+                'reason' => $reason,
             ]);
         });
     }

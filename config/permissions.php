@@ -30,6 +30,12 @@ return [
             'users.create' => 'إنشاء مستخدم',
             'users.update' => 'تعديل مستخدم',
             'users.delete' => 'حذف مستخدم',
+            'users.freeze' => 'تجميد حساب مستخدم',
+            'users.unfreeze' => 'رفع تجميد حساب مستخدم',
+            'users.view_security' => 'عرض بيانات الأمان (أجهزة/جلسات/IP) لمستخدم',
+            'users.view_wallet' => 'عرض محفظة مستخدم ضمن ملفه',
+            'users.view_activity' => 'عرض نشاط اللعب والحملات لمستخدم',
+            'users.manage_roles' => 'تعيين/إزالة أدوار مستخدم من ملفه',
         ],
     ],
 
@@ -100,6 +106,7 @@ return [
         'label' => 'الجواهر والمحفظة',
         'permissions' => [
             'wallet.view' => 'عرض سجل معاملات الجواهر',
+            'wallet.adjust' => 'تعديل رصيد جواهر مستخدم يدوياً (إضافة/خصم)',
         ],
     ],
 
@@ -117,6 +124,21 @@ return [
         'permissions' => [
             'fraud.view' => 'عرض علامات الاحتيال',
             'fraud.resolve' => 'معالجة/إغلاق علامة احتيال',
+        ],
+    ],
+
+    'security' => [
+        'label' => 'إدارة الجلسات',
+        'permissions' => [
+            'security.sessions_view' => 'عرض جلسات دخول المستخدمين',
+            'security.sessions_revoke' => 'إنهاء جلسة دخول مستخدم',
+        ],
+    ],
+
+    'operations' => [
+        'label' => 'مركز العمليات',
+        'permissions' => [
+            'operations.dashboard_view' => 'عرض مركز العمليات',
         ],
     ],
 

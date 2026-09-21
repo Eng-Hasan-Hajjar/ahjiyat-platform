@@ -34,6 +34,7 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
             'password' => 'hashed',
             'is_frozen' => 'boolean',
             'last_seen_at' => 'datetime',
+            'frozen_at' => 'datetime',
         ];
     }
 
@@ -80,6 +81,16 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         return $this->hasMany(FraudFlag::class);
     }
 
+    public function deviceSightings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DeviceSighting::class);
+    }
+
+    public function sessions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Session::class);
+    }
+
     public function hasSolvedPuzzle(Puzzle $puzzle, ?AttemptContext $context = null): bool
     {
         $context ??= AttemptContext::none();
@@ -105,5 +116,10 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
     public function createdCampaigns(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Campaign::class, 'created_by');
+    }
+
+    public function frozenBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(self::class, 'frozen_by');
     }
 }

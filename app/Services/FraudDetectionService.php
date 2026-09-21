@@ -8,10 +8,6 @@ use App\Models\GemTransaction;
 use App\Models\User;
 use Illuminate\Support\Facades\Request as RequestFacade;
 
-/**
- * قواعد بسيطة وشفافة لمرحلة الـ MVP - أساس قابل للتوسع لاحقاً
- * بمزود مكافحة احتيال متخصص إذا كبر حجم المنصة.
- */
 class FraudDetectionService
 {
     public function recordSighting(?User $user, string $ip, string $userAgent): void
@@ -47,7 +43,6 @@ class FraudDetectionService
             ->where('created_at', '>=', now()->subHour())
             ->count();
 
-        // حل عدد كبير جداً من الألغاز الصحيحة خلال ساعة واحدة - مؤشر أتمتة محتمل
         if ($earnedLastHour >= 40) {
             $this->flag($user, 'abnormal_earn_rate', 'high', "{$earnedLastHour} حل صحيح خلال ساعة واحدة.");
         }
@@ -60,6 +55,24 @@ class FraudDetectionService
             'reason' => $reason,
             'severity' => $severity,
             'details' => $details,
+        ]);
+    }
+
+    /**
+     * معالجة/إغلاق علامة احتيال - E6. لا تُغيِّر شيئاً على حساب المستخدم
+     * تلقائياً - فقط تُغلق العلامة نفسها.
+     */
+    public function resolve(FraudFlag $flag, User $admin, string $note): void
+    {
+        if ($flag->resolved) {
+            abort(403, 'هذه العلامة مُعالَجة مسبقاً.');
+        }
+
+        $flag->update([
+            'resolved' => true,
+            'resolved_by' => $admin->id,
+            'resolved_at' => now(),
+            'resolution_note' => $note,
         ]);
     }
 }

@@ -37,6 +37,11 @@ class RedemptionRequestPolicy
         return $user->can('redemptions.approve');
     }
 
+    public function fulfill(User $user, RedemptionRequest $model): bool
+    {
+        return $user->can('redemptions.approve');
+    }
+
     public function reject(User $user, RedemptionRequest $model): bool
     {
         return $user->can('redemptions.reject');

@@ -37,7 +37,7 @@ class UserPolicy
 
     public function delete(User $user, User $model): bool
     {
-        if (! $user->can('users.delete')) {
+        if (! app(AuthorizationSafetyService::class)->isSuperAdmin($user)) {
             return false;
         }
 
@@ -46,6 +46,54 @@ class UserPolicy
         }
 
         $this->safety->assertCanDeleteUser($model);
+
+        return true;
+    }
+
+    public function freeze(User $user, User $model): bool
+    {
+        if (! $user->can('users.freeze')) {
+            return false;
+        }
+
+        $this->safety->assertCanModifyUserAuthorization($user, $model);
+
+        return ! $user->is($model);
+    }
+
+    public function unfreeze(User $user, User $model): bool
+    {
+        if (! $user->can('users.unfreeze')) {
+            return false;
+        }
+
+        $this->safety->assertCanModifyUserAuthorization($user, $model);
+
+        return true;
+    }
+
+    public function viewSecurity(User $user, User $model): bool
+    {
+        return $user->can('users.view_security');
+    }
+
+    public function viewWallet(User $user, User $model): bool
+    {
+        return $user->can('users.view_wallet');
+    }
+
+    public function viewActivity(User $user, User $model): bool
+    {
+        return $user->can('users.view_activity');
+    }
+
+    public function manageRoles(User $user, User $model): bool
+    {
+        if (! $user->can('users.manage_roles')) {
+            return false;
+        }
+
+        $this->safety->assertCanModifyUserAuthorization($user, $model);
 
         return true;
     }
