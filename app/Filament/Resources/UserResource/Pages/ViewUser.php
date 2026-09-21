@@ -62,7 +62,9 @@ class ViewUser extends ViewRecord
                     TextEntry::make('email')->label('البريد الإلكتروني')->copyable(),
                     TextEntry::make('id')->label('معرّف المستخدم'),
                     TextEntry::make('created_at')->label('تاريخ التسجيل')->dateTime('Y-m-d H:i'),
-                    IconEntry::make('email_verified_at')->label('البريد موثّق')->boolean(state: fn (User $record) => (bool) $record->email_verified_at),
+                    IconEntry::make('email_verified_at')->label('البريد موثّق')
+                        ->state(fn (User $record) => (bool) $record->email_verified_at)
+                        ->boolean(),
                     TextEntry::make('last_seen_at')->label('آخر ظهور')->since()->placeholder('لم يُسجَّل بعد'),
                 ]),
 

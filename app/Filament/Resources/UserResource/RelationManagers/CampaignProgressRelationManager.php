@@ -29,7 +29,9 @@ class CampaignProgressRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('step.stage.campaign.title')->label('الحملة')->placeholder('—'),
                 Tables\Columns\TextColumn::make('step.stage.title')->label('المرحلة')->placeholder('—'),
                 Tables\Columns\TextColumn::make('step.title')->label('الخطوة')->placeholder('—'),
-                Tables\Columns\IconColumn::make('completed_at')->label('مكتملة')->boolean(state: fn ($record) => (bool) $record->completed_at),
+                Tables\Columns\IconColumn::make('completed_at')->label('مكتملة')
+                    ->state(fn ($record) => (bool) $record->completed_at)
+                    ->boolean(),
                 Tables\Columns\TextColumn::make('started_at')->label('بدأت')->dateTime('Y-m-d H:i'),
                 Tables\Columns\TextColumn::make('completed_at')->label('اكتملت')->dateTime('Y-m-d H:i')->placeholder('—'),
             ])

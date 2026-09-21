@@ -8,6 +8,10 @@ use App\Models\RedemptionRequest;
 use App\Models\User;
 use Filament\Pages\Page;
 
+/**
+ * "ما الذي يحتاج تدخل Admin الآن؟" - ليست Analytics، فقط طوابير إجراءات
+ * ونشاط حديث. كل قسم يحترم صلاحيته الخاصة.
+ */
 class OperationsCenter extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-command-line';
@@ -23,6 +27,15 @@ class OperationsCenter extends Page
     public static function canAccess(): bool
     {
         return auth()->user()?->can('operations.dashboard_view') ?? false;
+    }
+
+    // اكتشاف مهم: canAccess() وحدها تتحكم فقط بظهور العنصر بالقائمة
+    // الجانبية - لا تمنع فتح الرابط مباشرة لمن يملك admin.access لكن
+    // ليس operations.dashboard_view تحديداً (كانت تُرجع 302 بدل 403).
+    // abort_unless صريح هنا يضمن حجباً حقيقياً على مستوى HTTP.
+    public function mount(): void
+    {
+        abort_unless(static::canAccess(), 403);
     }
 
     public function getPendingRedemptionsCount(): ?int

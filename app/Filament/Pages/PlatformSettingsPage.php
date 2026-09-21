@@ -33,7 +33,7 @@ class PlatformSettingsPage extends Page implements HasForms
 
     public array $data = [];
 
-        // E5: كانت canAccess() تُعيد true دائماً (Bug تاريخي من E4 أُصلح
+    // E5: كانت canAccess() تُعيد true دائماً (Bug تاريخي من E4 أُصلح
     // بتصريح صريح وقتها) - الآن الفحص الفعلي: صلاحية settings.view.
     // Super Admin يتجاوز هذا تلقائياً عبر Gate::before قبل وصوله هون أصلاً.
     public static function canAccess(): bool
@@ -41,10 +41,15 @@ class PlatformSettingsPage extends Page implements HasForms
         return auth()->user()?->can('settings.view') ?? false;
     }
 
-
-
     public function mount(): void
     {
+        // نفس الثغرة الكامنة المكتشَفة أثناء اختبارات E6: canAccess() وحدها
+        // تتحكم فقط بظهور العنصر بالقائمة الجانبية - لا تمنع فتح الرابط
+        // مباشرة لمن يملك admin.access لكن ليس settings.view تحديداً (كان
+        // بإمكانه معاينة كل الإعدادات، رغم أن save()/resetAppearance() محميتان
+        // أصلاً). abort_unless صريح هنا يضمن حجباً حقيقياً على مستوى HTTP.
+        abort_unless(static::canAccess(), 403);
+
         $settings = app(PlatformSettingsService::class);
 
         $this->form->fill([
@@ -264,8 +269,8 @@ class PlatformSettingsPage extends Page implements HasForms
 
     public function save(): void
     {
-                abort_unless(auth()->user()?->can('settings.update'), 403, 'ليس لديك صلاحية تعديل الإعدادات - يمكنك العرض فقط.');
- 
+        abort_unless(auth()->user()?->can('settings.update'), 403, 'ليس لديك صلاحية تعديل الإعدادات - يمكنك العرض فقط.');
+
         $state = $this->form->getState();
         $settings = app(PlatformSettingsService::class);
 
@@ -278,9 +283,8 @@ class PlatformSettingsPage extends Page implements HasForms
 
     public function resetAppearance(): void
     {
-                abort_unless(auth()->user()?->can('settings.update'), 403, 'ليس لديك صلاحية تعديل الإعدادات.');
+        abort_unless(auth()->user()?->can('settings.update'), 403, 'ليس لديك صلاحية تعديل الإعدادات.');
 
-                
         $defaults = config('platform.appearance');
         $resetValues = collect($defaults)->map(fn ($definition) => $definition['default'])->all();
 
