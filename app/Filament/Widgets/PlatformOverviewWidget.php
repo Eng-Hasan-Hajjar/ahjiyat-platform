@@ -13,51 +13,71 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class PlatformOverviewWidget extends BaseWidget
 {
-    // يظهر أول شي بأعلى الصفحة الرئيسية للوحة الإدارة - نظرة سريعة قبل الدخول لأي قسم
     protected static ?int $sort = -1;
+
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('operations.dashboard_view') ?? false;
+    }
 
     protected function getStats(): array
     {
-        $pendingRedemptions = RedemptionRequest::where('status', RedemptionRequest::STATUS_PENDING)->count();
-        $unresolvedFlags = FraudFlag::where('resolved', false)->count();
+        $stats = [];
+        $user = auth()->user();
 
-        $openChallenges = Challenge::where('is_active', true)
-            ->where('starts_at', '<=', now())
-            ->where('ends_at', '>=', now())
-            ->count();
-
-        $gemsInCirculation = Wallet::sum('available_balance') + Wallet::sum('pending_balance');
-
-        return [
-            Stat::make('إجمالي المستخدمين', User::where('role', 'user')->count())
+        if ($user?->can('users.view')) {
+            $stats[] = Stat::make('إجمالي المستخدمين', User::role('player')->count())
                 ->description('كل الحسابات المسجّلة (بدون الإدارة)')
                 ->icon('heroicon-o-users')
-                ->color('primary'),
+                ->color('primary');
+        }
 
-            Stat::make('الأحجيات المفعّلة', Puzzle::where('is_active', true)->count())
+        if ($user?->can('puzzles.view')) {
+            $stats[] = Stat::make('الأحجيات المفعّلة', Puzzle::where('is_active', true)->count())
                 ->description('ظاهرة حالياً للمستخدمين')
                 ->icon('heroicon-o-puzzle-piece')
-                ->color('primary'),
+                ->color('primary');
+        }
 
-            Stat::make('تحديات مفتوحة الآن', $openChallenges)
+        if ($user?->can('challenges.view')) {
+            $openChallenges = Challenge::where('is_active', true)
+                ->where('starts_at', '<=', now())
+                ->where('ends_at', '>=', now())
+                ->count();
+
+            $stats[] = Stat::make('تحديات مفتوحة الآن', $openChallenges)
                 ->description('يقدر المستخدمون ينضموا لها حالياً')
                 ->icon('heroicon-o-trophy')
-                ->color('primary'),
+                ->color('primary');
+        }
 
-            Stat::make('طلبات استبدال قيد المراجعة', $pendingRedemptions)
+        if ($user?->can('redemptions.view')) {
+            $pendingRedemptions = RedemptionRequest::where('status', RedemptionRequest::STATUS_PENDING)->count();
+
+            $stats[] = Stat::make('طلبات استبدال قيد المراجعة', $pendingRedemptions)
                 ->description($pendingRedemptions > 0 ? 'بانتظار قرارك' : 'لا يوجد طلبات معلّقة')
                 ->icon('heroicon-o-gift')
-                ->color($pendingRedemptions > 0 ? 'warning' : 'success'),
+                ->color($pendingRedemptions > 0 ? 'warning' : 'success');
+        }
 
-            Stat::make('علامات احتيال غير محلولة', $unresolvedFlags)
+        if ($user?->can('fraud.view')) {
+            $unresolvedFlags = FraudFlag::where('resolved', false)->count();
+
+            $stats[] = Stat::make('علامات احتيال غير محلولة', $unresolvedFlags)
                 ->description($unresolvedFlags > 0 ? 'تحتاج مراجعة' : 'لا يوجد بلاغات مفتوحة')
                 ->icon('heroicon-o-shield-exclamation')
-                ->color($unresolvedFlags > 0 ? 'danger' : 'success'),
+                ->color($unresolvedFlags > 0 ? 'danger' : 'success');
+        }
 
-            Stat::make('جواهر متداولة حالياً', number_format($gemsInCirculation))
+        if ($user?->can('users.view_wallet')) {
+            $gemsInCirculation = Wallet::sum('available_balance') + Wallet::sum('pending_balance');
+
+            $stats[] = Stat::make('جواهر متداولة حالياً', number_format($gemsInCirculation))
                 ->description('معلّقة + متاحة، بكل محافظ المنصة')
                 ->icon('heroicon-o-sparkles')
-                ->color('primary'),
-        ];
+                ->color('primary');
+        }
+
+        return $stats;
     }
 }

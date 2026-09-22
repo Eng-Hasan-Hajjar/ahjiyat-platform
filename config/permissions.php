@@ -142,6 +142,20 @@ return [
         ],
     ],
 
+
+
+        'analytics' => [
+        'label' => 'التحليلات والتقارير',
+        'permissions' => [
+            'analytics.view' => 'الدخول إلى مركز التحليلات (نظرة عامة)',
+            'analytics.users' => 'عرض تحليلات المستخدمين',
+            'analytics.puzzles' => 'عرض تحليلات الأحجيات',
+            'analytics.campaigns' => 'عرض تحليلات الحملات والمواسم',
+            'analytics.financial' => 'عرض تحليلات الجواهر والاستبدال',
+            'analytics.security' => 'عرض تحليلات الأمان والاحتيال',
+            'reports.export' => 'تصدير التقارير (CSV)',
+        ],
+    ],
     'system' => [
         'label' => 'النظام والتدقيق',
         'permissions' => [
