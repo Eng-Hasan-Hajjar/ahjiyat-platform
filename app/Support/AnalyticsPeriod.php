@@ -68,7 +68,7 @@ class AnalyticsPeriod
         return round((($current - $previous) / $previous) * 100, 1);
     }
 
-    public function cacheKey(string $metric, array $extra = []): string
+       public function cacheKey(string $metric, array $extra = []): string
     {
         $parts = array_merge([
             $metric,
@@ -76,6 +76,7 @@ class AnalyticsPeriod
             $this->end->timestamp,
         ], array_values($extra));
 
-        return 'analytics:'.implode(':', $parts);
+        return \App\Support\AnalyticsCache::key(implode(':', $parts));
     }
+
 }

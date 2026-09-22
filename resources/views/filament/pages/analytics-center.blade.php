@@ -261,25 +261,32 @@
             </x-filament::section>
         @endif
 
-        {{-- التقارير --}}
+               {{-- التقارير --}}
         @if ($activeTab === 'reports' && auth()->user()?->can('reports.export'))
+            @php
+                $reportButtons = collect([
+                    ['exportUsers', 'تقرير المستخدمين', 'analytics.users'],
+                    ['exportPuzzleActivity', 'تقرير نشاط الأحجيات', 'analytics.puzzles'],
+                    ['exportCampaignProgress', 'تقرير تقدُّم الحملات', 'analytics.campaigns'],
+                    ['exportGems', 'تقرير الجواهر', 'analytics.financial'],
+                    ['exportRedemptions', 'تقرير الاستبدالات', 'analytics.financial'],
+                    ['exportSecurity', 'تقرير الأمان', 'analytics.security'],
+                ])->filter(fn ($row) => $this->canExport($row[2]));
+            @endphp
             <x-filament::section>
                 <x-slot name="heading">تقارير جاهزة للتصدير (CSV)</x-slot>
-                <p style="color:#94a3b8; font-size:.8rem; margin-bottom:1rem;">كل تقرير يُصدَّر وفق الفترة المختارة أعلاه.</p>
-                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:.8rem;">
-                    @foreach ([
-                        ['exportUsers', 'تقرير المستخدمين'],
-                        ['exportPuzzleActivity', 'تقرير نشاط الأحجيات'],
-                        ['exportCampaignProgress', 'تقرير تقدُّم الحملات'],
-                        ['exportGems', 'تقرير الجواهر'],
-                        ['exportRedemptions', 'تقرير الاستبدالات'],
-                        ['exportSecurity', 'تقرير الأمان'],
-                    ] as [$method, $label])
-                        <button wire:click="{{ $method }}" type="button" style="padding:.7rem 1rem; border-radius:.7rem; border:1px solid rgba(148,163,184,.3); background:rgba(139,92,246,.1); color:inherit; font-weight:700; font-size:.85rem; cursor:pointer; text-align:start;">
-                            ⬇ {{ $label }}
-                        </button>
-                    @endforeach
-                </div>
+                <p style="color:#94a3b8; font-size:.8rem; margin-bottom:1rem;">كل تقرير يُصدَّر وفق الفترة المختارة أعلاه. reports.export وحدها غير كافية - كل تقرير يحتاج أيضاً صلاحية النطاق الخاصة به.</p>
+                @if ($reportButtons->isNotEmpty())
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:.8rem;">
+                        @foreach ($reportButtons as [$method, $label, $permission])
+                            <button wire:click="{{ $method }}" type="button" style="padding:.7rem 1rem; border-radius:.7rem; border:1px solid rgba(148,163,184,.3); background:rgba(139,92,246,.1); color:inherit; font-weight:700; font-size:.85rem; cursor:pointer; text-align:start;">
+                                ⬇ {{ $label }}
+                            </button>
+                        @endforeach
+                    </div>
+                @else
+                    <p style="color:#64748b;">لا تملك صلاحية نطاق مناسبة لتصدير أي تقرير حالياً.</p>
+                @endif
             </x-filament::section>
         @endif
 

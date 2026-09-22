@@ -10,9 +10,9 @@ use App\Services\Analytics\PuzzleAnalyticsService;
 use App\Services\Analytics\SecurityAnalyticsService;
 use App\Services\Analytics\UserAnalyticsService;
 use App\Services\ReportExportService;
+use App\Support\AnalyticsCache;
 use App\Support\AnalyticsPeriod;
 use Filament\Pages\Page;
-use Illuminate\Support\Facades\Cache;
 
 class AnalyticsCenter extends Page
 {
@@ -65,7 +65,12 @@ class AnalyticsCenter extends Page
 
     public function refreshData(): void
     {
-        Cache::flush();
+        // إصلاح: كانت Cache::flush() تمسح Cache التطبيق بالكامل (إعدادات
+        // المنصة، صلاحيات، أي شيء آخر حسب الـDriver) - خطر غير مقبول. هذا
+        // يزيد إصدار Cache التحليلات فقط؛ كل مفتاح قديم يصبح غير قابل
+        // للوصول تلقائياً وينتهي وحده بـTTL الطبيعي - لا حذف فعلي، لا
+        // تأثير على أي Cache آخر بالتطبيق إطلاقاً.
+        AnalyticsCache::bumpVersion();
     }
 
     public function executiveOverview(): ?array
@@ -175,44 +180,63 @@ class AnalyticsCenter extends Page
         return app(SecurityAnalyticsService::class)->overview($this->getPeriod());
     }
 
-    public function exportUsers()
+    /** للعرض بالـBlade فقط (إظهار/إخفاء الزر) - التفويض الفعلي عبر authorizeExport() داخل كل exportXxx(). */
+    public function canExport(string $domainPermission): bool
+    {
+        return (bool) (auth()->user()?->can('reports.export') && auth()->user()?->can($domainPermission));
+    }
+
+    /**
+     * نقطة تفويض موحَّدة لكل التصدير - لا abort_unless() مكرَّرة بكل دالة.
+     * reports.export وحدها غير كافية (كانت الثغرة بـE7) - كل تقرير يحتاج
+     * أيضاً صلاحية النطاق الخاصة به (Users→analytics.users،
+     * Gems/Redemptions→analytics.financial، ...). Super Admin يتجاوز هذا
+     * تلقائياً عبر Gate::before (E5) قبل وصوله هون أصلاً.
+     */
+    protected function authorizeExport(string $domainPermission): void
     {
         abort_unless(auth()->user()?->can('reports.export'), 403);
+        abort_unless(auth()->user()?->can($domainPermission), 403);
+    }
+
+    public function exportUsers()
+    {
+        $this->authorizeExport('analytics.users');
 
         return app(ReportExportService::class)->usersReport($this->getPeriod());
     }
 
     public function exportPuzzleActivity()
     {
-        abort_unless(auth()->user()?->can('reports.export'), 403);
+        $this->authorizeExport('analytics.puzzles');
 
         return app(ReportExportService::class)->puzzleActivityReport($this->getPeriod());
     }
 
     public function exportCampaignProgress()
     {
-        abort_unless(auth()->user()?->can('reports.export'), 403);
+        $this->authorizeExport('analytics.campaigns');
 
         return app(ReportExportService::class)->campaignProgressReport($this->getPeriod());
     }
 
     public function exportGems()
     {
-        abort_unless(auth()->user()?->can('reports.export'), 403);
+        $this->authorizeExport('analytics.financial');
 
         return app(ReportExportService::class)->gemsReport($this->getPeriod());
     }
 
     public function exportRedemptions()
     {
-        abort_unless(auth()->user()?->can('reports.export'), 403);
+        $this->authorizeExport('analytics.financial');
 
         return app(ReportExportService::class)->redemptionsReport($this->getPeriod());
     }
 
     public function exportSecurity()
     {
-        abort_unless(auth()->user()?->can('reports.export'), 403);
+        $this->authorizeExport('analytics.security');
 
         return app(ReportExportService::class)->securityReport($this->getPeriod());
     }

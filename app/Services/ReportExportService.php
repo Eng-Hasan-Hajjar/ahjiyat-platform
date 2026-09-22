@@ -14,11 +14,21 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportExportService
 {
+       /**
+     * تحييد CSV Formula Injection (بند 69، مُعزَّز E7.1). الحماية الأولى
+     * كانت تفحص فقط أول محرف مباشرة - لا تكفي، لأن بعض محاولات الحقن تضع
+     * محارف تحكّم (Tab/CR/LF/مسافات) قبل رمز الصيغة لتفادي هذا الفحص
+     * البسيط. هنا نتجاهل أي محارف تحكّم بادئة عند الفحص فقط - لا نُغيِّر
+     * القيمة الأصلية المخزَّنة، فقط نُسبقها بمسافة عند اكتشاف الخطر. نص
+     * عربي طبيعي لا يبدأ بأي من هذه المحارف أصلاً فلن يتأثر إطلاقاً.
+     */
     protected function sanitize($value): string
     {
         $value = (string) $value;
 
-        if (preg_match('/^[=+\-@]/', $value)) {
+        $significant = ltrim($value, "\t\n\r\x0B\x0C ");
+
+        if ($significant !== '' && preg_match('/^[=+\-@]/', $significant)) {
             return ' '.$value;
         }
 
