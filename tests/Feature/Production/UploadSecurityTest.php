@@ -28,6 +28,7 @@ test('a valid image upload is accepted by PuzzleResource', function () {
             'prompt' => 'سؤال تجريبي',
             'image_path' => $file,
             'answer_raw' => 'إجابة',
+            'score_mode' => 'flat',
         ])
         ->call('create');
 
@@ -49,6 +50,7 @@ test('an oversized image upload is rejected by PuzzleResource', function () {
             'prompt' => 'سؤال تجريبي',
             'image_path' => $file,
             'answer_raw' => 'إجابة',
+            'score_mode' => 'flat',
         ])
         ->call('create');
 
@@ -70,6 +72,7 @@ test('a non-image file (e.g. a PHP script) is rejected by PuzzleResource', funct
             'prompt' => 'سؤال تجريبي',
             'image_path' => $file,
             'answer_raw' => 'إجابة',
+            'score_mode' => 'flat',
         ])
         ->call('create');
 

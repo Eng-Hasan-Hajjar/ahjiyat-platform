@@ -30,4 +30,4 @@ Schedule::call(function () {
                 }
             }
         });
-})->daily();
+})->daily()->name('release-pending-gems')->withoutOverlapping();
