@@ -1,5 +1,9 @@
 <?php
 
+beforeEach(function () {
+    $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+});
+
 test('registration screen can be rendered', function () {
     $response = $this->get('/register');
 
@@ -16,4 +20,4 @@ test('new users can register', function () {
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('verification.notice', absolute: false));
-    });
+});

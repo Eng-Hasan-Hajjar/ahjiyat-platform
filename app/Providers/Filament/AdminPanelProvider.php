@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Providers\Filament;
-
+use App\Http\Middleware\SecurityHeaders;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -82,7 +82,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([Pages\Dashboard::class])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
-            ->middleware([
+           ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
@@ -92,6 +92,11 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                // E8: لوحة Filament لا ترث مجموعة web العامة تلقائياً - لها
+                // Middleware Stack خاص بها معرَّف صراحة هنا فقط. اكتُشف
+                // اختباريًا (SecurityHeadersTest) أن /admin كانت بلا Headers
+                // أمان إطلاقاً رغم تسجيلها على مجموعة web بـbootstrap/app.php.
+                SecurityHeaders::class,
             ])
             ->authMiddleware([Authenticate::class]);
     }
