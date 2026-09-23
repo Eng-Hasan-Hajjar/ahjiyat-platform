@@ -61,9 +61,12 @@ class PuzzleResource extends Resource
             Forms\Components\FileUpload::make('image_path')
                 ->label('صورة الأحجية')
                 ->image()
+                ->disk('public')
                 ->directory('puzzles')
+                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                ->maxSize(4096)
                 ->visible(fn (Get $get) => $get('type') === 'image'),
-
+                
             Forms\Components\Repeater::make('choices')
                 ->label('الخيارات')
                 ->simple(Forms\Components\TextInput::make('choice')->required())
