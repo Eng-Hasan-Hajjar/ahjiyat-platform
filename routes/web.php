@@ -47,13 +47,15 @@ Route::get('/seasons/{season:slug}', [SeasonController::class, 'show'])->name('s
 // --- ضيوف فقط ---
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
-    Route::post('/register', [RegisteredUserController::class, 'store']);
+    Route::post('/register', [RegisteredUserController::class, 'store'])
+        ->middleware('throttle:registration');
 
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store']);
 
     Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
-    Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
+    Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->middleware('throttle:password-reset')->name('password.email');
 
     Route::get('/reset-password/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
     Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('password.store');
@@ -65,9 +67,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/verify-email', [EmailVerificationController::class, 'notice'])->name('verification.notice');
     Route::get('/verify-email/{id}/{hash}', [EmailVerificationController::class, 'verify'])
-        ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+        ->middleware(['signed', 'throttle:email-verification'])->name('verification.verify');
     Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend'])
-        ->middleware('throttle:6,1')->name('verification.send');
+        ->middleware('throttle:email-verification')->name('verification.send');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -78,15 +80,15 @@ Route::middleware('auth')->group(function () {
     // فتح الأحجيات والاستبدال يتطلب توثيق البريد
     Route::middleware(['verified', 'account.active'])->group(function () {
         Route::post('/puzzles/{puzzle}/attempt', [PuzzleController::class, 'attempt'])
-            ->middleware('throttle:20,1')->name('puzzles.attempt');
+            ->middleware('throttle:puzzle-attempt')->name('puzzles.attempt');
         Route::post('/puzzles/{puzzle}/hint', [PuzzleController::class, 'hint'])->name('puzzles.hint');
 
         // مسارات عامة لأي نوع لعبة Stateful (Spot Difference اليوم، وغيرها لاحقاً) -
         // لا شيء خاص بأصيل هون ولا بأي محتوى محدَّد.
         Route::post('/puzzles/{puzzle}/session', [GameSessionController::class, 'store'])
-            ->middleware('throttle:10,1')->name('game-sessions.start');
+            ->middleware('throttle:game-session-start')->name('game-sessions.start');
         Route::post('/game-sessions/{session}/reveal', [GameSessionController::class, 'reveal'])
-            ->middleware('throttle:60,1')->name('game-sessions.reveal');
+            ->middleware('throttle:game-session-reveal')->name('game-sessions.reveal');
 
         Route::post('/challenges/{challenge}/join', [ChallengeController::class, 'join'])->name('challenges.join');
 
@@ -100,15 +102,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/campaigns/{campaign:slug}/steps/{step}/reflect', [CampaignStepController::class, 'reflect'])
             ->name('campaigns.steps.reflect');
         Route::post('/campaigns/{campaign:slug}/steps/{step}/attempt', [CampaignStepController::class, 'attempt'])
-            ->middleware('throttle:20,1')->name('campaigns.steps.attempt');
+            ->middleware('throttle:puzzle-attempt')->name('campaigns.steps.attempt');
         Route::post('/campaigns/{campaign:slug}/steps/{step}/session', [CampaignStepController::class, 'startSession'])
-            ->middleware('throttle:10,1')->name('campaigns.steps.session');
+            ->middleware('throttle:game-session-start')->name('campaigns.steps.session');
 
         Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
 
         Route::get('/redemption', [RedemptionController::class, 'index'])->name('redemption.index');
         Route::get('/redemption/create', [RedemptionController::class, 'create'])->name('redemption.create');
         Route::post('/redemption', [RedemptionController::class, 'store'])
-            ->middleware('throttle:5,60')->name('redemption.store');
+            ->middleware('throttle:redemption')->name('redemption.store');
     });
 });
