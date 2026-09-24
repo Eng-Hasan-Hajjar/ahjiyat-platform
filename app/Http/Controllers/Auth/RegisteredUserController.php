@@ -44,11 +44,12 @@ class RegisteredUserController extends Controller
                 'password' => Hash::make($request->password),
             ]);
 
-            // الدور الافتراضي دائماً "player" - محدَّد Server-side حصراً؛ لا
-            // role/roles/permissions تُقرَأ من الطلب إطلاقاً.
             $user->assignRole('player');
 
-            Wallet::create(['user_id' => $user->id]);
+            Wallet::create([
+                'user_id' => $user->id,
+                'currency_id' => app(\App\Services\Economy\CurrencyRegistry::class)->defaultEarnedCurrency()->id,
+            ]);
 
             return $user;
         });

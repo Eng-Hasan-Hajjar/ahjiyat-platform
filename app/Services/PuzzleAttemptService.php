@@ -5,24 +5,24 @@ namespace App\Services;
 use App\GameEngine\GameResult;
 use App\GameEngine\GameTypeRegistry;
 use App\GameEngine\Support\AttemptContext;
+use App\Models\Currency;
 use App\Models\Puzzle;
 use App\Models\PuzzleAttempt;
 use App\Models\User;
+use App\Services\Economy\CurrencyRegistry;
+use App\Services\Economy\CurrencyWalletService;
 use Illuminate\Support\Facades\DB;
 
 class PuzzleAttemptService
 {
     public function __construct(
-        protected GemWalletService $wallet,
+        protected CurrencyWalletService $wallets,
+        protected CurrencyRegistry $currencies,
         protected FraudDetectionService $fraud,
         protected GameTypeRegistry $games,
         protected AttemptRewardResolver $rewards,
     ) {}
 
-    /**
-     * @param  array<string, mixed>  $submission
-     * @return array{attempt: PuzzleAttempt, correct: bool, gems_awarded: int, attempts_left: int}
-     */
     public function attempt(
         User $user,
         Puzzle $puzzle,
@@ -51,10 +51,6 @@ class PuzzleAttemptService
 
             $payload = $submission !== [] ? $submission : ['answer' => $submittedAnswer];
 
-            // مُلزم دائماً من المستخدم المُصادَق عليه فعلياً - أي قيمة مشابهة
-            // يحاول العميل إرسالها ضمن submission تُستبدل هون بلا شروط. يُضاف
-            // فقط لنسخة الـValidator - submission_snapshot المخزَّنة تبقى نسخة
-            // نظيفة مطابقة تماماً لما أُرسل فعلياً (بدون بيانات داخلية مُحقنة).
             $validatorPayload = $payload + ['_context' => ['user_id' => $user->id]];
 
             $gameResult = $this->games->validatorFor($puzzle)->check($puzzle, $validatorPayload);
@@ -90,23 +86,30 @@ class PuzzleAttemptService
     {
         $directive = $this->rewards->resolve($puzzle, $context);
 
-        $dailyCap = config('gems.daily_earn_cap');
-        $alreadyEarnedToday = $this->wallet->dailyEarnedToday($user);
+        $currency = $directive->currency
+            ?? $puzzle->rewardCurrency
+            ?? $this->currencies->defaultEarnedCurrency();
 
-        // inherit (أو Standalone) يستخدم Scorer الطبيعي بلا أي تغيير - نفس
-        // السطر القديم حرفياً. override/none يستبدلانه بقيمة الـDirective فقط،
-        // لكن يبقيان خاضعين لنفس Daily Cap وFraudDetectionService أدناه بلا استثناء.
+        $isDefaultCurrency = $currency->is($this->currencies->defaultEarnedCurrency());
+
         $rawReward = $directive->useDefault
             ? $this->games->scorerFor($puzzle)->calculate($puzzle, new GameResult(correct: true))
             : $directive->amount;
 
-        $reward = min($rawReward, max(0, $dailyCap - $alreadyEarnedToday));
+        if ($isDefaultCurrency) {
+            $dailyCap = config('gems.daily_earn_cap');
+            $alreadyEarnedToday = $this->wallets->dailyEarnedToday($user, $currency);
+            $reward = min($rawReward, max(0, $dailyCap - $alreadyEarnedToday));
+        } else {
+            $reward = $rawReward;
+        }
 
         if ($reward <= 0) {
             return 0;
         }
 
-        $this->wallet->credit($user, $reward, "solved_puzzle:{$puzzle->id}", $puzzle);
+        $this->wallets->creditPending($user, $currency, $reward, "solved_puzzle:{$puzzle->id}", $puzzle);
+
         $this->fraud->evaluateAfterEarn($user);
 
         return $reward;
@@ -118,7 +121,13 @@ class PuzzleAttemptService
             throw new \RuntimeException('لا يوجد تلميح متاح لهذه الأحجية.');
         }
 
-        $this->wallet->debitAvailable($user, (int) config('gems.hint_cost'), "hint:{$puzzle->id}", $puzzle);
+        $this->wallets->debitAvailable(
+            $user,
+            $this->currencies->defaultEarnedCurrency(),
+            (int) config('gems.hint_cost'),
+            "hint:{$puzzle->id}",
+            $puzzle,
+        );
 
         return $puzzle->hint;
     }

@@ -38,32 +38,36 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         ];
     }
 
-    /**
-     * @deprecated (E5) — users.role القديم يبقى مؤقتاً للتوافق والـRollback
-     * فقط، وليس مصدر الحقيقة بعد الآن. استخدم hasRole()/hasPermissionTo()
-     * (من HasRoles) أو AuthorizationSafetyService بدلاً منها.
-     */
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
     }
 
-    // Filament يستخدم هذه لتحديد من يقدر يدخل لوحة الإدارة - E5: مبنية على
-    // صلاحية admin.access الحقيقية. Super Admin يتجاوز هذا تلقائياً عبر
-    // Gate::before (AppServiceProvider) قبل أن تُستدعى هذه الدالة أصلاً.
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->can('admin.access');
     }
 
+    public function wallets(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Wallet::class);
+    }
+
     public function wallet(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
-        return $this->hasOne(Wallet::class);
+        $currencyId = app(\App\Services\Economy\CurrencyRegistry::class)->defaultEarnedCurrency()->id;
+
+        return $this->hasOne(Wallet::class)->where('currency_id', $currencyId);
     }
 
     public function gemTransactions(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(GemTransaction::class);
+    }
+
+    public function currencyTransactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CurrencyTransaction::class);
     }
 
     public function puzzleAttempts(): \Illuminate\Database\Eloquent\Relations\HasMany

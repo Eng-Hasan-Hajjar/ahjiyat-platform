@@ -13,6 +13,7 @@ use App\Http\Controllers\GameSessionController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\StoreController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PuzzleController;
 use App\Http\Controllers\RedemptionController;
@@ -28,23 +29,21 @@ Route::get('/puzzles/{puzzle}', [PuzzleController::class, 'show'])->name('puzzle
 
 Route::get('/leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard.index');
 
+// E9: أساس المتجر - GET فقط، لا Checkout/Purchase إطلاقاً.
+Route::get('/store', [StoreController::class, 'index'])->name('store.index');
+
 Route::get('/challenges', [ChallengeController::class, 'index'])->name('challenges.index');
 Route::get('/challenges/{challenge}', [ChallengeController::class, 'show'])->name('challenges.show');
 
 Route::get('/terms', [PageController::class, 'terms'])->name('pages.terms');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('pages.privacy');
 
-// --- عام بالكامل حتى للضيف (تسويقياً) - Campaign غير متاحة = 404،
-// لا كتابة إطلاقاً هون، فقط عرض. ---
 Route::get('/campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
 Route::get('/campaigns/{campaign:slug}', [CampaignController::class, 'show'])->name('campaigns.show');
 
-// --- Official Seasons (D0) - طبقة عرض فوق Campaign. is_published يحدد
-// الظهور للجمهور، Admin يستطيع المعاينة قبل النشر (Server-side بالكامل). ---
 Route::get('/seasons', [SeasonController::class, 'index'])->name('seasons.index');
 Route::get('/seasons/{season:slug}', [SeasonController::class, 'show'])->name('seasons.show');
 
-// --- ضيوف فقط ---
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
     Route::post('/register', [RegisteredUserController::class, 'store'])
@@ -61,7 +60,6 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('password.store');
 });
 
-// --- مستخدمون مسجلون فقط ---
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
@@ -77,14 +75,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/confirm-password', [ConfirmablePasswordController::class, 'show'])->name('password.confirm');
     Route::post('/confirm-password', [ConfirmablePasswordController::class, 'store']);
 
-    // فتح الأحجيات والاستبدال يتطلب توثيق البريد
     Route::middleware(['verified', 'account.active'])->group(function () {
         Route::post('/puzzles/{puzzle}/attempt', [PuzzleController::class, 'attempt'])
             ->middleware('throttle:puzzle-attempt')->name('puzzles.attempt');
         Route::post('/puzzles/{puzzle}/hint', [PuzzleController::class, 'hint'])->name('puzzles.hint');
 
-        // مسارات عامة لأي نوع لعبة Stateful (Spot Difference اليوم، وغيرها لاحقاً) -
-        // لا شيء خاص بأصيل هون ولا بأي محتوى محدَّد.
         Route::post('/puzzles/{puzzle}/session', [GameSessionController::class, 'store'])
             ->middleware('throttle:game-session-start')->name('game-sessions.start');
         Route::post('/game-sessions/{session}/reveal', [GameSessionController::class, 'reveal'])
@@ -92,9 +87,6 @@ Route::middleware('auth')->group(function () {
 
         Route::post('/challenges/{challenge}/join', [ChallengeController::class, 'join'])->name('challenges.join');
 
-        // Campaign Step - صفحة العرض عامة الشكل لكن داخل verified
-        // (أبسط وأكثر أماناً من صفحة عامة + AJAX يفشل بصمت).
-        // لا reveal هون - المسار العام /game-sessions/{session}/reveal يبقى الوحيد.
         Route::get('/campaigns/{campaign:slug}/steps/{step}', [CampaignStepController::class, 'show'])
             ->name('campaigns.steps.show');
         Route::post('/campaigns/{campaign:slug}/steps/{step}/complete', [CampaignStepController::class, 'complete'])

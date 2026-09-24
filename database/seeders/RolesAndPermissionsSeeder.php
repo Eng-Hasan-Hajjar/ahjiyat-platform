@@ -7,18 +7,6 @@ use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
-/**
- * Idempotent بالكامل: تُنشئ الأدوار الافتراضية وصلاحياتها فقط إن كانت
- * ناقصة. درس Aseel Seeder (E3) مُطبَّق هنا حرفياً: firstOrCreate() للدور
- * نفسه، وsyncPermissions() تُستدعى فقط عند إنشاء الدور لأول مرة
- * (wasRecentlyCreated) - إعادة تشغيل هذا الـSeeder لاحقاً لن تطمس أي
- * تعديل صلاحيات أجراه Admin يدوياً على أيٍّ من هذه الأدوار.
- *
- * إصلاح حرج (E5 debugging): مسح Cache الصلاحيات فوراً بعد إنشاء
- * الصلاحيات مباشرة - قبل أي syncPermissions() لاحق، ونماذج Permission
- * فعلية بـQuery مباشرة بدل الأسماء النصية عند المزامنة (يتجاوز
- * Permission::findByName() الداخلية بالحزمة كلياً).
- */
 class RolesAndPermissionsSeeder extends Seeder
 {
     public function run(): void
@@ -52,16 +40,15 @@ class RolesAndPermissionsSeeder extends Seeder
 
         $this->role('player', 'لاعب', 'الدور الافتراضي لأي مستخدم جديد - بلا وصول للوحة الإدارة.', true, '#64748b', 99, []);
 
-        // E6/E7: صلاحيات جديدة أُضيفت لاحقاً على أدوار كانت موجودة أصلاً -
-        // لن تُطبَّق أبداً عبر role() أعلاه لأنها تعمل فقط عند الإنشاء
-        // الأول. givePermissionTo() حصراً (إضافية فقط) - لا syncPermissions()
-        // إطلاقاً، حتى لا نطمس أي صلاحية خاصة أضافها Admin يدوياً لاحقاً.
         $this->grantIfMissing('administrator', [
             'users.freeze', 'users.unfreeze', 'users.view_security', 'users.view_wallet',
             'users.view_activity', 'users.manage_roles', 'wallet.adjust',
             'security.sessions_view', 'security.sessions_revoke', 'operations.dashboard_view',
             'analytics.view', 'analytics.users', 'analytics.puzzles', 'analytics.campaigns',
             'analytics.financial', 'analytics.security', 'reports.export',
+            'economy.currencies.view', 'economy.currencies.create', 'economy.currencies.update',
+            'economy.currencies.deactivate', 'economy.packs.view', 'economy.packs.manage',
+            'economy.transactions.view',
         ]);
 
         $this->grantIfMissing('moderator', [
@@ -74,7 +61,7 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
 
         $this->grantIfMissing('content-manager', [
-            'analytics.view', 'analytics.puzzles', 'analytics.campaigns',
+            'analytics.view', 'analytics.puzzles', 'analytics.campaigns', 'economy.currencies.view',
         ]);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -82,7 +69,6 @@ class RolesAndPermissionsSeeder extends Seeder
         \Illuminate\Support\Facades\Artisan::call('rbac:migrate-legacy-roles');
     }
 
-    /** Query مباشرة طازجة - لا اعتماد على أي Cache حزمة داخلية. */
     protected function allPermissionNames(): array
     {
         return Permission::query()->where('guard_name', 'web')->pluck('name')->all();
@@ -96,8 +82,6 @@ class RolesAndPermissionsSeeder extends Seeder
         );
 
         if ($role->wasRecentlyCreated && ! empty($permissionNames)) {
-            // نماذج فعلية بـQuery طازجة مباشرة - يتجاوز Permission::findByName()
-            // الداخلية بالحزمة كلياً، فلا يتأثر بأي حالة سباق بالـCache إطلاقاً.
             $models = Permission::query()
                 ->where('guard_name', 'web')
                 ->whereIn('name', $permissionNames)
@@ -107,7 +91,6 @@ class RolesAndPermissionsSeeder extends Seeder
         }
     }
 
-    /** منح إضافي آمن فقط - لا يمسّ أي صلاحية أخرى يملكها الدور حالياً. */
     protected function grantIfMissing(string $roleName, array $permissionNames): void
     {
         $role = Role::where('name', $roleName)->where('guard_name', 'web')->first();

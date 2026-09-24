@@ -5,130 +5,63 @@ namespace App\Services;
 use App\Models\GemTransaction;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\Economy\CurrencyRegistry;
+use App\Services\Economy\CurrencyWalletService;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 
+/**
+ * @deprecated منذ E9 - طبقة توافق فقط فوق CurrencyWalletService بعملة
+ * "الجواهر" الافتراضية (platform-earned) حصراً.
+ */
 class GemWalletService
 {
+    public function __construct(
+        protected CurrencyWalletService $wallets,
+        protected CurrencyRegistry $currencies,
+    ) {}
+
     public function credit(User $user, int $amount, string $reason, ?Model $reference = null): GemTransaction
     {
-        return DB::transaction(function () use ($user, $amount, $reason, $reference) {
-            $wallet = $this->lockedWallet($user);
+        $transaction = $this->wallets->creditPending($user, $this->currencies->defaultEarnedCurrency(), $amount, $reason, $reference);
 
-            $wallet->increment('pending_balance', $amount);
-            $wallet->increment('lifetime_earned', $amount);
-
-            return GemTransaction::create([
-                'user_id' => $user->id,
-                'amount' => $amount,
-                'type' => GemTransaction::TYPE_EARN_PENDING,
-                'reason' => $reason,
-                'reference_type' => $reference?->getMorphClass(),
-                'reference_id' => $reference?->getKey(),
-            ]);
-        });
+        return GemTransaction::find($transaction->id);
     }
 
     public function releasePendingToAvailable(User $user, int $amount, string $reason): GemTransaction
     {
-        return DB::transaction(function () use ($user, $amount, $reason) {
-            $wallet = $this->lockedWallet($user);
+        $transaction = $this->wallets->releasePending($user, $this->currencies->defaultEarnedCurrency(), $amount, $reason);
 
-            $amount = min($amount, $wallet->pending_balance);
-
-            $wallet->decrement('pending_balance', $amount);
-            $wallet->increment('available_balance', $amount);
-
-            return GemTransaction::create([
-                'user_id' => $user->id,
-                'amount' => $amount,
-                'type' => GemTransaction::TYPE_RELEASE_AVAILABLE,
-                'reason' => $reason,
-            ]);
-        });
+        return GemTransaction::find($transaction->id);
     }
 
     public function debitAvailable(User $user, int $amount, string $reason, ?Model $reference = null): GemTransaction
     {
-        return DB::transaction(function () use ($user, $amount, $reason, $reference) {
-            $wallet = $this->lockedWallet($user);
+        $transaction = $this->wallets->debitAvailable($user, $this->currencies->defaultEarnedCurrency(), $amount, $reason, $reference);
 
-            if ($wallet->available_balance < $amount) {
-                throw new \RuntimeException('الرصيد المتاح غير كافٍ لإتمام هذه العملية.');
-            }
-
-            $wallet->decrement('available_balance', $amount);
-
-            return GemTransaction::create([
-                'user_id' => $user->id,
-                'amount' => -$amount,
-                'type' => GemTransaction::TYPE_REDEEM,
-                'reason' => $reason,
-                'reference_type' => $reference?->getMorphClass(),
-                'reference_id' => $reference?->getKey(),
-            ]);
-        });
+        return GemTransaction::find($transaction->id);
     }
 
     public function refundAvailable(User $user, int $amount, string $reason, ?Model $reference = null): GemTransaction
     {
-        return DB::transaction(function () use ($user, $amount, $reason, $reference) {
-            $wallet = $this->lockedWallet($user);
-            $wallet->increment('available_balance', $amount);
+        $transaction = $this->wallets->refund($user, $this->currencies->defaultEarnedCurrency(), $amount, $reason, $reference);
 
-            return GemTransaction::create([
-                'user_id' => $user->id,
-                'amount' => $amount,
-                'type' => GemTransaction::TYPE_ADMIN_ADJUSTMENT,
-                'reason' => $reason,
-                'reference_type' => $reference?->getMorphClass(),
-                'reference_id' => $reference?->getKey(),
-            ]);
-        });
+        return GemTransaction::find($transaction->id);
     }
 
-    /**
-     * تعديل يدوي من الإدارة على الرصيد المتاح - E6. amount موجب (إضافة) أو
-     * سالب (خصم)؛ يمنع نزول الرصيد تحت الصفر. يُستخدم فقط عبر
-     * wallet.adjust (صلاحية منفصلة وقوية). التدقيق مسؤولية المستدعي.
-     */
     public function adjustAvailable(User $user, int $amount, string $reason): GemTransaction
     {
-        if ($amount === 0) {
-            throw new \InvalidArgumentException('قيمة التعديل يجب ألا تساوي صفراً.');
-        }
+        $transaction = $this->wallets->adjust($user, $this->currencies->defaultEarnedCurrency(), $amount, $reason);
 
-        return DB::transaction(function () use ($user, $amount, $reason) {
-            $wallet = $this->lockedWallet($user);
-
-            if ($amount < 0 && $wallet->available_balance + $amount < 0) {
-                throw new \RuntimeException('لا يمكن إتمام هذا الخصم - سيجعل الرصيد المتاح سالباً.');
-            }
-
-            $wallet->increment('available_balance', $amount);
-
-            return GemTransaction::create([
-                'user_id' => $user->id,
-                'amount' => $amount,
-                'type' => GemTransaction::TYPE_ADMIN_ADJUSTMENT,
-                'reason' => $reason,
-            ]);
-        });
+        return GemTransaction::find($transaction->id);
     }
 
     public function dailyEarnedToday(User $user): int
     {
-        return (int) GemTransaction::where('user_id', $user->id)
-            ->where('type', GemTransaction::TYPE_EARN_PENDING)
-            ->whereDate('created_at', today())
-            ->sum('amount');
+        return $this->wallets->dailyEarnedToday($user, $this->currencies->defaultEarnedCurrency());
     }
 
     protected function lockedWallet(User $user): Wallet
     {
-        return Wallet::query()
-            ->where('user_id', $user->id)
-            ->lockForUpdate()
-            ->firstOrCreate(['user_id' => $user->id]);
+        return $this->wallets->balanceFor($user, $this->currencies->defaultEarnedCurrency());
     }
 }

@@ -2,20 +2,31 @@
 
 namespace App\Services;
 
+use App\Models\Currency;
 use App\Models\RedemptionRequest;
 use App\Models\User;
+use App\Services\Economy\CurrencyRegistry;
+use App\Services\Economy\CurrencyWalletService;
 use Illuminate\Support\Facades\DB;
 
 class RedemptionService
 {
-    public function __construct(protected GemWalletService $wallet) {}
+    public function __construct(
+        protected CurrencyWalletService $wallets,
+        protected CurrencyRegistry $currencies,
+    ) {}
 
-    public function checkEligibility(User $user): array
+    public function checkEligibility(User $user, ?Currency $currency = null): array
     {
-        $wallet = $user->wallet;
+        $currency ??= $this->currencies->defaultEarnedCurrency();
+        $wallet = $this->wallets->balanceFor($user, $currency);
         $eligibility = config('gems.eligibility');
 
         $reasons = [];
+
+        if (! $currency->is_redeemable) {
+            $reasons[] = 'هذه العملة غير قابلة للاستبدال.';
+        }
 
         if (! $user->hasVerifiedEmail()) {
             $reasons[] = 'يجب توثيق البريد الإلكتروني أولاً.';
@@ -34,17 +45,19 @@ class RedemptionService
             $reasons[] = 'الحساب عليه مراجعة أمنية قائمة حالياً.';
         }
 
-        if (! $wallet || $wallet->available_balance < config('gems.min_redemption')) {
+        if ($wallet->available_balance < config('gems.min_redemption')) {
             $reasons[] = 'الرصيد المتاح أقل من الحد الأدنى للاستبدال.';
         }
 
         return ['eligible' => empty($reasons), 'reasons' => $reasons];
     }
 
-    public function requestRedemption(User $user, int $gemsAmount, string $rewardDescription): RedemptionRequest
+    public function requestRedemption(User $user, int $amount, string $rewardDescription, ?Currency $currency = null): RedemptionRequest
     {
-        return DB::transaction(function () use ($user, $gemsAmount, $rewardDescription) {
-            $eligibility = $this->checkEligibility($user);
+        $currency ??= $this->currencies->defaultEarnedCurrency();
+
+        return DB::transaction(function () use ($user, $amount, $rewardDescription, $currency) {
+            $eligibility = $this->checkEligibility($user, $currency);
 
             if (! $eligibility['eligible']) {
                 throw new \RuntimeException(implode(' ', $eligibility['reasons']));
@@ -52,14 +65,13 @@ class RedemptionService
 
             $request = RedemptionRequest::create([
                 'user_id' => $user->id,
-                'gems_amount' => $gemsAmount,
+                'currency_id' => $currency->id,
+                'gems_amount' => $amount,
                 'reward_description' => $rewardDescription,
                 'status' => RedemptionRequest::STATUS_PENDING,
             ]);
 
-            // نحجز الجواهر فوراً (تُخصم) لمنع طلب استبدال مضاعف لنفس الرصيد،
-            // ونرجعها تلقائياً لو الطلب انرفض أو انلغى (انظر reject/cancel تحت).
-            $this->wallet->debitAvailable($user, $gemsAmount, "redemption_request:{$request->id}", $request);
+            $this->wallets->debitAvailable($user, $currency, $amount, "redemption_request:{$request->id}", $request);
 
             return $request;
         });
@@ -84,7 +96,8 @@ class RedemptionService
             'admin_note' => $note ?? $request->admin_note,
         ]);
 
-        $request->user->wallet->increment('lifetime_redeemed', $request->gems_amount);
+        $currency = $request->currency ?? $this->currencies->defaultEarnedCurrency();
+        $this->wallets->balanceFor($request->user, $currency)->increment('lifetime_redeemed', $request->gems_amount);
     }
 
     public function reject(RedemptionRequest $request, User $admin, string $note): void
@@ -97,8 +110,11 @@ class RedemptionService
                 'admin_note' => $note,
             ]);
 
-            $this->wallet->refundAvailable(
+            $currency = $request->currency ?? $this->currencies->defaultEarnedCurrency();
+
+            $this->wallets->refund(
                 $request->user,
+                $currency,
                 $request->gems_amount,
                 "redemption_rejected:{$request->id}",
                 $request

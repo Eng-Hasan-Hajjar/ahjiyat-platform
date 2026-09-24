@@ -2,43 +2,59 @@
 
 namespace App\Services\Analytics;
 
-use App\Models\GemTransaction;
+use App\Models\Currency;
+use App\Models\CurrencyTransaction;
 use App\Models\RedemptionRequest;
 use App\Models\Wallet;
+use App\Services\Economy\CurrencyRegistry;
 use App\Support\AnalyticsPeriod;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class EconomyAnalyticsService
 {
-    public function gemsOverview(AnalyticsPeriod $period): array
+    public function __construct(protected CurrencyRegistry $currencies) {}
+
+    public function gemsOverview(AnalyticsPeriod $period, ?Currency $currency = null): array
     {
-        return Cache::remember($period->cacheKey('economy.gems'), now()->addMinutes(10), function () use ($period) {
-            $inPeriod = GemTransaction::whereBetween('created_at', [$period->start, $period->end]);
+        $currency ??= $this->currencies->defaultEarnedCurrency();
+
+        return Cache::remember($period->cacheKey('economy.gems', [$currency->id]), now()->addMinutes(10), function () use ($period, $currency) {
+            $inPeriod = CurrencyTransaction::where('currency_id', $currency->id)
+                ->whereBetween('created_at', [$period->start, $period->end]);
 
             return [
-                'total_in_wallets' => (int) (Wallet::sum('available_balance') + Wallet::sum('pending_balance')),
+                'currency' => ['id' => $currency->id, 'name' => $currency->name, 'code' => $currency->code],
+                'total_in_wallets' => (int) (Wallet::where('currency_id', $currency->id)->sum('available_balance')
+                    + Wallet::where('currency_id', $currency->id)->sum('pending_balance')),
                 'issued_in_period' => (int) (clone $inPeriod)->where('amount', '>', 0)
-                    ->whereIn('type', [GemTransaction::TYPE_EARN_PENDING])->sum('amount'),
-                'spent_in_period' => (int) abs((clone $inPeriod)->where('type', GemTransaction::TYPE_REDEEM)->sum('amount')),
-                'manual_adjustments_in_period' => (int) (clone $inPeriod)->where('type', GemTransaction::TYPE_ADMIN_ADJUSTMENT)->sum('amount'),
+                    ->whereIn('type', [CurrencyTransaction::TYPE_EARN_PENDING])->sum('amount'),
+                'spent_in_period' => (int) abs((clone $inPeriod)->where('type', CurrencyTransaction::TYPE_REDEEM)->sum('amount')),
+                'manual_adjustments_in_period' => (int) (clone $inPeriod)->where('type', CurrencyTransaction::TYPE_ADMIN_ADJUSTMENT)->sum('amount'),
                 'unique_earners' => (clone $inPeriod)->where('amount', '>', 0)->distinct('user_id')->count('user_id'),
-                'breakdown_by_type' => $this->transactionTypeBreakdown($period),
+                'breakdown_by_type' => $this->transactionTypeBreakdown($period, $currency),
             ];
         });
     }
 
-    protected function transactionTypeBreakdown(AnalyticsPeriod $period): array
+    public function allCurrenciesOverview(AnalyticsPeriod $period): array
+    {
+        return Currency::orderBy('sort_order')->get()->map(fn (Currency $c) => $this->gemsOverview($period, $c))->all();
+    }
+
+    protected function transactionTypeBreakdown(AnalyticsPeriod $period, Currency $currency): array
     {
         $labels = [
-            GemTransaction::TYPE_EARN_PENDING => 'كسب (معلَّق)',
-            GemTransaction::TYPE_RELEASE_AVAILABLE => 'إتاحة رصيد',
-            GemTransaction::TYPE_REDEEM => 'استبدال',
-            GemTransaction::TYPE_EXPIRE => 'انتهاء صلاحية',
-            GemTransaction::TYPE_ADMIN_ADJUSTMENT => 'تعديل إداري',
+            CurrencyTransaction::TYPE_EARN_PENDING => 'كسب (معلَّق)',
+            CurrencyTransaction::TYPE_RELEASE_AVAILABLE => 'إتاحة رصيد',
+            CurrencyTransaction::TYPE_REDEEM => 'استبدال/صرف',
+            CurrencyTransaction::TYPE_EXPIRE => 'انتهاء صلاحية',
+            CurrencyTransaction::TYPE_ADMIN_ADJUSTMENT => 'تعديل إداري',
+            CurrencyTransaction::TYPE_PURCHASE => 'شراء',
         ];
 
-        $rows = GemTransaction::whereBetween('created_at', [$period->start, $period->end])
+        $rows = CurrencyTransaction::where('currency_id', $currency->id)
+            ->whereBetween('created_at', [$period->start, $period->end])
             ->select('type', DB::raw('COUNT(*) as count'), DB::raw('SUM(amount) as total'))
             ->groupBy('type')
             ->get();
@@ -50,11 +66,12 @@ class EconomyAnalyticsService
         ])->all();
     }
 
-    public function walletBalanceDistribution(): array
+    public function walletBalanceDistribution(?Currency $currency = null): array
     {
+        $currency ??= $this->currencies->defaultEarnedCurrency();
         $buckets = ['0' => 0, '1-100' => 0, '101-500' => 0, '500+' => 0];
 
-        Wallet::select('available_balance')->chunk(500, function ($wallets) use (&$buckets) {
+        Wallet::where('currency_id', $currency->id)->select('available_balance')->chunk(500, function ($wallets) use (&$buckets) {
             foreach ($wallets as $wallet) {
                 $balance = $wallet->available_balance;
                 $buckets[match (true) {
@@ -69,10 +86,14 @@ class EconomyAnalyticsService
         return $buckets;
     }
 
-    public function redemptionsOverview(AnalyticsPeriod $period): array
+    public function redemptionsOverview(AnalyticsPeriod $period, ?Currency $currency = null): array
     {
-        return Cache::remember($period->cacheKey('economy.redemptions'), now()->addMinutes(10), function () use ($period) {
-            $inPeriod = RedemptionRequest::whereBetween('created_at', [$period->start, $period->end]);
+        $currency ??= $this->currencies->defaultEarnedCurrency();
+
+        return Cache::remember($period->cacheKey('economy.redemptions', [$currency->id]), now()->addMinutes(10), function () use ($period, $currency) {
+            $inPeriod = RedemptionRequest::where('currency_id', $currency->id)
+                ->whereBetween('created_at', [$period->start, $period->end]);
+
             $total = (clone $inPeriod)->count();
             $approved = (clone $inPeriod)->whereIn('status', [RedemptionRequest::STATUS_APPROVED, RedemptionRequest::STATUS_FULFILLED])->count();
             $rejected = (clone $inPeriod)->where('status', RedemptionRequest::STATUS_REJECTED)->count();
@@ -87,6 +108,7 @@ class EconomyAnalyticsService
                 ->value('avg_hours');
 
             return [
+                'currency' => ['id' => $currency->id, 'name' => $currency->name, 'code' => $currency->code],
                 'total_requests' => $total,
                 'pending' => (clone $inPeriod)->where('status', RedemptionRequest::STATUS_PENDING)->count(),
                 'approved' => $approved,

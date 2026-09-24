@@ -15,12 +15,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ReportExportService
 {
        /**
-     * تحييد CSV Formula Injection (بند 69، مُعزَّز E7.1). الحماية الأولى
-     * كانت تفحص فقط أول محرف مباشرة - لا تكفي، لأن بعض محاولات الحقن تضع
-     * محارف تحكّم (Tab/CR/LF/مسافات) قبل رمز الصيغة لتفادي هذا الفحص
-     * البسيط. هنا نتجاهل أي محارف تحكّم بادئة عند الفحص فقط - لا نُغيِّر
-     * القيمة الأصلية المخزَّنة، فقط نُسبقها بمسافة عند اكتشاف الخطر. نص
-     * عربي طبيعي لا يبدأ بأي من هذه المحارف أصلاً فلن يتأثر إطلاقاً.
+     * تحييد CSV Formula Injection (بند 69، مُعزَّز E7.1).
      */
     protected function sanitize($value): string
     {
@@ -109,14 +104,16 @@ class ReportExportService
 
     public function gemsReport(AnalyticsPeriod $period): StreamedResponse
     {
-        return $this->stream('gems-report.csv', ['المستخدم', 'النوع', 'القيمة', 'السبب', 'التاريخ'], function ($handle) use ($period) {
-            GemTransaction::with('user:id,name')
+        return $this->stream('gems-report.csv', ['المستخدم', 'العملة', 'النوع', 'القيمة', 'السبب', 'التاريخ'], function ($handle) use ($period) {
+            \App\Models\CurrencyTransaction::with(['user:id,name', 'currency:id,name,code'])
                 ->whereBetween('created_at', [$period->start, $period->end])
                 ->orderBy('created_at')
                 ->chunk(500, function ($transactions) use ($handle) {
                     foreach ($transactions as $t) {
                         $this->writeRow($handle, [
-                            $t->user?->name ?? '—', $t->type, $t->amount, $t->reason, $t->created_at->format('Y-m-d H:i'),
+                            $t->user?->name ?? '—',
+                            $t->currency ? "{$t->currency->name} ({$t->currency->code})" : '—',
+                            $t->type, $t->amount, $t->reason, $t->created_at->format('Y-m-d H:i'),
                         ]);
                     }
                 });

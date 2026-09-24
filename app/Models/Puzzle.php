@@ -17,14 +17,11 @@ class Puzzle extends Model
     protected $fillable = [
         'puzzle_category_id', 'title', 'type', 'difficulty', 'prompt',
         'image_path', 'choices', 'answer_hash', 'answer_raw', 'hint', 'max_attempts',
-        'time_limit_seconds', 'gem_reward', 'is_daily_puzzle',
+        'time_limit_seconds', 'gem_reward', 'reward_currency_id', 'is_daily_puzzle',
         'daily_puzzle_date', 'is_active',
-        // حقول محرك الألعاب (Phase 1) - كلها Nullable ولا تؤثر على الأحجيات الكلاسيكية
         'game_type', 'game_config', 'solution_data', 'renderer', 'validation_type', 'score_mode',
     ];
 
-    // answer_raw موديل مؤقت (مو عمود بقاعدة البيانات) يستخدم فقط لحظة الإنشاء/التعديل
-    // من لوحة الإدارة عشان نحوله إلى answer_hash تلقائياً - شوف setAnswerRawAttribute تحت.
     protected $appends = [];
 
     protected function casts(): array
@@ -72,6 +69,11 @@ class Puzzle extends Model
         return $this->belongsTo(PuzzleCategory::class, 'puzzle_category_id');
     }
 
+    public function rewardCurrency(): BelongsTo
+    {
+        return $this->belongsTo(Currency::class, 'reward_currency_id');
+    }
+
     public function attempts(): HasMany
     {
         return $this->hasMany(PuzzleAttempt::class);
@@ -82,9 +84,8 @@ class Puzzle extends Model
         return $this->belongsToMany(Challenge::class, 'challenge_puzzle');
     }
 
-        public function campaignSteps(): HasMany
+    public function campaignSteps(): HasMany
     {
         return $this->hasMany(CampaignStep::class);
     }
-
 }

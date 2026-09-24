@@ -142,9 +142,7 @@ return [
         ],
     ],
 
-
-
-        'analytics' => [
+    'analytics' => [
         'label' => 'التحليلات والتقارير',
         'permissions' => [
             'analytics.view' => 'الدخول إلى مركز التحليلات (نظرة عامة)',
@@ -156,6 +154,20 @@ return [
             'reports.export' => 'تصدير التقارير (CSV)',
         ],
     ],
+
+    'economy' => [
+        'label' => 'الاقتصاد والعملات',
+        'permissions' => [
+            'economy.currencies.view' => 'عرض العملات',
+            'economy.currencies.create' => 'إنشاء عملة جديدة',
+            'economy.currencies.update' => 'تعديل عملة (السياسات/الاسم/الأيقونة)',
+            'economy.currencies.deactivate' => 'تفعيل/تعطيل عملة',
+            'economy.packs.view' => 'عرض حزم العملات بالمتجر',
+            'economy.packs.manage' => 'إنشاء/تعديل/تفعيل حزم العملات',
+            'economy.transactions.view' => 'عرض سجل معاملات العملات (Ledger)',
+        ],
+    ],
+
     'system' => [
         'label' => 'النظام والتدقيق',
         'permissions' => [

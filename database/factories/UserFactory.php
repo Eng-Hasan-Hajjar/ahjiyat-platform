@@ -27,7 +27,9 @@ class UserFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (User $user) {
-            Wallet::firstOrCreate(['user_id' => $user->id]);
+            Wallet::firstOrCreate(
+                ['user_id' => $user->id, 'currency_id' => app(\App\Services\Economy\CurrencyRegistry::class)->defaultEarnedCurrency()->id]
+            );
         });
     }
 

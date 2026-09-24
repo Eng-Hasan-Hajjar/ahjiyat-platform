@@ -115,10 +115,13 @@ class ViewUser extends ViewRecord
 
             Section::make('ملخص المحفظة')
                 ->visible(fn () => auth()->user()?->can('users.view_wallet'))
-                ->columns(2)
                 ->schema([
-                    TextEntry::make('wallet.available_balance')->label('الرصيد المتاح')->placeholder('0'),
-                    TextEntry::make('wallet.pending_balance')->label('الرصيد المعلَّق')->placeholder('0'),
+                    TextEntry::make('wallets_summary')
+                        ->label('')
+                        ->html()
+                        ->state(fn (User $record) => view('filament.resources.user-resource.wallets-summary', [
+                            'wallets' => $record->wallets()->with('currency')->get(),
+                        ])->render()),
                 ]),
         ]);
     }

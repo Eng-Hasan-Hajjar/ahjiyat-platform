@@ -2,9 +2,10 @@
 
 namespace App\Filament\Resources\UserResource\RelationManagers;
 
-use App\Models\GemTransaction;
+use App\Models\Currency;
+use App\Models\CurrencyTransaction;
 use App\Models\User;
-use App\Services\GemWalletService;
+use App\Services\Economy\CurrencyWalletService;
 use App\Services\OperationalAuditService;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class GemTransactionsRelationManager extends RelationManager
 {
-    protected static string $relationship = 'gemTransactions';
+    protected static string $relationship = 'currencyTransactions';
 
     protected static ?string $title = 'المحفظة والمعاملات';
 
@@ -29,11 +30,12 @@ class GemTransactionsRelationManager extends RelationManager
     protected static function typeLabel(string $type): string
     {
         return match ($type) {
-            GemTransaction::TYPE_EARN_PENDING => 'كسب (معلَّق)',
-            GemTransaction::TYPE_RELEASE_AVAILABLE => 'إتاحة رصيد',
-            GemTransaction::TYPE_REDEEM => 'استبدال',
-            GemTransaction::TYPE_EXPIRE => 'انتهاء صلاحية',
-            GemTransaction::TYPE_ADMIN_ADJUSTMENT => 'تعديل إداري',
+            CurrencyTransaction::TYPE_EARN_PENDING => 'كسب (معلَّق)',
+            CurrencyTransaction::TYPE_RELEASE_AVAILABLE => 'إتاحة رصيد',
+            CurrencyTransaction::TYPE_REDEEM => 'استبدال/صرف',
+            CurrencyTransaction::TYPE_EXPIRE => 'انتهاء صلاحية',
+            CurrencyTransaction::TYPE_ADMIN_ADJUSTMENT => 'تعديل إداري',
+            CurrencyTransaction::TYPE_PURCHASE => 'شراء',
             default => $type,
         };
     }
@@ -44,8 +46,10 @@ class GemTransactionsRelationManager extends RelationManager
         $user = $this->getOwnerRecord();
 
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with('currency:id,name,code'))
             ->recordTitleAttribute('reason')
             ->columns([
+                Tables\Columns\TextColumn::make('currency.name')->label('العملة')->badge(),
                 Tables\Columns\TextColumn::make('amount')->label('القيمة')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
                     ->formatStateUsing(fn ($state) => ($state >= 0 ? '+' : '').$state),
@@ -53,6 +57,9 @@ class GemTransactionsRelationManager extends RelationManager
                     ->formatStateUsing(fn ($state) => static::typeLabel($state)),
                 Tables\Columns\TextColumn::make('reason')->label('السبب')->limit(40),
                 Tables\Columns\TextColumn::make('created_at')->label('التاريخ')->dateTime('Y-m-d H:i')->sortable(),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('currency_id')->label('العملة')->options(fn () => Currency::pluck('name', 'id')),
             ])
             ->defaultSort('created_at', 'desc')
             ->headerActions([
@@ -62,6 +69,11 @@ class GemTransactionsRelationManager extends RelationManager
                     ->color('warning')
                     ->authorize(fn () => auth()->user()?->can('wallet.adjust'))
                     ->form([
+                        Forms\Components\Select::make('currency_id')
+                            ->label('العملة')
+                            ->options(fn () => Currency::where('is_active', true)->pluck('name', 'id'))
+                            ->required()
+                            ->native(false),
                         Forms\Components\TextInput::make('amount')
                             ->label('القيمة (موجبة للإضافة، سالبة للخصم)')
                             ->numeric()->required()
@@ -70,8 +82,10 @@ class GemTransactionsRelationManager extends RelationManager
                     ])
                     ->requiresConfirmation()
                     ->action(function (array $data) use ($user) {
+                        $currency = Currency::findOrFail($data['currency_id']);
+
                         try {
-                            app(GemWalletService::class)->adjustAvailable($user, (int) $data['amount'], $data['reason']);
+                            app(CurrencyWalletService::class)->adjust($user, $currency, (int) $data['amount'], $data['reason']);
                         } catch (\RuntimeException $e) {
                             Notification::make()->title('تعذَّر التعديل')->body($e->getMessage())->danger()->send();
 
@@ -79,7 +93,7 @@ class GemTransactionsRelationManager extends RelationManager
                         }
 
                         app(OperationalAuditService::class)->log('wallet_manual_adjustment', $user, [
-                            'amount' => (int) $data['amount'], 'reason' => $data['reason'],
+                            'currency' => $currency->internal_key, 'amount' => (int) $data['amount'], 'reason' => $data['reason'],
                         ]);
 
                         Notification::make()->title('تم تعديل الرصيد')->success()->send();

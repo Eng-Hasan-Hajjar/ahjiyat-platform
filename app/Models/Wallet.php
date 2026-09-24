@@ -11,13 +11,18 @@ class Wallet extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'pending_balance', 'available_balance',
+        'user_id', 'currency_id', 'pending_balance', 'available_balance',
         'lifetime_earned', 'lifetime_redeemed',
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function currency(): BelongsTo
+    {
+        return $this->belongsTo(Currency::class);
     }
 
     public function totalBalance(): int
