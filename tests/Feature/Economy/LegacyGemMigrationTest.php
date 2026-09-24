@@ -27,7 +27,9 @@ test('legacy GemTransaction rows remain fully readable and attributed to the leg
     $legacyCurrency = app(CurrencyRegistry::class)->defaultEarnedCurrency();
     $user = User::factory()->create();
 
-    $transaction = GemTransaction::create([
+      // GemTransaction::$fillable لا تشمل currency_id عمداً (بند التوافق) -
+    // نستخدم CurrencyTransaction مباشرة هنا لأن الاختبار يحتاج ضبطها صراحة.
+    $transaction = \App\Models\CurrencyTransaction::create([
         'user_id' => $user->id,
         'currency_id' => $legacyCurrency->id,
         'amount' => 75,

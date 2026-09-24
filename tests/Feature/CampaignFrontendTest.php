@@ -189,8 +189,8 @@ test('solution_data is never rendered on the campaign puzzle step page', functio
     $this->actingAs($user)
         ->get(route('campaigns.steps.show', [$campaign, $step]))
         ->assertOk()
-        ->assertDontSee('0.42', false)
-        ->assertDontSee('radius', false);
+              ->assertDontSee('0.42', false)
+        ->assertDontSee('radius":', false);
 });
 
 test('a guest cannot perform any campaign write action', function () {

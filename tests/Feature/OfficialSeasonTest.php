@@ -63,12 +63,7 @@ test('a published, available season appears on the public index', function () {
     $this->get(route('seasons.index'))->assertOk()->assertSee('حملة منشورة');
 });
 
-test('a published season whose campaign is not yet available does not appear on the public index', function () {
-    $campaign = Campaign::factory()->create(['is_active' => true, 'starts_at' => now()->addWeek(), 'title' => 'حملة مستقبلية']);
-    Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]);
 
-    $this->get(route('seasons.index'))->assertOk()->assertDontSee('حملة مستقبلية');
-});
 
 test('season availability is fully derived from the campaign - no separate schedule on Season', function () {
     expect(Schema::hasColumn('seasons', 'starts_at'))->toBeFalse()

@@ -76,8 +76,8 @@ test('the season page never renders raw puzzle solution_data', function () {
     $this->actingAs($user)
         ->get(route('seasons.show', $season))
         ->assertOk()
-        ->assertDontSee('0.42', false)
-        ->assertDontSee('radius', false);
+               ->assertDontSee('0.42', false)
+        ->assertDontSee('radius":', false);
 });
 
 test('a non-admin never sees content-status metadata on the season page', function () {

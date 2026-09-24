@@ -46,7 +46,7 @@ test('a fully qualifying user is eligible for redemption', function () {
 
 test('an unverified email blocks eligibility', function () {
     $user = makeEligibleUser();
-    $user->update(['email_verified_at' => null]);
+        $user->forceFill(['email_verified_at' => null])->save();
 
     $eligibility = $this->redemptions->checkEligibility($user->fresh());
 
@@ -56,7 +56,7 @@ test('an unverified email blocks eligibility', function () {
 
 test('a too-new account blocks eligibility', function () {
     $user = makeEligibleUser();
-    $user->update(['created_at' => now()]);
+        $user->forceFill(['created_at' => now()])->save();
 
     $eligibility = $this->redemptions->checkEligibility($user->fresh());
 
@@ -149,3 +149,5 @@ test('approving then fulfilling a request updates status and lifetime redeemed w
         // الرصيد المتاح يبقى صفراً - الجواهر خُصمت عند تقديم الطلب ولا تُخصم مرة ثانية
         ->and($user->wallet->available_balance)->toBe(0);
 });
+
+

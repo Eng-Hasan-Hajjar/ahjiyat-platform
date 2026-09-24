@@ -8,7 +8,7 @@ use App\Models\CampaignStep;
 use App\Models\User;
 use App\Models\UserCampaignProgress;
 use App\Services\Analytics\CampaignAnalyticsService;
-
+use App\Support\AnalyticsCache;
 beforeEach(function () {
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
 });

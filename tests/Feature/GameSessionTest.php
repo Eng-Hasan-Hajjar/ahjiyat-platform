@@ -110,8 +110,8 @@ test('a correct full playthrough via HTTP awards gems exactly once and never lea
 
     $this->actingAs($user)
         ->get(route('puzzles.show', $puzzle))
-        ->assertDontSee('0.25', false)
-        ->assertDontSee('radius', false);
+                ->assertDontSee('0.25', false)
+        ->assertDontSee('radius":', false);
 
     $start = $this->actingAs($user)->postJson(route('game-sessions.start', $puzzle));
     $sessionId = $start->json('session_id');

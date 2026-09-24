@@ -6,6 +6,7 @@ use App\Models\Campaign;
 use App\Models\CampaignGateQualification;
 use App\Models\Season;
 use App\Models\UserCampaignProgress;
+use App\Support\AnalyticsCache;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -13,7 +14,8 @@ class CampaignAnalyticsService
 {
     public function forCampaign(Campaign $campaign): array
     {
-   return Cache::remember(AnalyticsCache::key("campaign:{$campaign->id}"), now()->addMinutes(10), function () use ($campaign) {            $stepIds = DB::table('campaign_steps')
+        return Cache::remember(AnalyticsCache::key("campaign:{$campaign->id}"), now()->addMinutes(10), function () use ($campaign) {
+            $stepIds = DB::table('campaign_steps')
                 ->join('campaign_gates', 'campaign_gates.id', '=', 'campaign_steps.campaign_gate_id')
                 ->join('campaign_stages', 'campaign_stages.id', '=', 'campaign_gates.campaign_stage_id')
                 ->where('campaign_stages.campaign_id', $campaign->id)

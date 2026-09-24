@@ -19,7 +19,13 @@ class EconomyAnalyticsService
     {
         $currency ??= $this->currencies->defaultEarnedCurrency();
 
-        return Cache::remember($period->cacheKey('economy.gems', [$currency->id]), now()->addMinutes(10), function () use ($period, $currency) {
+        // إصلاح: cacheKey() الأصلية (E7) تقبل معاملاً واحداً فقط - أي معامل
+        // إضافي يُتجاهل بصمت بـPHP (لا خطأ)، ما كان يجعل كل العملات تتشارك
+        // نفس مفتاح الكاش لنفس الفترة. نبني مفتاحاً مركَّباً يدوياً هنا -
+        // مضمون بغضّ النظر عن توقيع الدالة الأصلية.
+        $cacheKey = $period->cacheKey('economy.gems').':currency:'.$currency->id;
+
+        return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($period, $currency) {
             $inPeriod = CurrencyTransaction::where('currency_id', $currency->id)
                 ->whereBetween('created_at', [$period->start, $period->end]);
 
@@ -89,8 +95,9 @@ class EconomyAnalyticsService
     public function redemptionsOverview(AnalyticsPeriod $period, ?Currency $currency = null): array
     {
         $currency ??= $this->currencies->defaultEarnedCurrency();
+        $cacheKey = $period->cacheKey('economy.redemptions').':currency:'.$currency->id;
 
-        return Cache::remember($period->cacheKey('economy.redemptions', [$currency->id]), now()->addMinutes(10), function () use ($period, $currency) {
+        return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($period, $currency) {
             $inPeriod = RedemptionRequest::where('currency_id', $currency->id)
                 ->whereBetween('created_at', [$period->start, $period->end]);
 

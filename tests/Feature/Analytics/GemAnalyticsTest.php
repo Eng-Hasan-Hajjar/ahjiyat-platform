@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\GemTransaction;
+use App\Models\CurrencyTransaction;
 use App\Models\User;
 use App\Services\Analytics\EconomyAnalyticsService;
 use App\Services\Economy\CurrencyRegistry;
@@ -13,8 +13,8 @@ beforeEach(function () {
 
 test('issued gems are calculated from the transaction ledger, not wallet balances', function () {
     $user = User::factory()->create();
-    GemTransaction::create(['user_id' => $user->id, 'currency_id' => $this->currencyId, 'amount' => 100, 'type' => GemTransaction::TYPE_EARN_PENDING, 'reason' => 'test', 'created_at' => now()]);
-    GemTransaction::create(['user_id' => $user->id, 'currency_id' => $this->currencyId, 'amount' => 50, 'type' => GemTransaction::TYPE_EARN_PENDING, 'reason' => 'test', 'created_at' => now()]);
+    CurrencyTransaction::create(['user_id' => $user->id, 'currency_id' => $this->currencyId, 'amount' => 100, 'type' => CurrencyTransaction::TYPE_EARN_PENDING, 'reason' => 'test', 'created_at' => now()]);
+    CurrencyTransaction::create(['user_id' => $user->id, 'currency_id' => $this->currencyId, 'amount' => 50, 'type' => CurrencyTransaction::TYPE_EARN_PENDING, 'reason' => 'test', 'created_at' => now()]);
 
     $overview = app(EconomyAnalyticsService::class)->gemsOverview(AnalyticsPeriod::fromPreset('last_30_days'));
 
@@ -23,7 +23,7 @@ test('issued gems are calculated from the transaction ledger, not wallet balance
 
 test('spent gems reflect redeem-type transactions correctly', function () {
     $user = User::factory()->create();
-    GemTransaction::create(['user_id' => $user->id, 'currency_id' => $this->currencyId, 'amount' => -80, 'type' => GemTransaction::TYPE_REDEEM, 'reason' => 'test', 'created_at' => now()]);
+    CurrencyTransaction::create(['user_id' => $user->id, 'currency_id' => $this->currencyId, 'amount' => -80, 'type' => CurrencyTransaction::TYPE_REDEEM, 'reason' => 'test', 'created_at' => now()]);
 
     $overview = app(EconomyAnalyticsService::class)->gemsOverview(AnalyticsPeriod::fromPreset('last_30_days'));
 
@@ -32,8 +32,8 @@ test('spent gems reflect redeem-type transactions correctly', function () {
 
 test('manual adjustments are tracked as a separate category from earned/spent gems', function () {
     $user = User::factory()->create();
-    GemTransaction::create(['user_id' => $user->id, 'currency_id' => $this->currencyId, 'amount' => 200, 'type' => GemTransaction::TYPE_EARN_PENDING, 'reason' => 'test', 'created_at' => now()]);
-    GemTransaction::create(['user_id' => $user->id, 'currency_id' => $this->currencyId, 'amount' => 30, 'type' => GemTransaction::TYPE_ADMIN_ADJUSTMENT, 'reason' => 'تعويض', 'created_at' => now()]);
+    CurrencyTransaction::create(['user_id' => $user->id, 'currency_id' => $this->currencyId, 'amount' => 200, 'type' => CurrencyTransaction::TYPE_EARN_PENDING, 'reason' => 'test', 'created_at' => now()]);
+    CurrencyTransaction::create(['user_id' => $user->id, 'currency_id' => $this->currencyId, 'amount' => 30, 'type' => CurrencyTransaction::TYPE_ADMIN_ADJUSTMENT, 'reason' => 'تعويض', 'created_at' => now()]);
 
     $overview = app(EconomyAnalyticsService::class)->gemsOverview(AnalyticsPeriod::fromPreset('last_30_days'));
 

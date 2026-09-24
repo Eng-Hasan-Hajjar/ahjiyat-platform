@@ -3,6 +3,10 @@
 use App\Models\User;
 use App\Services\PlatformSettingsService;
 
+beforeEach(function () {
+    $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+});
+
 test('registration works normally when allow_registration is enabled (the default)', function () {
     $response = $this->post(route('register'), [
         'name' => 'مستخدم جديد',
@@ -47,7 +51,8 @@ test('login still works normally even when registration is disabled', function (
 });
 
 test('the admin panel remains accessible even when registration is disabled', function () {
-    $admin = User::factory()->create(['role' => 'admin']);
+    $admin = User::factory()->create();
+    $admin->assignRole('administrator');
     app(PlatformSettingsService::class)->set('access', 'allow_registration', false);
 
     $this->actingAs($admin)->get('/admin/settings')->assertOk();
