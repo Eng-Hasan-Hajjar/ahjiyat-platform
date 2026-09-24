@@ -27,11 +27,11 @@ class GemWalletService
         return GemTransaction::find($transaction->id);
     }
 
-    public function releasePendingToAvailable(User $user, int $amount, string $reason): GemTransaction
+    public function releasePendingToAvailable(User $user, int $amount, string $reason): ?GemTransaction
     {
         $transaction = $this->wallets->releasePending($user, $this->currencies->defaultEarnedCurrency(), $amount, $reason);
 
-        return GemTransaction::find($transaction->id);
+        return $transaction ? GemTransaction::find($transaction->id) : null;
     }
 
     public function debitAvailable(User $user, int $amount, string $reason, ?Model $reference = null): GemTransaction

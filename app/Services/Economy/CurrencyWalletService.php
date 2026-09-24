@@ -9,6 +9,12 @@ use App\Models\Wallet;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * E9.1: خط الدفاع المركزي الوحيد لسلامة الاقتصاد - canEarn()/canSpend()
+ * يُفرَضان هنا فقط، لا يُعتمَد على الطبقات الأعلى (PuzzleAttemptService...)
+ * للتحقق. adjust()/refund() تبقيان Business Methods منفصلتين عمداً بلا هذا
+ * الفحص - الإدارة يجب أن تقدر تُصحِّح رصيد عملة معطَّلة تشغيليًا.
+ */
 class CurrencyWalletService
 {
     public function creditPending(
@@ -20,8 +26,11 @@ class CurrencyWalletService
         ?string $idempotencyKey = null,
     ): CurrencyTransaction {
         $this->assertPositiveAmount($amount);
+        $this->assertCanEarn($currency);
 
         if ($idempotencyKey !== null && ($existing = $this->findByIdempotencyKey($idempotencyKey))) {
+            $this->assertIdempotencyConsistent($existing, $user, $currency, $amount, CurrencyTransaction::TYPE_EARN_PENDING);
+
             return $existing;
         }
 
@@ -44,20 +53,30 @@ class CurrencyWalletService
         });
     }
 
-    public function releasePending(User $user, Currency $currency, int $amount, string $reason): CurrencyTransaction
+    /**
+     * E9.1 (بند 3): amount > 0 دائمًا (أُلزِمَ صراحة الآن). لا معاملة صفرية
+     * إن لم يبقَ شيء معلَّق فعليًا - null بدل سجل وهمي بقيمة 0.
+     */
+    public function releasePending(User $user, Currency $currency, int $amount, string $reason): ?CurrencyTransaction
     {
+        $this->assertPositiveAmount($amount);
+
         return DB::transaction(function () use ($user, $currency, $amount, $reason) {
             $wallet = $this->lockedWallet($user, $currency);
 
-            $amount = min($amount, $wallet->pending_balance);
+            $effectiveAmount = min($amount, $wallet->pending_balance);
 
-            $wallet->decrement('pending_balance', $amount);
-            $wallet->increment('available_balance', $amount);
+            if ($effectiveAmount <= 0) {
+                return null;
+            }
+
+            $wallet->decrement('pending_balance', $effectiveAmount);
+            $wallet->increment('available_balance', $effectiveAmount);
 
             return CurrencyTransaction::create([
                 'user_id' => $user->id,
                 'currency_id' => $currency->id,
-                'amount' => $amount,
+                'amount' => $effectiveAmount,
                 'type' => CurrencyTransaction::TYPE_RELEASE_AVAILABLE,
                 'reason' => $reason,
             ]);
@@ -76,6 +95,8 @@ class CurrencyWalletService
         $this->assertPositiveAmount($amount);
 
         if ($idempotencyKey !== null && ($existing = $this->findByIdempotencyKey($idempotencyKey))) {
+            $this->assertIdempotencyConsistent($existing, $user, $currency, $amount, $type);
+
             return $existing;
         }
 
@@ -106,6 +127,7 @@ class CurrencyWalletService
         string $type = CurrencyTransaction::TYPE_REDEEM,
     ): CurrencyTransaction {
         $this->assertPositiveAmount($amount);
+        $this->assertCanSpend($currency);
 
         return DB::transaction(function () use ($user, $currency, $amount, $reason, $reference, $type) {
             $wallet = $this->lockedWallet($user, $currency);
@@ -128,6 +150,11 @@ class CurrencyWalletService
         });
     }
 
+    /**
+     * E9.1 (بند 1): عمداً بلا فحص canSpend/canEarn - إرجاع رصيد محجوز مسبقًا
+     * (رفض طلب استبدال مثلاً) يجب أن ينجح دائمًا بغضّ النظر عن حالة العملة
+     * الحالية، وإلا يُحتجَز رصيد المستخدم بلا رجعة إن عُطِّلت العملة بينهما.
+     */
     public function refund(User $user, Currency $currency, int $amount, string $reason, ?Model $reference = null): CurrencyTransaction
     {
         $this->assertPositiveAmount($amount);
@@ -148,6 +175,12 @@ class CurrencyWalletService
         });
     }
 
+    /**
+     * E9.1 (بند 1): تعديل الإدارة اليدوي - Business Method منفصلة تمامًا،
+     * عمداً بلا فحص canEarn()/canSpend(). القرار موثَّق هنا صراحة: الإدارة
+     * يجب أن تقدر تُصحِّح رصيد عملة معطَّلة/منتهية تشغيليًا (تعويض خطأ قبل
+     * إعادة تفعيلها مثلاً) - هذا ليس Bypass ضمني بل تصميم مقصود.
+     */
     public function adjust(User $user, Currency $currency, int $amount, string $reason): CurrencyTransaction
     {
         if ($amount === 0) {
@@ -197,9 +230,43 @@ class CurrencyWalletService
         }
     }
 
+    /** E9.1 (بند 1): خط الدفاع المركزي - لا كسب لعملة غير نشطة/غير قابلة للكسب/خارج نافذتها الزمنية/منتهية. */
+    protected function assertCanEarn(Currency $currency): void
+    {
+        if (! $currency->canEarn()) {
+            throw new \RuntimeException("لا يمكن كسب عملة \"{$currency->name}\" حاليًا (غير نشطة، أو غير قابلة للكسب، أو خارج نافذتها الزمنية، أو منتهية).");
+        }
+    }
+
+    /** E9.1 (بند 1): خط الدفاع المركزي - لا صرف من عملة غير نشطة/غير قابلة للصرف/منتهية. */
+    protected function assertCanSpend(Currency $currency): void
+    {
+        if (! $currency->canSpend()) {
+            throw new \RuntimeException("لا يمكن صرف عملة \"{$currency->name}\" حاليًا (غير نشطة، أو غير قابلة للصرف، أو منتهية).");
+        }
+    }
+
     protected function findByIdempotencyKey(string $key): ?CurrencyTransaction
     {
         return CurrencyTransaction::where('idempotency_key', $key)->first();
+    }
+
+    /**
+     * E9.1 (بند 5): لا نكتفي بإرجاع أي معاملة تحمل نفس المفتاح - نتحقق أنها
+     * فعلاً نفس العملية (نفس مستخدم/عملة/قيمة مطلقة/نوع). إن اختلفت: هذا
+     * تعارض حقيقي على مفتاح استُخدم لعمليتين مختلفتين تمامًا - Exception،
+     * لا إرجاع صامت لنتيجة خاطئة.
+     */
+    protected function assertIdempotencyConsistent(CurrencyTransaction $existing, User $user, Currency $currency, int $amount, string $type): void
+    {
+        $matches = $existing->user_id === $user->id
+            && $existing->currency_id === $currency->id
+            && abs($existing->amount) === abs($amount)
+            && $existing->type === $type;
+
+        if (! $matches) {
+            throw new \RuntimeException('مفتاح Idempotency هذا مُستخدَم مسبقًا لعملية مختلفة تمامًا - تعارض حقيقي.');
+        }
     }
 
     protected function lockedWallet(User $user, Currency $currency): Wallet

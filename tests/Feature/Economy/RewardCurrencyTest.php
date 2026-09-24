@@ -50,3 +50,14 @@ test('solving the same puzzle twice never awards a reward twice', function () {
     expect(fn () => $this->service->attempt($user, $puzzle, 'صح'))->toThrow(RuntimeException::class);
     expect($user->wallet->fresh()->pending_balance)->toBe(10);
 });
+
+test('E9.1: an inactive reward_currency_id blocks the puzzle reward entirely - the central invariant is enforced even through the full attempt flow', function () {
+    $inactiveCurrency = Currency::factory()->create(['is_active' => false]);
+    $user = User::factory()->create();
+    $puzzle = Puzzle::factory()->create(['answer_raw' => 'صح', 'gem_reward' => 25, 'reward_currency_id' => $inactiveCurrency->id]);
+
+    expect(fn () => $this->service->attempt($user, $puzzle, 'صح'))->toThrow(RuntimeException::class);
+
+    expect(\App\Models\PuzzleAttempt::where('user_id', $user->id)->count())->toBe(0)
+        ->and(\App\Models\Wallet::where('user_id', $user->id)->where('currency_id', $inactiveCurrency->id)->exists())->toBeFalse();
+});
