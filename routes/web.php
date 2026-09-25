@@ -11,6 +11,7 @@ use App\Http\Controllers\CampaignStepController;
 use App\Http\Controllers\ChallengeController;
 use App\Http\Controllers\GameSessionController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\StoreController;
@@ -29,8 +30,8 @@ Route::get('/puzzles/{puzzle}', [PuzzleController::class, 'show'])->name('puzzle
 
 Route::get('/leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard.index');
 
-// E9: أساس المتجر - GET فقط، لا Checkout/Purchase إطلاقاً.
 Route::get('/store', [StoreController::class, 'index'])->name('store.index');
+Route::get('/store/items/{item:slug}', [StoreController::class, 'show'])->name('store.items.show');
 
 Route::get('/challenges', [ChallengeController::class, 'index'])->name('challenges.index');
 Route::get('/challenges/{challenge}', [ChallengeController::class, 'show'])->name('challenges.show');
@@ -104,5 +105,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/redemption/create', [RedemptionController::class, 'create'])->name('redemption.create');
         Route::post('/redemption', [RedemptionController::class, 'store'])
             ->middleware('throttle:redemption')->name('redemption.store');
+
+        Route::post('/store/items/{item}/purchase', [StoreController::class, 'purchase'])
+            ->middleware('throttle:store-purchase')->name('store.items.purchase');
+
+        Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
     });
 });

@@ -17,7 +17,8 @@ class CurrencyTransaction extends Model
     public const TYPE_RELEASE_AVAILABLE = 'release_available';
     public const TYPE_REDEEM = 'redeem';
     public const TYPE_EXPIRE = 'expire';
-    public const TYPE_ADMIN_ADJUSTMENT = 'admin_adjustment';
+        public const TYPE_ADMIN_ADJUSTMENT = 'admin_adjustment';
+    public const TYPE_REFUND = 'refund';
     public const TYPE_PURCHASE = 'purchase';
     public const TYPE_SPEND = 'spend';
 

@@ -14,9 +14,9 @@ class RolesAndPermissionsSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         collect(config('permissions', []))
-            ->flatMap(fn ($module) => array_keys($module['permissions'] ?? []))
+            ->flatMap(fn($module) => array_keys($module['permissions'] ?? []))
             ->unique()
-            ->each(fn ($name) => Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']));
+            ->each(fn($name) => Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']));
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
@@ -25,43 +25,103 @@ class RolesAndPermissionsSeeder extends Seeder
 
         $this->role('content-manager', 'مدير محتوى', 'إدارة المواسم والحملات والأحجيات فقط.', true, '#22d3ee', 2, [
             'admin.access',
-            'seasons.view', 'seasons.create', 'seasons.update', 'seasons.delete', 'seasons.publish', 'seasons.preview',
-            'campaigns.view', 'campaigns.create', 'campaigns.update', 'campaigns.delete',
-            'puzzles.view', 'puzzles.create', 'puzzles.update', 'puzzles.delete', 'puzzles.publish', 'puzzles.manage_categories',
+            'seasons.view',
+            'seasons.create',
+            'seasons.update',
+            'seasons.delete',
+            'seasons.publish',
+            'seasons.preview',
+            'campaigns.view',
+            'campaigns.create',
+            'campaigns.update',
+            'campaigns.delete',
+            'puzzles.view',
+            'puzzles.create',
+            'puzzles.update',
+            'puzzles.delete',
+            'puzzles.publish',
+            'puzzles.manage_categories',
         ]);
 
         $this->role('moderator', 'مشرف', 'مراقبة المستخدمين ومكافحة الاحتيال والتحديات.', true, '#fb7185', 3, [
-            'admin.access', 'users.view', 'fraud.view', 'fraud.resolve', 'challenges.view', 'challenges.update',
+            'admin.access',
+            'users.view',
+            'fraud.view',
+            'fraud.resolve',
+            'challenges.view',
+            'challenges.update',
         ]);
 
         $this->role('support', 'دعم فني', 'عرض المستخدمين وطلبات الاستبدال فقط.', true, '#34d399', 4, [
-            'admin.access', 'users.view', 'redemptions.view',
+            'admin.access',
+            'users.view',
+            'redemptions.view',
         ]);
 
         $this->role('player', 'لاعب', 'الدور الافتراضي لأي مستخدم جديد - بلا وصول للوحة الإدارة.', true, '#64748b', 99, []);
 
         $this->grantIfMissing('administrator', [
-            'users.freeze', 'users.unfreeze', 'users.view_security', 'users.view_wallet',
-            'users.view_activity', 'users.manage_roles', 'wallet.adjust',
-            'security.sessions_view', 'security.sessions_revoke', 'operations.dashboard_view',
-            'analytics.view', 'analytics.users', 'analytics.puzzles', 'analytics.campaigns',
-            'analytics.financial', 'analytics.security', 'reports.export',
-            'economy.currencies.view', 'economy.currencies.create', 'economy.currencies.update',
-            'economy.currencies.deactivate', 'economy.packs.view', 'economy.packs.manage',
+            'users.freeze',
+            'users.unfreeze',
+            'users.view_security',
+            'users.view_wallet',
+            'users.view_activity',
+            'users.manage_roles',
+            'wallet.adjust',
+            'security.sessions_view',
+            'security.sessions_revoke',
+            'operations.dashboard_view',
+            'analytics.view',
+            'analytics.users',
+            'analytics.puzzles',
+            'analytics.campaigns',
+            'analytics.financial',
+            'analytics.security',
+            'reports.export',
+            'economy.currencies.view',
+            'economy.currencies.create',
+            'economy.currencies.update',
+            'economy.currencies.deactivate',
+            'economy.packs.view',
+            'economy.packs.manage',
             'economy.transactions.view',
+            'store.items.view',
+            'store.items.create',
+            'store.items.update',
+            'store.items.deactivate',
+            'store.prices.manage',
+            'store.purchases.view',
+            'store.purchases.fulfill',
+            'store.purchases.refund',
+            'store.inventory.view',
+            'store.entitlements.view',
+
         ]);
 
         $this->grantIfMissing('moderator', [
-            'users.view_security', 'users.view_activity', 'operations.dashboard_view',
-            'analytics.view', 'analytics.security',
+            'users.view_security',
+            'users.view_activity',
+            'operations.dashboard_view',
+            'analytics.view',
+            'analytics.security',
         ]);
 
         $this->grantIfMissing('support', [
             'users.view_activity',
+            'store.purchases.view',
+            'store.purchases.fulfill',
+            'store.inventory.view',
         ]);
 
         $this->grantIfMissing('content-manager', [
-            'analytics.view', 'analytics.puzzles', 'analytics.campaigns', 'economy.currencies.view',
+            'analytics.view',
+            'analytics.puzzles',
+            'analytics.campaigns',
+            'economy.currencies.view',
+            'store.items.view',
+            'store.items.create',
+            'store.items.update',
+            'store.prices.manage',
         ]);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -81,7 +141,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ['label_ar' => $labelAr, 'description' => $description, 'is_system' => $isSystem, 'color' => $color, 'sort_order' => $sortOrder],
         );
 
-        if ($role->wasRecentlyCreated && ! empty($permissionNames)) {
+        if ($role->wasRecentlyCreated && !empty($permissionNames)) {
             $models = Permission::query()
                 ->where('guard_name', 'web')
                 ->whereIn('name', $permissionNames)
@@ -95,7 +155,7 @@ class RolesAndPermissionsSeeder extends Seeder
     {
         $role = Role::where('name', $roleName)->where('guard_name', 'web')->first();
 
-        if (! $role) {
+        if (!$role) {
             return;
         }
 

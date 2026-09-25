@@ -168,11 +168,32 @@ return [
         ],
     ],
 
+
+
+    'store' => [
+        'label' => 'المتجر والمخزون',
+        'permissions' => [
+            'store.items.view' => 'عرض عناصر المتجر',
+            'store.items.create' => 'إنشاء عنصر متجر جديد',
+            'store.items.update' => 'تعديل عنصر متجر (بيانات/تسعير)',
+            'store.items.deactivate' => 'تفعيل/تعطيل عنصر متجر',
+            'store.prices.manage' => 'إدارة خيارات أسعار عناصر المتجر',
+            'store.purchases.view' => 'عرض عمليات شراء المتجر',
+            'store.purchases.fulfill' => 'إنجاز طلب شراء يدوي',
+            'store.purchases.refund' => 'استرجاع عملية شراء',
+            'store.inventory.view' => 'عرض مخزون المستخدمين الشخصي',
+            'store.entitlements.view' => 'عرض امتيازات المستخدمين',
+        ],
+    ],
+
+
     'system' => [
         'label' => 'النظام والتدقيق',
         'permissions' => [
             'system.audit_view' => 'عرض سجل تغييرات الصلاحيات',
         ],
     ],
+
+
 
 ];

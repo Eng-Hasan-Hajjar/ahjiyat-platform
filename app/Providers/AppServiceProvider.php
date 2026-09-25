@@ -67,5 +67,13 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('redemption', function (Request $request) {
             return Limit::perMinutes(60, 5)->by($request->user()?->id ?: $request->ip());
         });
+
+                // E10: مشتريات المتجر الافتراضي - مفتاح المستخدم (لا IP، دائماً
+        // مُصادَق عليه بهذه المرحلة).
+        RateLimiter::for('store-purchase', function (Request $request) {
+            return Limit::perMinute(8)->by($request->user()?->id ?: $request->ip());
+        });
+
+        
     }
 }

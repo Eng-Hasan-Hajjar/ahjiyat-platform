@@ -126,4 +126,32 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
     {
         return $this->belongsTo(self::class, 'frozen_by');
     }
+
+
+
+
+        // ===== E10: Store/Inventory/Entitlements =====
+
+    public function storePurchases(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(StorePurchase::class);
+    }
+
+    public function inventoryItems(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(UserInventoryItem::class);
+    }
+
+    public function inventoryTransactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(InventoryTransaction::class);
+    }
+
+    public function entitlements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(UserEntitlement::class);
+    }
+
+
+    
 }

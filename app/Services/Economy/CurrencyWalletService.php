@@ -155,11 +155,11 @@ class CurrencyWalletService
      * (رفض طلب استبدال مثلاً) يجب أن ينجح دائمًا بغضّ النظر عن حالة العملة
      * الحالية، وإلا يُحتجَز رصيد المستخدم بلا رجعة إن عُطِّلت العملة بينهما.
      */
-    public function refund(User $user, Currency $currency, int $amount, string $reason, ?Model $reference = null): CurrencyTransaction
+    public function refund(User $user, Currency $currency, int $amount, string $reason, ?Model $reference = null, string $type = CurrencyTransaction::TYPE_ADMIN_ADJUSTMENT): CurrencyTransaction
     {
         $this->assertPositiveAmount($amount);
 
-        return DB::transaction(function () use ($user, $currency, $amount, $reason, $reference) {
+        return DB::transaction(function () use ($user, $currency, $amount, $reason, $reference, $type) {
             $wallet = $this->lockedWallet($user, $currency);
             $wallet->increment('available_balance', $amount);
 
@@ -167,7 +167,7 @@ class CurrencyWalletService
                 'user_id' => $user->id,
                 'currency_id' => $currency->id,
                 'amount' => $amount,
-                'type' => CurrencyTransaction::TYPE_ADMIN_ADJUSTMENT,
+                'type' => $type,
                 'reason' => $reason,
                 'reference_type' => $reference?->getMorphClass(),
                 'reference_id' => $reference?->getKey(),
