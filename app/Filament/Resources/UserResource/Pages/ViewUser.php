@@ -113,7 +113,7 @@ class ViewUser extends ViewRecord
                         ->state(fn (User $record) => $record->puzzleAttempts()->where('is_correct', true)->distinct('puzzle_id')->count('puzzle_id')),
                 ]),
 
-            Section::make('ملخص المحفظة')
+                        Section::make('ملخص المحفظة')
                 ->visible(fn () => auth()->user()?->can('users.view_wallet'))
                 ->schema([
                     TextEntry::make('wallets_summary')
@@ -121,6 +121,28 @@ class ViewUser extends ViewRecord
                         ->html()
                         ->state(fn (User $record) => view('filament.resources.user-resource.wallets-summary', [
                             'wallets' => $record->wallets()->with('currency')->get(),
+                        ])->render()),
+                ]),
+
+            Section::make('المخزون الشخصي (المتجر)')
+                ->visible(fn () => auth()->user()?->can('store.inventory.view'))
+                ->schema([
+                    TextEntry::make('inventory_summary')
+                        ->label('')
+                        ->html()
+                        ->state(fn (User $record) => view('filament.resources.user-resource.inventory-summary', [
+                            'items' => $record->inventoryItems()->with('item')->where('quantity', '>', 0)->get(),
+                        ])->render()),
+                ]),
+
+            Section::make('الامتيازات')
+                ->visible(fn () => auth()->user()?->can('store.entitlements.view'))
+                ->schema([
+                    TextEntry::make('entitlements_summary')
+                        ->label('')
+                        ->html()
+                        ->state(fn (User $record) => view('filament.resources.user-resource.entitlements-summary', [
+                            'entitlements' => $record->entitlements()->with('item')->orderByDesc('created_at')->get(),
                         ])->render()),
                 ]),
         ]);

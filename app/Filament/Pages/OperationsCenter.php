@@ -45,6 +45,14 @@ class OperationsCenter extends Page
             : null;
     }
 
+    /** E10 (بند 138): طلبات شراء متجر يدوية بانتظار إنجاز الإدارة. */
+    public function getPendingStoreFulfillmentCount(): ?int
+    {
+        return auth()->user()?->can('store.purchases.view')
+            ? \App\Models\StorePurchase::where('status', \App\Models\StorePurchase::STATUS_PENDING_FULFILLMENT)->count()
+            : null;
+    }
+
     public function getOpenFraudFlagsCount(): ?int
     {
         return auth()->user()?->can('fraud.view')
@@ -97,6 +105,8 @@ class OperationsCenter extends Page
         'fraud_flag_resolved' => 'معالجة إشارة أمنية',
         'session_revoked' => 'إنهاء جلسة',
         'all_sessions_revoked' => 'إنهاء كل الجلسات',
+        'store_purchase_fulfilled' => 'إنجاز طلب شراء متجر',
+        'store_purchase_refunded' => 'استرجاع شراء متجر',
     ];
 
     public function actionLabel(string $action): string

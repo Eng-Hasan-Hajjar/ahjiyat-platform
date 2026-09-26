@@ -9,6 +9,62 @@
         الرصيد الافتراضي داخل المنصة وليس حساباً مصرفياً.
     </p>
 
+    <h2 class="font-display font-black text-lg md:text-xl text-white mb-4 anim-fade-up d-1">العناصر والمكافآت</h2>
+
+    @if ($items->isEmpty())
+        <div class="glass rounded-2xl px-6 py-10 text-center anim-fade-up mb-10">
+            <p class="text-slate-400">لا توجد عناصر متاحة حالياً.</p>
+        </div>
+    @else
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
+            @foreach ($items as $item)
+                @php $soldOut = $item->isSoldOut(); @endphp
+                <a href="{{ route('store.items.show', $item) }}" class="puzzle-card anim-fade-up flex flex-col justify-between hover:border-amethyst/40 transition">
+                    <div>
+                        @if ($item->image_path)
+                            <img src="{{ \Illuminate\Support\Facades\Storage::url($item->image_path) }}" alt="" class="w-full h-32 object-cover rounded-xl mb-3">
+                        @endif
+
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="chip !py-0.5 !px-2 text-[10px]">
+                                @switch($item->item_type)
+                                    @case('physical') مادي @break
+                                    @case('digital') رقمي @break
+                                    @case('cosmetic') تجميلي @break
+                                    @case('consumable') استهلاكي @break
+                                    @case('access') وصول @break
+                                    @default {{ $item->item_type }}
+                                @endswitch
+                            </span>
+                            @if ($item->is_featured)
+                                <span class="chip !py-0.5 !px-2 text-[10px] !text-gold">مميَّز</span>
+                            @endif
+                        </div>
+
+                        <h3 class="font-display font-black text-lg text-white mb-1">{{ $item->name }}</h3>
+                        @if ($item->short_description)
+                            <p class="text-xs text-slate-400 mb-3 line-clamp-2">{{ $item->short_description }}</p>
+                        @endif
+
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            @foreach ($item->activePrices as $price)
+                                <span class="text-xs font-bold text-amethyst" dir="ltr">{{ number_format($price->amount) }} {{ $price->currency->code }}</span>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    @if ($soldOut)
+                        <span class="w-full text-center py-2.5 rounded-xl bg-white/5 text-slate-500 font-bold text-sm border border-white/10">نفدت الكمية</span>
+                    @else
+                        <span class="w-full text-center py-2.5 rounded-xl btn-gem text-sm">عرض التفاصيل ←</span>
+                    @endif
+                </a>
+            @endforeach
+        </div>
+    @endif
+
+    <h2 class="font-display font-black text-lg md:text-xl text-white mb-4 anim-fade-up d-2">حزم العملات</h2>
+
     @if ($packs->isEmpty())
         <div class="glass rounded-2xl px-6 py-16 text-center anim-fade-up">
             <p class="text-slate-400">لا توجد حزم متاحة حالياً.</p>
