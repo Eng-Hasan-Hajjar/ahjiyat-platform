@@ -27,7 +27,7 @@ test('refunding a purchase credits back the exact original currency and amount',
 
     $this->purchases->refund($purchase, $admin, 'اختبار');
 
-    expect($this->wallets->balanceFor($user, $price->currency)->available_balance)->toBe(850)
+        expect($this->wallets->balanceFor($user, $price->currency)->available_balance)->toBe(1000)
         ->and($purchase->fresh()->status)->toBe(StorePurchase::STATUS_REFUNDED)
         ->and(CurrencyTransaction::where('reference_type', StorePurchase::class)
             ->where('reference_id', $purchase->id)->where('type', CurrencyTransaction::TYPE_REFUND)->exists())->toBeTrue();

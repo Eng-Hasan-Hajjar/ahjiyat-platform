@@ -43,8 +43,8 @@ test('a temporary entitlement computes expires_at from the duration in days', fu
     $entitlement = $this->entitlements->grant($user, $item);
 
     expect($entitlement->expires_at)->not->toBeNull()
-        ->and($entitlement->expires_at->diffInDays(now()))->toBeGreaterThanOrEqual(29)
-        ->and($entitlement->expires_at->diffInDays(now()))->toBeLessThanOrEqual(30);
+        ->and($entitlement->expires_at->diffInDays(now(), absolute: true))->toBeGreaterThanOrEqual(29)
+        ->and($entitlement->expires_at->diffInDays(now(), absolute: true))->toBeLessThanOrEqual(30);
 });
 
 test('revoking an entitlement makes hasActive false while keeping its history row', function () {

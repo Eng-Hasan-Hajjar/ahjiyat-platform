@@ -52,8 +52,13 @@ test('reusing a request key for a different price on the same item is also a con
     $user = User::factory()->create();
     $item = StoreItem::factory()->create();
     $priceOne = StoreItemPrice::factory()->create(['store_item_id' => $item->id, 'amount' => 100]);
-    $priceTwo = StoreItemPrice::factory()->create(['store_item_id' => $item->id, 'amount' => 200]);
+    $priceTwo = StoreItemPrice::factory()->create([
+        'store_item_id' => $item->id,
+        'currency_id' => \App\Models\Currency::factory()->create()->id, // عملة مختلفة - القيد الفريد (item+currency) يمنع نفس العملة مرتين لنفس العنصر
+        'amount' => 200,
+    ]);
     $this->wallets->creditAvailable($user, $priceOne->currency, 1000, 'test');
+    $this->wallets->creditAvailable($user, $priceTwo->currency, 1000, 'test');
     $key = (string) Str::uuid();
 
     $this->purchases->purchase($user, $item, $priceOne, $key);
