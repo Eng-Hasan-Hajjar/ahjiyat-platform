@@ -7,6 +7,9 @@ use Filament\Resources\Pages\ViewRecord;
 
 class ViewStorePurchase extends ViewRecord
 {
+
+
+
     protected static string $resource = StorePurchaseResource::class;
 
     protected function getHeaderActions(): array
