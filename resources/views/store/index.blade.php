@@ -18,8 +18,11 @@
     @else
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
             @foreach ($items as $item)
-                @php $soldOut = $item->isSoldOut(); @endphp
-                <a href="{{ route('store.items.show', $item) }}" class="puzzle-card anim-fade-up flex flex-col justify-between hover:border-amethyst/40 transition">
+                @php
+                    $soldOut = $item->isSoldOut();
+                    $isOwnedCosmetic = $item->item_type === 'cosmetic' && $ownedCosmeticItemIds->contains($item->id);
+                @endphp
+                <a href="{{ $isOwnedCosmetic ? route('profile.customize') : route('store.items.show', $item) }}" class="puzzle-card anim-fade-up flex flex-col justify-between hover:border-amethyst/40 transition">
                     <div>
                         @if ($item->image_path)
                             <img src="{{ \Illuminate\Support\Facades\Storage::url($item->image_path) }}" alt="" class="w-full h-32 object-cover rounded-xl mb-3">
@@ -27,14 +30,24 @@
 
                         <div class="flex items-center gap-2 mb-2">
                             <span class="chip !py-0.5 !px-2 text-[10px]">
-                                @switch($item->item_type)
-                                    @case('physical') مادي @break
-                                    @case('digital') رقمي @break
-                                    @case('cosmetic') تجميلي @break
-                                    @case('consumable') استهلاكي @break
-                                    @case('access') وصول @break
-                                    @default {{ $item->item_type }}
-                                @endswitch
+                                @if ($item->item_type === 'cosmetic')
+                                    @switch($item->cosmetic_slot)
+                                        @case('avatar') صورة رمزية @break
+                                        @case('profile_frame') إطار @break
+                                        @case('badge') شارة @break
+                                        @case('title') لقب @break
+                                        @case('profile_background') خلفية ملف @break
+                                        @default تجميلي
+                                    @endswitch
+                                @else
+                                    @switch($item->item_type)
+                                        @case('physical') مادي @break
+                                        @case('digital') رقمي @break
+                                        @case('consumable') استهلاكي @break
+                                        @case('access') وصول @break
+                                        @default {{ $item->item_type }}
+                                    @endswitch
+                                @endif
                             </span>
                             @if ($item->is_featured)
                                 <span class="chip !py-0.5 !px-2 text-[10px] !text-gold">مميَّز</span>
@@ -53,7 +66,9 @@
                         </div>
                     </div>
 
-                    @if ($soldOut)
+                    @if ($isOwnedCosmetic)
+                        <span class="w-full text-center py-2.5 rounded-xl bg-emerald/10 text-emerald font-bold text-sm border border-emerald/30">مملوك - تخصيص ←</span>
+                    @elseif ($soldOut)
                         <span class="w-full text-center py-2.5 rounded-xl bg-white/5 text-slate-500 font-bold text-sm border border-white/10">نفدت الكمية</span>
                     @else
                         <span class="w-full text-center py-2.5 rounded-xl btn-gem text-sm">عرض التفاصيل ←</span>

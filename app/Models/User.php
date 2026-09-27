@@ -16,16 +16,30 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
 {
     use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
+    public const VISIBILITY_PRIVATE = 'private';
+    public const VISIBILITY_MEMBERS = 'members';
+    public const VISIBILITY_PUBLIC = 'public';
+
+    public const VISIBILITIES = [self::VISIBILITY_PRIVATE, self::VISIBILITY_MEMBERS, self::VISIBILITY_PUBLIC];
+
     protected $fillable = [
         'name',
         'email',
         'password',
+        'profile_visibility',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (User $user) {
+            $user->public_id ??= (string) \Illuminate\Support\Str::ulid();
+        });
+    }
 
     protected function casts(): array
     {
@@ -127,11 +141,6 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         return $this->belongsTo(self::class, 'frozen_by');
     }
 
-
-
-
-        // ===== E10: Store/Inventory/Entitlements =====
-
     public function storePurchases(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(StorePurchase::class);
@@ -152,6 +161,36 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         return $this->hasMany(UserEntitlement::class);
     }
 
+    public function cosmeticLoadouts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(UserCosmeticLoadout::class);
+    }
 
-    
+    public function isProfilePublic(): bool
+    {
+        return $this->profile_visibility === self::VISIBILITY_PUBLIC;
+    }
+
+    public function isProfileMembersOnly(): bool
+    {
+        return $this->profile_visibility === self::VISIBILITY_MEMBERS;
+    }
+
+    public function isProfilePrivate(): bool
+    {
+        return $this->profile_visibility === self::VISIBILITY_PRIVATE;
+    }
+
+    public function profileViewableBy(?User $viewer): bool
+    {
+        if ($viewer && $viewer->id === $this->id) {
+            return true;
+        }
+
+        return match ($this->profile_visibility) {
+            self::VISIBILITY_PUBLIC => true,
+            self::VISIBILITY_MEMBERS => $viewer !== null,
+            default => false,
+        };
+    }
 }

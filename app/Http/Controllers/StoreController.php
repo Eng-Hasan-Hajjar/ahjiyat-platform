@@ -15,7 +15,7 @@ class StoreController extends Controller
 {
     public function __construct(protected StorePurchaseService $purchases) {}
 
-    public function index()
+        public function index()
     {
         $packs = CurrencyPack::with('currency')
             ->whereHas('currency', fn ($q) => $q->where('is_active', true))
@@ -29,7 +29,11 @@ class StoreController extends Controller
             ->filter(fn (StoreItem $item) => $item->isPubliclyVisible())
             ->sortBy('sort_order');
 
-        return view('store.index', compact('packs', 'items'));
+        $ownedCosmeticItemIds = auth()->check()
+            ? auth()->user()->inventoryItems()->where('quantity', '>', 0)->pluck('store_item_id')
+            : collect();
+
+        return view('store.index', compact('packs', 'items', 'ownedCosmeticItemIds'));
     }
 
     public function show(StoreItem $item)

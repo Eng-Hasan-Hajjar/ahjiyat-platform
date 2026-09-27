@@ -73,6 +73,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('store-purchase', function (Request $request) {
             return Limit::perMinute(8)->by($request->user()?->id ?: $request->ip());
         });
+                // E11: تجهيز/إزالة تجميليات - UX تتطلب تجربة سريعة (تبديل/معاينة)، لا حساسية مالية هنا.
+        RateLimiter::for('cosmetic-equip', function (Request $request) {
+            return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());
+        });
+        
 
         
     }

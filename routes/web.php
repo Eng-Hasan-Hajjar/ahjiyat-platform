@@ -14,6 +14,8 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\PlayerProfileController;
+use App\Http\Controllers\ProfileCustomizationController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PuzzleController;
@@ -44,6 +46,8 @@ Route::get('/campaigns/{campaign:slug}', [CampaignController::class, 'show'])->n
 
 Route::get('/seasons', [SeasonController::class, 'index'])->name('seasons.index');
 Route::get('/seasons/{season:slug}', [SeasonController::class, 'show'])->name('seasons.show');
+
+Route::get('/players/{user:public_id}', [PlayerProfileController::class, 'show'])->name('players.show');
 
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
@@ -110,5 +114,13 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:store-purchase')->name('store.items.purchase');
 
         Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
+
+        Route::get('/profile/customize', [ProfileCustomizationController::class, 'edit'])->name('profile.customize');
+        Route::post('/profile/cosmetics/{item}/equip', [ProfileCustomizationController::class, 'equip'])
+            ->middleware('throttle:cosmetic-equip')->name('profile.cosmetics.equip');
+        Route::delete('/profile/cosmetics/{slot}/unequip', [ProfileCustomizationController::class, 'unequip'])
+            ->middleware('throttle:cosmetic-equip')->name('profile.cosmetics.unequip');
+        Route::patch('/profile/visibility', [ProfileCustomizationController::class, 'updateVisibility'])
+            ->name('profile.visibility.update');
     });
 });

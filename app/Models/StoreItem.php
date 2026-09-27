@@ -21,11 +21,22 @@ class StoreItem extends Model
     public const FULFILLMENT_ENTITLEMENT = 'entitlement';
     public const FULFILLMENT_MANUAL = 'manual';
 
+    public const SLOT_AVATAR = 'avatar';
+    public const SLOT_FRAME = 'profile_frame';
+    public const SLOT_BADGE = 'badge';
+    public const SLOT_TITLE = 'title';
+    public const SLOT_BACKGROUND = 'profile_background';
+
+    public const COSMETIC_SLOTS = [
+        self::SLOT_AVATAR, self::SLOT_FRAME, self::SLOT_BADGE, self::SLOT_TITLE, self::SLOT_BACKGROUND,
+    ];
+
     protected $fillable = [
         'sku', 'slug', 'name', 'short_description', 'description',
         'item_type', 'fulfillment_type', 'image_path',
         'is_active', 'is_featured', 'stock_limit', 'per_user_limit', 'grant_quantity',
         'entitlement_key', 'entitlement_duration_days',
+        'cosmetic_slot', 'cosmetic_text', 'cosmetic_color',
         'scope_type', 'scope_id', 'starts_at', 'ends_at', 'sort_order', 'created_by',
     ];
 
@@ -120,5 +131,29 @@ class StoreItem extends Model
     public function isProtected(): bool
     {
         return $this->purchases()->exists();
+    }
+
+    public function inventoryOwners(): HasMany
+    {
+        return $this->hasMany(UserInventoryItem::class);
+    }
+
+    public function cosmeticLoadouts(): HasMany
+    {
+        return $this->hasMany(UserCosmeticLoadout::class);
+    }
+
+    public function isCosmeticEquippable(): bool
+    {
+        return $this->item_type === self::TYPE_COSMETIC
+            && $this->fulfillment_type === self::FULFILLMENT_INVENTORY
+            && filled($this->cosmetic_slot);
+    }
+
+    public function hasCosmeticUsageHistory(): bool
+    {
+        return $this->isProtected()
+            || $this->inventoryOwners()->where('quantity', '>', 0)->exists()
+            || $this->cosmeticLoadouts()->exists();
     }
 }

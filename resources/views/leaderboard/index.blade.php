@@ -22,7 +22,19 @@
                     <span class="text-lg">🥉</span>
                 @endif
 
-                <span class="flex-1 min-w-0 font-bold text-white truncate">{{ $user->name }}</span>
+                <x-player-avatar :avatar="$user->identityAvatar" :frame="$user->identityFrame" :name="$user->name" size="sm" />
+
+                <div class="flex-1 min-w-0">
+                    @if ($user->profileLinkable)
+                        <a href="{{ route('players.show', $user) }}" class="font-bold text-white truncate hover:text-amethyst transition block">{{ $user->name }}</a>
+                    @else
+                        <span class="font-bold text-white truncate block">{{ $user->name }}</span>
+                    @endif
+                    @if ($user->identityTitle && $user->identityTitle->cosmetic_text)
+                        <span class="text-xs text-slate-500">{{ $user->identityTitle->cosmetic_text }}</span>
+                    @endif
+                </div>
+
                 <span class="shrink-0 text-xs md:text-sm font-semibold text-slate-400">
                     {{ $user->solved_count }} أحجية محلولة
                 </span>

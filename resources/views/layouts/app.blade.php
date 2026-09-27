@@ -22,6 +22,8 @@
 
     $metaTitle = $seo['meta_title'] ?: $general['site_name'];
     $metaDescription = $seo['meta_description'] ?: $general['short_description'];
+        // E11: هوية Navbar - Avatar مجهَّز بدل أيقونة عامة (بند 64)، محسوبة هنا فقط عند تسجيل الدخول.
+    $navLoadout = auth()->check() ? app(\App\Services\PlayerIdentity\CosmeticLoadoutService::class)->loadoutFor(auth()->user()) : null;
 @endphp
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -108,6 +110,8 @@
             ;
         }
     </style>
+
+    @stack('head')
 </head>
 
 <body class="min-h-screen flex flex-col antialiased">
@@ -162,8 +166,10 @@
                     @if ($navigation['show_gem_balance'])
                         <x-gem-badge :amount="auth()->user()->wallet?->available_balance ?? 0" />
                     @endif
-                    <a href="{{ route('profile.edit') }}" class="hidden sm:inline-flex chip">{{ auth()->user()->name }}</a>
-                    <form method="POST" action="{{ route('logout') }}" class="hidden md:block">
+                    <a href="{{ route('profile.edit') }}" class="hidden sm:inline-flex items-center gap-2 chip !py-1">
+                        <x-player-avatar :avatar="$navLoadout[\App\Models\StoreItem::SLOT_AVATAR]" :frame="$navLoadout[\App\Models\StoreItem::SLOT_FRAME]" :name="auth()->user()->name" size="sm" />
+                        {{ auth()->user()->name }}
+                    </a>                    <form method="POST" action="{{ route('logout') }}" class="hidden md:block">
                         @csrf
                         <button class="chip !text-rose">خروج</button>
                     </form>

@@ -6,11 +6,14 @@ use App\Models\InventoryTransaction;
 use App\Models\StoreItem;
 use App\Models\User;
 use App\Models\UserInventoryItem;
+use App\Services\PlayerIdentity\CosmeticLoadoutService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 class InventoryService
 {
+    public function __construct(protected CosmeticLoadoutService $loadouts) {}
+
     public function grant(User $user, StoreItem $item, int $quantity, string $reason, ?Model $reference = null): InventoryTransaction
     {
         $this->assertPositiveQuantity($quantity);
@@ -45,6 +48,10 @@ class InventoryService
             }
 
             $inventoryItem->decrement('quantity', $effectiveQuantity);
+
+            if ($item->item_type === StoreItem::TYPE_COSMETIC && $inventoryItem->quantity <= 0) {
+                $this->loadouts->unequipItemIfNecessary($user, $item);
+            }
 
             return InventoryTransaction::create([
                 'user_id' => $user->id,

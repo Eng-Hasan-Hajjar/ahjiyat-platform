@@ -17,15 +17,25 @@
             @endif
 
             <div class="flex flex-wrap items-center gap-2 mb-4">
-                <span class="chip !py-1 !px-3">
-                    @switch($item->item_type)
-                        @case('physical') مادي @break
-                        @case('digital') رقمي @break
-                        @case('cosmetic') تجميلي @break
-                        @case('consumable') استهلاكي @break
-                        @case('access') وصول @break
-                        @default {{ $item->item_type }}
-                    @endswitch
+                                <span class="chip !py-1 !px-3">
+                    @if ($item->item_type === 'cosmetic')
+                        @switch($item->cosmetic_slot)
+                            @case('avatar') صورة رمزية @break
+                            @case('profile_frame') إطار @break
+                            @case('badge') شارة @break
+                            @case('title') لقب @break
+                            @case('profile_background') خلفية ملف @break
+                            @default تجميلي
+                        @endswitch
+                    @else
+                        @switch($item->item_type)
+                            @case('physical') مادي @break
+                            @case('digital') رقمي @break
+                            @case('consumable') استهلاكي @break
+                            @case('access') وصول @break
+                            @default {{ $item->item_type }}
+                        @endswitch
+                    @endif
                 </span>
                 @if ($item->is_featured)
                     <span class="chip !py-1 !px-3 !text-gold">مميَّز</span>
@@ -56,8 +66,11 @@
             @endphp
 
             @if ($item->fulfillment_type === 'inventory' && $ownedQuantity !== null && $ownedQuantity > 0)
-                <div class="rounded-xl bg-white/5 border border-white/10 text-sm font-bold px-4 py-3 mb-5">
-                    تمتلك حالياً: {{ $ownedQuantity }}
+                <div class="rounded-xl bg-white/5 border border-white/10 text-sm font-bold px-4 py-3 mb-5 flex items-center justify-between gap-3">
+                    <span>تمتلك حالياً: {{ $ownedQuantity }}</span>
+                    @if ($item->item_type === 'cosmetic')
+                        <a href="{{ route('profile.customize') }}" class="chip !py-1 !px-3 text-xs !text-amethyst shrink-0">تخصيص الملف الشخصي ←</a>
+                    @endif
                 </div>
             @endif
 

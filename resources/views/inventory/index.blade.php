@@ -31,22 +31,16 @@
             <p class="text-slate-400">لا توجد امتيازات حالياً.</p>
         </div>
     @else
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-            @foreach ($entitlements as $entitlement)
-                <div class="puzzle-card anim-fade-up">
-                    <div class="flex items-center justify-between gap-2 mb-1">
-                        <span class="font-bold text-white text-sm">{{ $entitlement->item?->name ?? 'امتياز' }}</span>
-                        @if ($entitlement->isActive())
-                            <span class="chip !py-0.5 !px-2 text-[10px] !text-emerald">فعّال</span>
-                        @else
-                            <span class="chip !py-0.5 !px-2 text-[10px] !text-slate-500">منتهٍ</span>
+               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+            @foreach ($inventoryItems as $inventoryItem)
+                <div class="puzzle-card anim-fade-up flex items-center justify-between gap-3">
+                    <span class="font-bold text-white text-sm">{{ $inventoryItem->item->name }}</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="chip !py-1 !px-3 text-xs">× {{ $inventoryItem->quantity }}</span>
+                        @if ($inventoryItem->item->isCosmeticEquippable())
+                            <a href="{{ route('profile.customize') }}" class="chip !py-1 !px-3 text-xs !text-amethyst">تخصيص</a>
                         @endif
                     </div>
-                    @if ($entitlement->expires_at)
-                        <span class="text-[11px] text-slate-500">ينتهي {{ $entitlement->expires_at->format('Y-m-d') }}</span>
-                    @else
-                        <span class="text-[11px] text-slate-500">دائم</span>
-                    @endif
                 </div>
             @endforeach
         </div>
