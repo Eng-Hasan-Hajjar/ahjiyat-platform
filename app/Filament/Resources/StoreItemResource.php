@@ -51,16 +51,24 @@ class StoreItemResource extends Resource
                             StoreItem::TYPE_CONSUMABLE => 'قابل للاستهلاك (Consumable)',
                             StoreItem::TYPE_ACCESS => 'وصول/امتياز (Access)',
                         ])
+                        ->live()
                         ->required()
                         ->disabled(fn (?StoreItem $record) => $record?->isProtected() ?? false),
 
                     Forms\Components\Select::make('fulfillment_type')
                         ->label('طريقة التسليم')
-                        ->options([
-                            StoreItem::FULFILLMENT_INVENTORY => 'مخزون شخصي (تلقائي عند الشراء)',
-                            StoreItem::FULFILLMENT_ENTITLEMENT => 'امتياز/وصول (تلقائي عند الشراء)',
-                            StoreItem::FULFILLMENT_MANUAL => 'يدوي (الإدارة تُنجزه لاحقاً)',
-                        ])
+                        ->options(function (Get $get) {
+                            // E11 (بند 6): عنصر تجميلي قابل للتجهيز يجب أن يكون تسليمه "مخزون" حصرًا - لا خيار آخر يظهر أصلًا.
+                            if ($get('item_type') === StoreItem::TYPE_COSMETIC) {
+                                return [StoreItem::FULFILLMENT_INVENTORY => 'مخزون شخصي (الوحيد الممكن لعنصر تجميلي)'];
+                            }
+
+                            return [
+                                StoreItem::FULFILLMENT_INVENTORY => 'مخزون شخصي (تلقائي عند الشراء)',
+                                StoreItem::FULFILLMENT_ENTITLEMENT => 'امتياز/وصول (تلقائي عند الشراء)',
+                                StoreItem::FULFILLMENT_MANUAL => 'يدوي (الإدارة تُنجزه لاحقاً)',
+                            ];
+                        })
                         ->live()
                         ->required()
                         ->disabled(fn (?StoreItem $record) => $record?->isProtected() ?? false)
@@ -82,6 +90,40 @@ class StoreItemResource extends Resource
                         ->label('الكمية المُمنوحة عند الشراء')
                         ->numeric()->default(1)->minValue(1)
                         ->visible(fn (Get $get) => $get('fulfillment_type') === StoreItem::FULFILLMENT_INVENTORY),
+                ]),
+
+            Forms\Components\Section::make('إعدادات العنصر التجميلي')
+                ->visible(fn (Get $get) => $get('item_type') === StoreItem::TYPE_COSMETIC)
+                ->columns(2)
+                ->schema([
+                    Forms\Components\Select::make('cosmetic_slot')
+                        ->label('الفتحة (Slot)')
+                        ->options([
+                            StoreItem::SLOT_AVATAR => 'صورة رمزية (Avatar)',
+                            StoreItem::SLOT_FRAME => 'إطار (Profile Frame)',
+                            StoreItem::SLOT_BADGE => 'شارة (Badge)',
+                            StoreItem::SLOT_TITLE => 'لقب (Title)',
+                            StoreItem::SLOT_BACKGROUND => 'خلفية الملف (Profile Background)',
+                        ])
+                        ->live()
+                        ->required(fn (Get $get) => $get('item_type') === StoreItem::TYPE_COSMETIC)
+                        ->disabled(fn (?StoreItem $record) => $record?->hasCosmeticUsageHistory() ?? false)
+                        ->helperText(fn (?StoreItem $record) => ($record?->hasCosmeticUsageHistory() ?? false)
+                            ? 'لا يمكن تغيير الفتحة - هذا العنصر مملوك أو مجهَّز من مستخدمين فعليًا حاليًا (بند 82).'
+                            : 'عناصر قديمة بلا فتحة تبقى "غير قابلة للتجهيز" حتى تُحدَّد هنا.'),
+
+                    Forms\Components\TextInput::make('cosmetic_text')
+                        ->label('نص اللقب')
+                        ->maxLength(60)
+                        ->visible(fn (Get $get) => $get('cosmetic_slot') === StoreItem::SLOT_TITLE)
+                        ->required(fn (Get $get) => $get('cosmetic_slot') === StoreItem::SLOT_TITLE)
+                        ->helperText('نص عادي فقط - يُعرَض كما هو (Escaped) - لا HTML.'),
+
+                    Forms\Components\ColorPicker::make('cosmetic_color')
+                        ->label('لون اللقب (اختياري)')
+                        ->visible(fn (Get $get) => $get('cosmetic_slot') === StoreItem::SLOT_TITLE)
+                        ->rule('regex:/^#[0-9A-Fa-f]{6}$/')
+                        ->validationMessages(['regex' => 'يجب أن يكون لونًا Hex صالحًا مثل ‎#AABBCC فقط.']),
                 ]),
 
             Forms\Components\Section::make('المخزون والحدود')
@@ -127,7 +169,11 @@ class StoreItemResource extends Resource
                         ->label('صورة العنصر')
                         ->image()->disk('public')->directory('store-items')
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                        ->maxSize(2048),
+                        ->maxSize(2048)
+                        ->required(fn (Get $get) => $get('item_type') === StoreItem::TYPE_COSMETIC && $get('cosmetic_slot') !== StoreItem::SLOT_TITLE)
+                        ->helperText(fn (Get $get) => in_array($get('cosmetic_slot'), [StoreItem::SLOT_FRAME, StoreItem::SLOT_BACKGROUND], true)
+                            ? 'يُفضَّل PNG/WebP بخلفية شفافة (خصوصًا الإطار).'
+                            : null),
                     Forms\Components\Toggle::make('is_active')->label('نشط')->default(true),
                     Forms\Components\Toggle::make('is_featured')->label('مميَّز'),
                     Forms\Components\TextInput::make('sort_order')->label('ترتيب العرض')->numeric()->default(0),
@@ -146,6 +192,13 @@ class StoreItemResource extends Resource
                     StoreItem::TYPE_PHYSICAL => 'مادي', StoreItem::TYPE_DIGITAL => 'رقمي', StoreItem::TYPE_COSMETIC => 'تجميلي',
                     StoreItem::TYPE_CONSUMABLE => 'استهلاكي', StoreItem::TYPE_ACCESS => 'وصول', default => $state,
                 }),
+                Tables\Columns\TextColumn::make('cosmetic_slot')->label('الفتحة')
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        StoreItem::SLOT_AVATAR => 'صورة رمزية', StoreItem::SLOT_FRAME => 'إطار', StoreItem::SLOT_BADGE => 'شارة',
+                        StoreItem::SLOT_TITLE => 'لقب', StoreItem::SLOT_BACKGROUND => 'خلفية', default => '—',
+                    })
+                    ->placeholder('—')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('fulfillment_type')->label('التسليم')->formatStateUsing(fn ($state) => match ($state) {
                     StoreItem::FULFILLMENT_INVENTORY => 'مخزون', StoreItem::FULFILLMENT_ENTITLEMENT => 'امتياز',
                     StoreItem::FULFILLMENT_MANUAL => 'يدوي', default => $state,
