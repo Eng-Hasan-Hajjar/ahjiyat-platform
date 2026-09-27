@@ -39,4 +39,60 @@ class StoreItemFactory extends Factory
             'entitlement_key' => $key ?? 'test.entitlement.'.$this->faker->unique()->word(),
         ]);
     }
+
+    public function cosmeticAvatar(): static
+    {
+        return $this->state(fn () => [
+            'item_type' => StoreItem::TYPE_COSMETIC,
+            'fulfillment_type' => StoreItem::FULFILLMENT_INVENTORY,
+            'cosmetic_slot' => StoreItem::SLOT_AVATAR,
+        ]);
+    }
+
+    public function cosmeticFrame(): static
+    {
+        return $this->state(fn () => [
+            'item_type' => StoreItem::TYPE_COSMETIC,
+            'fulfillment_type' => StoreItem::FULFILLMENT_INVENTORY,
+            'cosmetic_slot' => StoreItem::SLOT_FRAME,
+        ]);
+    }
+
+    public function cosmeticBadge(): static
+    {
+        return $this->state(fn () => [
+            'item_type' => StoreItem::TYPE_COSMETIC,
+            'fulfillment_type' => StoreItem::FULFILLMENT_INVENTORY,
+            'cosmetic_slot' => StoreItem::SLOT_BADGE,
+        ]);
+    }
+
+    public function cosmeticTitle(?string $text = null, ?string $color = null): static
+    {
+        return $this->state(fn () => [
+            'item_type' => StoreItem::TYPE_COSMETIC,
+            'fulfillment_type' => StoreItem::FULFILLMENT_INVENTORY,
+            'cosmetic_slot' => StoreItem::SLOT_TITLE,
+            'cosmetic_text' => $text ?? 'المحقق',
+            'cosmetic_color' => $color,
+        ]);
+    }
+
+    public function cosmeticBackground(): static
+    {
+        return $this->state(fn () => [
+            'item_type' => StoreItem::TYPE_COSMETIC,
+            'fulfillment_type' => StoreItem::FULFILLMENT_INVENTORY,
+            'cosmetic_slot' => StoreItem::SLOT_BACKGROUND,
+        ]);
+    }
+
+    public function legacyCosmeticWithoutSlot(): static
+    {
+        return $this->state(fn () => [
+            'item_type' => StoreItem::TYPE_COSMETIC,
+            'fulfillment_type' => StoreItem::FULFILLMENT_INVENTORY,
+            'cosmetic_slot' => null,
+        ]);
+    }
 }
