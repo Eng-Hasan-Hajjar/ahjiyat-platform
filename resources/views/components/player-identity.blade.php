@@ -1,6 +1,6 @@
 @props(['name', 'avatar' => null, 'frame' => null, 'badge' => null, 'title' => null, 'background' => null])
 
-<div class="relative rounded-2xl overflow-hidden puzzle-card !p-0">
+<div {{ $attributes->merge(['class' => 'relative rounded-2xl overflow-hidden puzzle-card !p-0']) }}>
     <div class="relative h-32 md:h-40 bg-gradient-to-br from-amethyst/30 to-night-800"
          @if ($background && $background->image_path)
              style="background-image: url('{{ \Illuminate\Support\Facades\Storage::url($background->image_path) }}'); background-size: cover; background-position: center;"
@@ -21,7 +21,7 @@
 
         @if ($title && filled($title->cosmetic_text))
             <span class="text-sm font-bold mt-1"
-                  style="color: {{ preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $title->cosmetic_color) ? $title->cosmetic_color : '#a78bfa' }};">
+                  style="color: {{ preg_match(\App\Services\Store\StoreItemInvariantGuard::COLOR_PATTERN, (string) $title->cosmetic_color) ? $title->cosmetic_color : '#a78bfa' }};">
                 {{ $title->cosmetic_text }}
             </span>
         @endif

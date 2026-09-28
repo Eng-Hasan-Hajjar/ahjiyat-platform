@@ -49,13 +49,13 @@ test('equip is rejected for a non-cosmetic inventory item', function () {
     expect(fn () => $this->loadouts->equip($user, $item))->toThrow(RuntimeException::class);
 });
 
-test('equip is rejected for a cosmetic item whose fulfillment is not inventory', function () {
+test('equip is rejected for a cosmetic item whose fulfillment is not inventory - service-level defense even for raw data', function () {
     $user = User::factory()->create();
-    $item = StoreItem::factory()->create([
-        'item_type' => StoreItem::TYPE_COSMETIC,
-        'fulfillment_type' => StoreItem::FULFILLMENT_MANUAL,
-        'cosmetic_slot' => StoreItem::SLOT_BADGE,
-    ]);
+    $item = StoreItem::factory()->cosmeticBadge()->create();
+    // E11.1: الحارس يمنع إنشاء هذه الحالة عبر Eloquent - نحاكي بيانات خام/قديمة بكتابة مباشرة.
+    \Illuminate\Support\Facades\DB::table('store_items')->where('id', $item->id)->update(['fulfillment_type' => StoreItem::FULFILLMENT_MANUAL]);
+    $item = $item->fresh();
+    $this->inventory->grant($user, $item, 1, 'test');
 
     expect(fn () => $this->loadouts->equip($user, $item))->toThrow(RuntimeException::class);
 });

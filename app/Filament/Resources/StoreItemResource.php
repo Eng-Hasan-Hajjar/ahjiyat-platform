@@ -53,7 +53,7 @@ class StoreItemResource extends Resource
                         ])
                         ->live()
                         ->required()
-                        ->disabled(fn (?StoreItem $record) => $record?->isProtected() ?? false),
+                        ->disabled(fn (?StoreItem $record) => $record?->isTypeLocked() ?? false),
 
                     Forms\Components\Select::make('fulfillment_type')
                         ->label('طريقة التسليم')
@@ -71,7 +71,7 @@ class StoreItemResource extends Resource
                         })
                         ->live()
                         ->required()
-                        ->disabled(fn (?StoreItem $record) => $record?->isProtected() ?? false)
+                        ->disabled(fn (?StoreItem $record) => $record?->isTypeLocked() ?? false)
                         ->helperText('لا علاقة حتمية بنوع العنصر - أنت من يحدِّد طريقة التسليم صراحة.'),
 
                     Forms\Components\TextInput::make('entitlement_key')
@@ -107,8 +107,8 @@ class StoreItemResource extends Resource
                         ])
                         ->live()
                         ->required(fn (Get $get) => $get('item_type') === StoreItem::TYPE_COSMETIC)
-                        ->disabled(fn (?StoreItem $record) => $record?->hasCosmeticUsageHistory() ?? false)
-                        ->helperText(fn (?StoreItem $record) => ($record?->hasCosmeticUsageHistory() ?? false)
+                        ->disabled(fn (?StoreItem $record) => $record?->isCosmeticSlotLocked() ?? false)
+                        ->helperText(fn (?StoreItem $record) => ($record?->isCosmeticSlotLocked() ?? false)
                             ? 'لا يمكن تغيير الفتحة - هذا العنصر مملوك أو مجهَّز من مستخدمين فعليًا حاليًا (بند 82).'
                             : 'عناصر قديمة بلا فتحة تبقى "غير قابلة للتجهيز" حتى تُحدَّد هنا.'),
 
@@ -122,7 +122,7 @@ class StoreItemResource extends Resource
                     Forms\Components\ColorPicker::make('cosmetic_color')
                         ->label('لون اللقب (اختياري)')
                         ->visible(fn (Get $get) => $get('cosmetic_slot') === StoreItem::SLOT_TITLE)
-                        ->rule('regex:/^#[0-9A-Fa-f]{6}$/')
+                        ->rule('regex:'.\App\Services\Store\StoreItemInvariantGuard::COLOR_PATTERN)
                         ->validationMessages(['regex' => 'يجب أن يكون لونًا Hex صالحًا مثل ‎#AABBCC فقط.']),
                 ]),
 

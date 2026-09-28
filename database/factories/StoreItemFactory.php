@@ -46,6 +46,7 @@ class StoreItemFactory extends Factory
             'item_type' => StoreItem::TYPE_COSMETIC,
             'fulfillment_type' => StoreItem::FULFILLMENT_INVENTORY,
             'cosmetic_slot' => StoreItem::SLOT_AVATAR,
+            'image_path' => 'store-items/factory-avatar.png',
         ]);
     }
 
@@ -55,6 +56,7 @@ class StoreItemFactory extends Factory
             'item_type' => StoreItem::TYPE_COSMETIC,
             'fulfillment_type' => StoreItem::FULFILLMENT_INVENTORY,
             'cosmetic_slot' => StoreItem::SLOT_FRAME,
+            'image_path' => 'store-items/factory-frame.png',
         ]);
     }
 
@@ -64,6 +66,7 @@ class StoreItemFactory extends Factory
             'item_type' => StoreItem::TYPE_COSMETIC,
             'fulfillment_type' => StoreItem::FULFILLMENT_INVENTORY,
             'cosmetic_slot' => StoreItem::SLOT_BADGE,
+            'image_path' => 'store-items/factory-badge.png',
         ]);
     }
 
@@ -84,6 +87,7 @@ class StoreItemFactory extends Factory
             'item_type' => StoreItem::TYPE_COSMETIC,
             'fulfillment_type' => StoreItem::FULFILLMENT_INVENTORY,
             'cosmetic_slot' => StoreItem::SLOT_BACKGROUND,
+            'image_path' => 'store-items/factory-background.png',
         ]);
     }
 

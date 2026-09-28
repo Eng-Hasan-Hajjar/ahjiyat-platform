@@ -40,6 +40,14 @@ class StoreItem extends Model
         'scope_type', 'scope_id', 'starts_at', 'ends_at', 'sort_order', 'created_by',
     ];
 
+    protected static function booted(): void
+    {
+        // E11.1: كل مسار كتابة Eloquent يمر بالحارس المركزي - Filament UX فقط، السلطة هنا.
+        static::saving(function (StoreItem $item) {
+            app(\App\Services\Store\StoreItemInvariantGuard::class)->enforce($item);
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -155,5 +163,18 @@ class StoreItem extends Model
         return $this->isProtected()
             || $this->inventoryOwners()->where('quantity', '>', 0)->exists()
             || $this->cosmeticLoadouts()->exists();
+    }
+
+    /** UX فقط (Filament): نوع/تسليم مقفول - مشتريات موجودة (E10) أو عنصر تجميلي مُستخدَم. السلطة النهائية: StoreItemInvariantGuard. */
+    public function isTypeLocked(): bool
+    {
+        return $this->isProtected()
+            || ($this->item_type === self::TYPE_COSMETIC && $this->hasCosmeticUsageHistory());
+    }
+
+    /** UX فقط (Filament): فتحة مُسنَدة ومُستخدَمة - تُقفَل. فتحة null (Legacy) تبقى قابلة للإسناد. */
+    public function isCosmeticSlotLocked(): bool
+    {
+        return $this->cosmetic_slot !== null && $this->hasCosmeticUsageHistory();
     }
 }

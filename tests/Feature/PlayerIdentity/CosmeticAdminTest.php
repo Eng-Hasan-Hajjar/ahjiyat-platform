@@ -41,13 +41,14 @@ test('hasCosmeticUsageHistory is true once the item is equipped in any loadout',
 test('isCosmeticEquippable is true only when type=cosmetic, fulfillment=inventory, and slot is set', function () {
     $ready = StoreItem::factory()->cosmeticBadge()->create();
     $legacy = StoreItem::factory()->legacyCosmeticWithoutSlot()->create();
-    $wrongFulfillment = StoreItem::factory()->create([
-        'item_type' => StoreItem::TYPE_COSMETIC, 'fulfillment_type' => StoreItem::FULFILLMENT_MANUAL, 'cosmetic_slot' => StoreItem::SLOT_BADGE,
-    ]);
+
+    // E11.1: cosmetic + manual لم يعد يمكن إنشاؤه عبر Eloquent - نحاكي بيانات خام قديمة.
+    $wrongFulfillment = StoreItem::factory()->cosmeticBadge()->create();
+    \Illuminate\Support\Facades\DB::table('store_items')->where('id', $wrongFulfillment->id)->update(['fulfillment_type' => StoreItem::FULFILLMENT_MANUAL]);
 
     expect($ready->isCosmeticEquippable())->toBeTrue()
         ->and($legacy->isCosmeticEquippable())->toBeFalse()
-        ->and($wrongFulfillment->isCosmeticEquippable())->toBeFalse();
+        ->and($wrongFulfillment->fresh()->isCosmeticEquippable())->toBeFalse();
 });
 
 test('a valid hex cosmetic_color passes model-level assignment and is stored as-is', function () {

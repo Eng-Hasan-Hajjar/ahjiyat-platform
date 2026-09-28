@@ -11,11 +11,13 @@ beforeEach(function () {
     $this->loadouts = app(CosmeticLoadoutService::class);
 });
 
-test('a title containing script tags is rendered escaped, never as executable HTML', function () {
+test('E11.1 req 148: markup that reached storage through a raw write is still rendered escaped, never executable', function () {
     $user = User::factory()->create(['profile_visibility' => User::VISIBILITY_PUBLIC]);
-    $title = StoreItem::factory()->cosmeticTitle('<script>alert(1)</script>')->create();
+    $title = StoreItem::factory()->cosmeticTitle('لقب')->create();
+    // الحارس يرفض الوسوم عند الكتابة (اختبار CosmeticDomainInvariantsTest) - هنا نحاكي بيانات خام سابقة لاختبار طبقة العرض وحدها.
+    \Illuminate\Support\Facades\DB::table('store_items')->where('id', $title->id)->update(['cosmetic_text' => '<script>alert(1)</script>']);
     $this->inventory->grant($user, $title, 1, 'test');
-    $this->loadouts->equip($user, $title);
+    $this->loadouts->equip($user, $title->fresh());
 
     $response = $this->get(route('players.show', $user));
 
@@ -70,4 +72,26 @@ test('a fully equipped profile renders the avatar, frame, badge, and title all t
         ->assertSee('avatar-test.png', false)
         ->assertSee('badge-test.png', false)
         ->assertSee('بطل الأحجيات');
+});
+
+test('x-player-identity merges caller classes with its default classes', function () {
+    $html = \Illuminate\Support\Facades\Blade::render('<x-player-identity name="لاعب" class="anim-fade-up custom-marker" />');
+
+    expect($html)->toContain('puzzle-card')
+        ->and($html)->toContain('anim-fade-up')
+        ->and($html)->toContain('custom-marker');
+});
+
+test('x-player-avatar merges caller classes with its default classes', function () {
+    $html = \Illuminate\Support\Facades\Blade::render('<x-player-avatar name="لاعب" class="ring-4 custom-marker" />');
+
+    expect($html)->toContain('inline-grid')
+        ->and($html)->toContain('ring-4')
+        ->and($html)->toContain('custom-marker');
+});
+
+test('identity views never use unescaped blade output', function () {
+    foreach (['components/player-identity', 'components/player-avatar', 'players/show', 'profile/customize', 'leaderboard/index'] as $view) {
+        expect(file_get_contents(resource_path("views/{$view}.blade.php")))->not->toContain('{!!');
+    }
 });
