@@ -16,6 +16,7 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
 {
     use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
+    // E11: قيم علنية الملف الشخصي - الأكثر تحفُّظًا هو الافتراضي (private).
     public const VISIBILITY_PRIVATE = 'private';
     public const VISIBILITY_MEMBERS = 'members';
     public const VISIBILITY_PUBLIC = 'public';
@@ -29,6 +30,12 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         'profile_visibility',
     ];
 
+    // E11: القيمة الافتراضية بالذاكرة مطابقة لافتراضي قاعدة البيانات - وإلا يبقى
+    // الكائن الجديد (قبل أي refresh) بلا قيمة فتعود isProfilePrivate() بـfalse خطأً.
+    protected $attributes = [
+        'profile_visibility' => self::VISIBILITY_PRIVATE,
+    ];
+
     protected $hidden = [
         'password',
         'remember_token',
@@ -36,6 +43,7 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
 
     protected static function booted(): void
     {
+        // E11 (بند 46/113): public_id يُولَّد Server-side حصرًا، أبدًا لا يُمرَّر من العميل.
         static::creating(function (User $user) {
             $user->public_id ??= (string) \Illuminate\Support\Str::ulid();
         });
@@ -141,6 +149,8 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         return $this->belongsTo(self::class, 'frozen_by');
     }
 
+    // ===== E10: Store/Inventory/Entitlements =====
+
     public function storePurchases(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(StorePurchase::class);
@@ -160,6 +170,8 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
     {
         return $this->hasMany(UserEntitlement::class);
     }
+
+    // ===== E11: Player Identity / Cosmetics =====
 
     public function cosmeticLoadouts(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
@@ -181,6 +193,7 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         return $this->profile_visibility === self::VISIBILITY_PRIVATE;
     }
 
+    /** بند 49-51: منطق الرؤية المركزي - Owner يرى دائمًا، غير ذلك حسب profile_visibility. */
     public function profileViewableBy(?User $viewer): bool
     {
         if ($viewer && $viewer->id === $this->id) {

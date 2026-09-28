@@ -72,12 +72,24 @@ test('an invalid profile visibility value is rejected by validation', function (
         ->assertSessionHasErrors('profile_visibility');
 });
 
-test('a frozen user cannot equip, unequip, or change visibility', function () {
-    $user = User::factory()->create(['is_frozen' => true]);
+test('a frozen user is blocked from equip, unequip, and visibility changes - no state changes at all', function () {
+    $user = User::factory()->create(['is_frozen' => true, 'profile_visibility' => User::VISIBILITY_PRIVATE]);
     $avatar = StoreItem::factory()->cosmeticAvatar()->create();
     $this->inventory->grant($user, $avatar, 1, 'test');
 
-    $this->actingAs($user)->post(route('profile.cosmetics.equip', $avatar))->assertForbidden();
-    $this->actingAs($user)->delete(route('profile.cosmetics.unequip', StoreItem::SLOT_AVATAR))->assertForbidden();
-    $this->actingAs($user)->patch(route('profile.visibility.update'), ['profile_visibility' => 'public'])->assertForbidden();
+    // account.active يعيد توجيه المجمَّد مع رسالة خطأ (back()->with('error')) لا 403 - نتحقق من الأثر الفعلي لا رمز الحالة فقط.
+    $this->actingAs($user)->post(route('profile.cosmetics.equip', $avatar))
+        ->assertRedirect()->assertSessionHas('error');
+    expect(UserCosmeticLoadout::where('user_id', $user->id)->count())->toBe(0);
+
+    // نجهِّز فعليًا خارج المسار (بالخدمة) لنتأكد أن الإزالة عبر المسار محجوبة أيضًا.
+    app(\App\Services\PlayerIdentity\CosmeticLoadoutService::class)->equip($user, $avatar);
+
+    $this->actingAs($user)->delete(route('profile.cosmetics.unequip', StoreItem::SLOT_AVATAR))
+        ->assertRedirect()->assertSessionHas('error');
+    expect(UserCosmeticLoadout::where('user_id', $user->id)->count())->toBe(1);
+
+    $this->actingAs($user)->patch(route('profile.visibility.update'), ['profile_visibility' => User::VISIBILITY_PUBLIC])
+        ->assertRedirect()->assertSessionHas('error');
+    expect($user->fresh()->profile_visibility)->toBe(User::VISIBILITY_PRIVATE);
 });
