@@ -76,9 +76,12 @@ class StoreItemResource extends Resource
 
                     Forms\Components\TextInput::make('entitlement_key')
                         ->label('مفتاح الامتياز الداخلي')
-                        ->helperText('مثال: season.vip أو event.access.2027 - لا يظهر للاعب.')
+                        ->helperText(fn (?StoreItem $record) => ($record?->isEntitlementKeyLocked() ?? false)
+                            ? 'لا يمكن تغيير المفتاح - امتيازات أو مشتريات فعلية مبنية عليه حاليًا (E11.2).'
+                            : 'مثال: season.vip أو event.access.2027 - لا يظهر للاعب.')
                         ->required()
                         ->visible(fn (Get $get) => $get('fulfillment_type') === StoreItem::FULFILLMENT_ENTITLEMENT)
+                        ->disabled(fn (?StoreItem $record) => $record?->isEntitlementKeyLocked() ?? false)
                         ->extraInputAttributes(['dir' => 'ltr']),
 
                     Forms\Components\TextInput::make('entitlement_duration_days')

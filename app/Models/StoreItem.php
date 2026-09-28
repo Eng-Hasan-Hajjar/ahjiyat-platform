@@ -42,9 +42,13 @@ class StoreItem extends Model
 
     protected static function booted(): void
     {
-        // E11.1: كل مسار كتابة Eloquent يمر بالحارس المركزي - Filament UX فقط، السلطة هنا.
+        // E11.1/E11.2: كل مسار كتابة/حذف Eloquent يمر بالحارس المركزي - Filament UX فقط، السلطة هنا.
         static::saving(function (StoreItem $item) {
             app(\App\Services\Store\StoreItemInvariantGuard::class)->enforce($item);
+        });
+
+        static::deleting(function (StoreItem $item) {
+            app(\App\Services\Store\StoreItemInvariantGuard::class)->enforceDeletable($item);
         });
     }
 
@@ -158,23 +162,46 @@ class StoreItem extends Model
             && filled($this->cosmetic_slot);
     }
 
-    public function hasCosmeticUsageHistory(): bool
+    public function entitlementGrants(): HasMany
+    {
+        return $this->hasMany(UserEntitlement::class);
+    }
+
+    /**
+     * E11.2: تعريف موحَّد لأي StoreItem "مُستخدَمة فعليًا" - لكل الأنواع، لا
+     * التجميلي فقط. أربع إشارات مستقلة: شراء (بأي حالة)، ملكية مخزون فعلية
+     * (كمية>0، حتى بلا شراء - منح مباشر)، امتياز مُمنوح فعليًا، أو تجهيز
+     * تجميلي حالي. أي واحدة تكفي.
+     */
+    public function hasUsageHistory(): bool
     {
         return $this->isProtected()
             || $this->inventoryOwners()->where('quantity', '>', 0)->exists()
-            || $this->cosmeticLoadouts()->exists();
+            || $this->cosmeticLoadouts()->exists()
+            || $this->entitlementGrants()->exists();
     }
 
-    /** UX فقط (Filament): نوع/تسليم مقفول - مشتريات موجودة (E10) أو عنصر تجميلي مُستخدَم. السلطة النهائية: StoreItemInvariantGuard. */
+    /** @deprecated منذ E11.2 - استخدم hasUsageHistory() (عام لكل الأنواع). أُبقيت بنفس الاسم للتوافق مع اختبارات E11.1 القائمة؛ الحساب الآن مطابق تمامًا لـhasUsageHistory(). */
+    public function hasCosmeticUsageHistory(): bool
+    {
+        return $this->hasUsageHistory();
+    }
+
+    /** UX فقط (Filament): نوع/تسليم مقفول لأي عنصر مُستخدَم فعليًا (كل الأنواع منذ E11.2). السلطة النهائية: StoreItemInvariantGuard. */
     public function isTypeLocked(): bool
     {
-        return $this->isProtected()
-            || ($this->item_type === self::TYPE_COSMETIC && $this->hasCosmeticUsageHistory());
+        return $this->hasUsageHistory();
     }
 
     /** UX فقط (Filament): فتحة مُسنَدة ومُستخدَمة - تُقفَل. فتحة null (Legacy) تبقى قابلة للإسناد. */
     public function isCosmeticSlotLocked(): bool
     {
-        return $this->cosmetic_slot !== null && $this->hasCosmeticUsageHistory();
+        return $this->cosmetic_slot !== null && $this->hasUsageHistory();
+    }
+
+    /** UX فقط (Filament): مفتاح الامتياز مقفول لأي عنصر مُستخدَم فعليًا (بند 7/E11.2). السلطة النهائية: StoreItemInvariantGuard. */
+    public function isEntitlementKeyLocked(): bool
+    {
+        return $this->hasUsageHistory();
     }
 }

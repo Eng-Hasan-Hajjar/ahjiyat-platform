@@ -6,15 +6,16 @@ use App\Exceptions\StoreItemInvariantViolation;
 use App\Models\StoreItem;
 
 /**
- * E11.1: السلطة النهائية الوحيدة لقواعد العناصر التجميلية. تُستدعى من
- * StoreItem::saving فتغطي كل مسار كتابة Eloquent. Filament يبقى UX فقط.
+ * السلطة النهائية الوحيدة لقواعد نطاق StoreItem - لكل الأنواع، لا التجميلي
+ * فقط منذ E11.2. تُستدعى من StoreItem::saving وStoreItem::deleting فتغطي
+ * كل مسار كتابة/حذف Eloquent. Filament يبقى UX فقط - لا سلطة.
  *
  * تصميم متوافق مع البيانات القديمة: كل قاعدة تُفحَص عند الإنشاء أو عند تغيير
  * الحقول المعنية فقط - سجل قديم غير مطابق لا يفشل حفظه لسبب لا علاقة له.
  *
  * حدود معلنة: الكتابة عبر Query Builder (StoreItem::query()->update()،
  * DB::table()) أو saveQuietly() لا تُطلق أحداث Eloquent فتتجاوز هذا الحارس.
- * لا قيود CHECK بقاعدة البيانات (لا Schema جديدة بهذه المرحلة).
+ * لا قيود CHECK بقاعدة البيانات (لا Schema جديدة بهذه المرحلة أو سابقتها).
  */
 class StoreItemInvariantGuard
 {
@@ -35,7 +36,7 @@ class StoreItemInvariantGuard
         $isNew = ! $item->exists;
 
         if (! $isNew) {
-            $this->assertUsedCosmeticNotMutated($item);
+            $this->assertUsedItemNotMutated($item);
         }
 
         $this->normalizeBlanks($item);
@@ -53,30 +54,40 @@ class StoreItemInvariantGuard
         $this->assertImagePresent($item, $isNew);
     }
 
-    /** بند 9/11: عنصر تجميلي مُستخدَم فعليًا - لا تغيير فتحة مُسنَدة ولا نوع/تسليم. */
-    protected function assertUsedCosmeticNotMutated(StoreItem $item): void
+    /** E11.2 (بند 11): FK بقاعدة البيانات (restrictOnDelete) تمنع الحذف فعليًا أصلاً على كل الجداول التابعة - هذا يُسبقها برسالة نطاق مفهومة بدل استثناء SQL خام. */
+    public function enforceDeletable(StoreItem $item): void
     {
-        if ($item->getOriginal('item_type') !== StoreItem::TYPE_COSMETIC) {
+        if ($item->hasUsageHistory()) {
+            throw new StoreItemInvariantViolation('لا يمكن حذف عنصر سبق استخدامه فعليًا (شراء، ملكية، امتياز، أو تجهيز) - عطِّله بدلًا من ذلك.');
+        }
+    }
+
+    /**
+     * E11.2 (بند 3/4/7): عنصر مُستخدَم فعليًا - بأي شكل (شراء، ملكية مخزون،
+     * امتياز مُمنوح، أو تجهيز تجميلي) بغضّ النظر عن نوعه الحالي - لا تغيير
+     * item_type ولا fulfillment_type ولا entitlement_key. فتحة تجميلية
+     * مُسنَدة (E11.1) تبقى مقفولة بنفس المنطق - إسناد أول (null→قيمة) يبقى
+     * مسموحًا دائمًا، هذا المسار الوحيد ليصير عنصر Legacy قابلًا للتجهيز.
+     */
+    protected function assertUsedItemNotMutated(StoreItem $item): void
+    {
+        if (! $item->hasUsageHistory()) {
             return;
         }
 
-        $typeChanged = $item->isDirty(['item_type', 'fulfillment_type']);
-        // إسناد فتحة لعنصر قديم بلا فتحة (null → قيمة) مسموح مرة واحدة - هو المسار الوحيد ليصير قابلًا للتجهيز.
+        if ($item->isDirty(['item_type', 'fulfillment_type'])) {
+            throw new StoreItemInvariantViolation('لا يمكن تغيير نوع أو طريقة تسليم عنصر سبق استخدامه فعليًا.');
+        }
+
+        if ($item->isDirty('entitlement_key')) {
+            throw new StoreItemInvariantViolation('لا يمكن تغيير مفتاح الامتياز لعنصر سبق منح امتيازات أو مشتريات منه.');
+        }
+
         $slotChanged = $item->getOriginal('cosmetic_slot') !== null && $item->isDirty('cosmetic_slot');
 
-        if (! $typeChanged && ! $slotChanged) {
-            return;
+        if ($slotChanged) {
+            throw new StoreItemInvariantViolation('لا يمكن تغيير فتحة عنصر تجميلي سبق استخدامه.');
         }
-
-        if (! $item->hasCosmeticUsageHistory()) {
-            return;
-        }
-
-        throw new StoreItemInvariantViolation(
-            $typeChanged
-                ? 'لا يمكن تغيير نوع أو طريقة تسليم عنصر تجميلي سبق استخدامه.'
-                : 'لا يمكن تغيير فتحة عنصر تجميلي سبق استخدامه.'
-        );
     }
 
     protected function normalizeBlanks(StoreItem $item): void
@@ -88,7 +99,7 @@ class StoreItemInvariantGuard
         }
     }
 
-    /** بند 8: عنصر غير تجميلي لا يحمل بيانات تجميلية عالقة - تُنظَّف تلقائيًا. */
+    /** بند 8 (E11.1): عنصر غير تجميلي لا يحمل بيانات تجميلية عالقة - تُنظَّف تلقائيًا. */
     protected function clearCosmeticFields(StoreItem $item): void
     {
         foreach (self::COSMETIC_FIELDS as $field) {
@@ -98,7 +109,7 @@ class StoreItemInvariantGuard
         }
     }
 
-    /** بند 6: أي عنصر تجميلي تسليمه "مخزون" حصرًا. */
+    /** بند 6 (E11.1): أي عنصر تجميلي تسليمه "مخزون" حصرًا. */
     protected function assertInventoryFulfillment(StoreItem $item, bool $isNew): void
     {
         if (! $isNew && ! $item->isDirty(['item_type', 'fulfillment_type', 'cosmetic_slot'])) {
@@ -110,7 +121,7 @@ class StoreItemInvariantGuard
         }
     }
 
-    /** بند 7: أي قيمة غير null يجب أن تكون من COSMETIC_SLOTS. null يبقى Legacy غير قابل للتجهيز. */
+    /** بند 7 (E11.1): أي قيمة غير null يجب أن تكون من COSMETIC_SLOTS. null يبقى Legacy غير قابل للتجهيز. */
     protected function assertSlotAllowed(StoreItem $item, bool $isNew): void
     {
         $slot = $item->cosmetic_slot;
@@ -124,7 +135,7 @@ class StoreItemInvariantGuard
         }
     }
 
-    /** بند 12/13/16: Hex بستة أرقام فقط، أو null. */
+    /** بند 12/13/16 (E11.1): Hex بستة أرقام فقط، أو null. */
     protected function assertColorValid(StoreItem $item, bool $isNew): void
     {
         $color = $item->cosmetic_color;
@@ -138,7 +149,7 @@ class StoreItemInvariantGuard
         }
     }
 
-    /** بند 14/15: اللقب يتطلب نصًا عاديًا بطول آمن؛ غير اللقب لا يحمل نصًا/لونًا. */
+    /** بند 14/15 (E11.1): اللقب يتطلب نصًا عاديًا بطول آمن؛ غير اللقب لا يحمل نصًا/لونًا. */
     protected function applyTitleRules(StoreItem $item, bool $isNew): void
     {
         if ($item->cosmetic_slot !== StoreItem::SLOT_TITLE) {
@@ -167,7 +178,7 @@ class StoreItemInvariantGuard
         }
     }
 
-    /** بند 17: كل فتحة غير اللقب تتطلب image_path (الحضور فقط - نوع/حجم الملف يبقى لـFilament/E8). */
+    /** بند 17 (E11.1): كل فتحة غير اللقب تتطلب image_path (الحضور فقط - نوع/حجم الملف يبقى لـFilament/E8). */
     protected function assertImagePresent(StoreItem $item, bool $isNew): void
     {
         $slot = $item->cosmetic_slot;
