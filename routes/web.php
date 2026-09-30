@@ -122,5 +122,18 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:cosmetic-equip')->name('profile.cosmetics.unequip');
         Route::patch('/profile/visibility', [ProfileCustomizationController::class, 'updateVisibility'])
             ->name('profile.visibility.update');
+
+        Route::patch('/profile/visibility', [ProfileCustomizationController::class, 'updateVisibility'])
+            ->name('profile.visibility.update');
+
+        // E12: صفحة التقدُّم - قراءة فقط، لا Mutation عبر أي مسار هنا.
+        Route::get('/progress', [\App\Http\Controllers\PlayerProgressionController::class, 'show'])->name('progress.show');
+
+
     });
+
+
+
+
+
 });

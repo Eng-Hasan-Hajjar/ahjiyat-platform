@@ -22,6 +22,8 @@ class CurrencyTransaction extends Model
     public const TYPE_PURCHASE = 'purchase';
     public const TYPE_SPEND = 'spend';
 
+    public const TYPE_PROGRESSION_REWARD = 'progression_reward';
+
     protected $fillable = [
         'user_id', 'currency_id', 'amount', 'type', 'reason',
         'reference_type', 'reference_id', 'metadata', 'idempotency_key',

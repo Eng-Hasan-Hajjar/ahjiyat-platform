@@ -19,6 +19,10 @@ class CampaignStep extends Model
     public const REWARD_MODE_OVERRIDE = 'override';
     public const REWARD_MODE_NONE = 'none';
 
+    public const XP_MODE_INHERIT = 'inherit';
+    public const XP_MODE_OVERRIDE = 'override';
+    public const XP_MODE_NONE = 'none';
+
     public const CONTENT_STATUS_FINAL = 'final';
     public const CONTENT_STATUS_PLACEHOLDER = 'placeholder';
     public const CONTENT_STATUS_CONTENT_PENDING = 'content_pending';
@@ -27,6 +31,7 @@ class CampaignStep extends Model
     protected $fillable = [
         'campaign_gate_id', 'kind', 'sort_order', 'title', 'subtitle',
         'content', 'puzzle_id', 'reward_mode', 'reward_override_amount', 'reward_currency_id',
+        'xp_mode', 'xp_override_amount',
     ];
 
     protected function casts(): array
@@ -69,6 +74,10 @@ class CampaignStep extends Model
             if ($step->reward_mode !== self::REWARD_MODE_OVERRIDE) {
                 $step->reward_override_amount = null;
                 $step->reward_currency_id = null;
+            }
+
+            if ($step->xp_mode !== self::XP_MODE_OVERRIDE) {
+                $step->xp_override_amount = null;
             }
         });
     }

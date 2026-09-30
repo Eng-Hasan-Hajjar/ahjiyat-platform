@@ -5,23 +5,16 @@ namespace App\Services;
 use App\Models\CampaignStep;
 use App\Models\User;
 use App\Models\UserCampaignProgress;
+use App\Services\Progression\GameplayProgressionService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
-/**
- * التوأم الثالث لـCampaignNarrativeService/CampaignPuzzleService، لكن
- * لنوع reflection العام (D2) - سؤال حر، لا صح/خطأ، لا PuzzleAttempt، لا
- * مكافأة تلقائية. مصدر الحقيقة UserCampaignProgress.completed_at بالضبط
- * مثل narrative. عامة تماماً - لا شيء خاص بأصيل هون.
- *
- * إجراء واحد فقط (submit) بعكس narrative (markStarted+complete منفصلين) -
- * قرار تصميم مقصود: لا حالة "بدأ لكن لم يُرسل" تحتاج تتبّعاً هون.
- */
 class CampaignReflectionService
 {
     public function __construct(
         protected CampaignProgressService $progress,
         protected QualificationService $qualification,
+        protected GameplayProgressionService $progression,
     ) {}
 
     public function submit(User $user, CampaignStep $step, string $response): UserCampaignProgress
@@ -32,9 +25,6 @@ class CampaignReflectionService
         $minChars = (int) ($step->content['min_chars'] ?? 10);
         $maxChars = (int) ($step->content['max_chars'] ?? 2000);
 
-        // تعقيم صارم قبل أي تخزين (D2/Security): لا HTML/JS خام مهما أرسل
-        // العميل - نص عادي محض. الهروب عند العرض (Blade {{ }}) طبقة حماية
-        // ثانية مستقلة، لا بديلة عن هذا التنظيف عند الكتابة.
         $clean = trim(strip_tags($response));
         $length = mb_strlen($clean);
 
@@ -54,8 +44,6 @@ class CampaignReflectionService
                 ->first();
 
             if ($existing?->completed_at !== null) {
-                // Idempotent بمعنى "لا تكرار" - لا نسمح بتبديل إجابة سبق إرسالها،
-                // بنفس فلسفة عدم تراجع Narrative عن completed_at أبداً.
                 throw new \RuntimeException('سبق أن أرسلت إجابتك لهذه الخطوة.');
             }
 
@@ -79,6 +67,8 @@ class CampaignReflectionService
         });
 
         $this->qualification->afterStepCompletion($user, $step);
+
+        $this->progression->afterCampaignStepCompleted($user, $step, $progress);
 
         return $progress;
     }

@@ -14,10 +14,10 @@ class Puzzle extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
+     protected $fillable = [
         'puzzle_category_id', 'title', 'type', 'difficulty', 'prompt',
         'image_path', 'choices', 'answer_hash', 'answer_raw', 'hint', 'max_attempts',
-        'time_limit_seconds', 'gem_reward', 'reward_currency_id', 'is_daily_puzzle',
+        'time_limit_seconds', 'gem_reward', 'xp_reward', 'reward_currency_id', 'is_daily_puzzle',
         'daily_puzzle_date', 'is_active',
         'game_type', 'game_config', 'solution_data', 'renderer', 'validation_type', 'score_mode',
     ];

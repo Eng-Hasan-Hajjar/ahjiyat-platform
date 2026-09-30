@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ProgressController;
 use App\Http\Controllers\Api\PuzzleController;
 use App\Http\Controllers\Api\WalletController;
 use Illuminate\Support\Facades\Route;
@@ -20,4 +21,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/wallet', [WalletController::class, 'show']);
     Route::get('/wallet/transactions', [WalletController::class, 'transactions']);
+
+    Route::get('/progress', [ProgressController::class, 'show']);
 });

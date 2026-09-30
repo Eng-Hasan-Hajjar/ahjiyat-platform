@@ -20,6 +20,10 @@
             class="anim-fade-up"
         />
 
+        <div class="flex justify-center -mt-2 mb-2">
+            <span class="chip !py-1 !px-4 text-xs !text-amethyst">المستوى {{ $stats['current_level'] }}</span>
+        </div>
+
         @if ($isOwner && ! $player->isProfilePublic())
             <div class="mt-4 rounded-xl bg-white/5 border border-white/10 text-slate-400 text-xs font-bold px-4 py-3 text-center anim-fade-up">
                 هذه معاينة لملفك الشخصي - غير مرئي للآخرين حاليًا ({{ $player->isProfilePrivate() ? 'خاص' : 'للأعضاء فقط' }}).
@@ -27,7 +31,7 @@
             </div>
         @endif
 
-        <div class="grid grid-cols-3 gap-3 mt-6 anim-fade-up d-1">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 anim-fade-up d-1">
             <div class="puzzle-card text-center">
                 <span class="block font-display font-black text-2xl text-white">{{ $stats['puzzles_solved'] }}</span>
                 <span class="text-xs text-slate-400">أحجية محلولة</span>
@@ -39,6 +43,10 @@
             <div class="puzzle-card text-center">
                 <span class="block font-display font-black text-2xl text-white">{{ $stats['gate_qualifications'] }}</span>
                 <span class="text-xs text-slate-400">تأهُّل ضمن حملات</span>
+            </div>
+            <div class="puzzle-card text-center">
+                <span class="block font-display font-black text-2xl text-white">{{ $stats['achievements_unlocked'] }}</span>
+                <span class="text-xs text-slate-400">إنجاز مفتوح</span>
             </div>
         </div>
 

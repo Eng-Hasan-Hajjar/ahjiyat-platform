@@ -51,6 +51,10 @@
                 </a>
             @endif
         </div>
+
+
+
+
     </section>
 
     @if ($featuredSeason)
@@ -64,6 +68,35 @@
             />
         </section>
     @endif
+
+
+
+        @auth
+        {{-- E12 (بند 130/273): بطاقة تقدُّم صغيرة - بلا أي CTA دفع بجانبها --}}
+        <section class="mb-12 anim-fade-up d-1">
+            <a href="{{ route('progress.show') }}" class="puzzle-card flex items-center gap-4 hover:border-amethyst/40 transition">
+                <span class="gem-facet w-12 h-12 grid place-items-center text-lg font-black text-white bg-gradient-to-br from-amethyst to-gold shrink-0">
+                    {{ $myCurrentLevel->level_number }}
+                </span>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-bold text-white text-sm">{{ $myCurrentLevel->name }}</span>
+                        @if ($myNextLevel)
+                            <span class="text-xs text-slate-500">{{ $myProgressPercent }}%</span>
+                        @else
+                            <span class="text-xs text-slate-500">أعلى مستوى</span>
+                        @endif
+                    </div>
+                    <div class="w-full h-1.5 rounded-full bg-white/5 overflow-hidden">
+                        <div class="h-full rounded-full bg-gradient-to-l from-amethyst to-gold" style="width: {{ $myProgressPercent }}%"></div>
+                    </div>
+                </div>
+                <span class="text-xs text-amethyst font-bold shrink-0">تقدُّمي ←</span>
+            </a>
+        </section>
+    @endauth
+
+    
 
     @if ($home['show_categories'])
         <section class="anim-fade-up d-2 mb-12">

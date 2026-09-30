@@ -11,6 +11,7 @@ use App\Models\PuzzleAttempt;
 use App\Models\User;
 use App\Services\Economy\CurrencyRegistry;
 use App\Services\Economy\CurrencyWalletService;
+use App\Services\Progression\GameplayProgressionService;
 use Illuminate\Support\Facades\DB;
 
 class PuzzleAttemptService
@@ -21,6 +22,7 @@ class PuzzleAttemptService
         protected FraudDetectionService $fraud,
         protected GameTypeRegistry $games,
         protected AttemptRewardResolver $rewards,
+        protected GameplayProgressionService $progression,
     ) {}
 
     public function attempt(
@@ -33,7 +35,7 @@ class PuzzleAttemptService
     ): array {
         $context ??= AttemptContext::none();
 
-        return DB::transaction(function () use ($user, $puzzle, $submittedAnswer, $usedHint, $submission, $context) {
+        $result = DB::transaction(function () use ($user, $puzzle, $submittedAnswer, $usedHint, $submission, $context) {
             $previousAttempts = PuzzleAttempt::where('user_id', $user->id)
                 ->where('puzzle_id', $puzzle->id)
                 ->where('context_type', $context->type)
@@ -80,6 +82,12 @@ class PuzzleAttemptService
                 'attempts_left' => max(0, $puzzle->max_attempts - $puzzleAttempt->attempt_number),
             ];
         });
+
+        if ($result['correct']) {
+            $this->progression->afterPuzzleSolved($user, $result['attempt'], $puzzle, $context);
+        }
+
+        return $result;
     }
 
     protected function awardGemsForSolve(User $user, Puzzle $puzzle, AttemptContext $context): int

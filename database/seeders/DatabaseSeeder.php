@@ -19,6 +19,9 @@ class DatabaseSeeder extends Seeder
             ChallengeParticipantSeeder::class,
             RedemptionRequestSeeder::class,
             FraudFlagSeeder::class,
+
+               
+            ProgressionSeeder::class,
         ]);
     }
 }

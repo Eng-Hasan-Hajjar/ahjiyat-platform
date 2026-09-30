@@ -196,4 +196,18 @@ return [
 
 
 
+        'progression' => [
+        'label' => 'التقدُّم (XP والمستويات والإنجازات)',
+        'permissions' => [
+            'progression.achievements.view' => 'عرض الإنجازات',
+            'progression.achievements.create' => 'إنشاء إنجاز جديد',
+            'progression.achievements.update' => 'تعديل إنجاز',
+            'progression.achievements.deactivate' => 'تفعيل/تعطيل إنجاز',
+            'progression.levels.view' => 'عرض تعريفات المستويات',
+            'progression.levels.create' => 'إنشاء مستوى جديد',
+            'progression.levels.update' => 'تعديل مستوى',
+            'progression.users.view' => 'عرض تقدُّم المستخدمين (XP/المستوى/الإنجازات)',
+        ],
+    ],
+
 ];

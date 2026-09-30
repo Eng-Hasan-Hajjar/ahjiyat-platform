@@ -7,12 +7,14 @@ use App\Models\PuzzleCategory;
 use App\Models\Season;
 use App\Services\CampaignProgressService;
 use App\Services\PlatformSettingsService;
+use App\Services\Progression\LevelService;
 
 class HomeController extends Controller
 {
     public function __construct(
         protected CampaignProgressService $progress,
         protected PlatformSettingsService $settings,
+        protected LevelService $levels,
     ) {}
 
     public function index()
@@ -28,6 +30,18 @@ class HomeController extends Controller
         $categories = $home['show_categories']
             ? PuzzleCategory::where('is_active', true)->orderBy('sort_order')->withCount('puzzles')->get()
             : collect();
+
+        $myProgression = null;
+        $myCurrentLevel = null;
+        $myNextLevel = null;
+        $myProgressPercent = 0;
+
+        if (auth()->check()) {
+            $myProgression = $this->levels->progressionFor(auth()->user());
+            $myCurrentLevel = $this->levels->currentLevelFor(auth()->user());
+            $myNextLevel = $this->levels->nextLevelFor(auth()->user());
+            $myProgressPercent = $this->levels->progressPercentFor(auth()->user());
+        }
 
         $featuredSeason = null;
         $featuredSeasonCurrentStep = null;
@@ -55,7 +69,8 @@ class HomeController extends Controller
         }
 
         return view('home', compact(
-            'dailyPuzzle', 'categories', 'featuredSeason', 'featuredSeasonCurrentStep', 'featuredSeasonPercentage', 'home'
+            'dailyPuzzle', 'categories', 'featuredSeason', 'featuredSeasonCurrentStep', 'featuredSeasonPercentage', 'home',
+            'myProgression', 'myCurrentLevel', 'myNextLevel', 'myProgressPercent',
         ));
     }
 }

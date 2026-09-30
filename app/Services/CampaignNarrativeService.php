@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CampaignStep;
 use App\Models\User;
 use App\Models\UserCampaignProgress;
+use App\Services\Progression\GameplayProgressionService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
@@ -13,6 +14,7 @@ class CampaignNarrativeService
     public function __construct(
         protected CampaignProgressService $progress,
         protected QualificationService $qualification,
+        protected GameplayProgressionService $progression,
     ) {}
 
     public function markStarted(User $user, CampaignStep $step): UserCampaignProgress
@@ -78,9 +80,9 @@ class CampaignNarrativeService
             return $existing->fresh();
         });
 
-        // بعد نجاح Commit فعلياً (لا داخل القفل) - Idempotent بذاتها (C6)،
-        // آمنة الاستدعاء بلا شرط حتى لو لم يتغيّر شيء بهذا الاستدعاء تحديداً.
         $this->qualification->afterStepCompletion($user, $step);
+
+        $this->progression->afterCampaignStepCompleted($user, $step, $progress);
 
         return $progress;
     }

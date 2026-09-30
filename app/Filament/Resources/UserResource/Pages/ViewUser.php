@@ -145,6 +145,30 @@ class ViewUser extends ViewRecord
                             'entitlements' => $record->entitlements()->with('item')->orderByDesc('created_at')->get(),
                         ])->render()),
                 ]),
+
+
+                            // E12 (بند 121/291-294): Read-Only بالكامل - لا Set XP/Set Level/Unlock هنا إطلاقًا.
+            Section::make('التقدُّم (XP والمستوى والإنجازات)')
+                ->visible(fn () => auth()->user()?->can('progression.users.view'))
+                ->schema([
+                    TextEntry::make('progression_summary')
+                        ->label('')
+                        ->html()
+                        ->state(function (User $record) {
+                            $levels = app(\App\Services\Progression\LevelService::class);
+
+                            return view('filament.resources.user-resource.progression-summary', [
+                                'progression' => $levels->progressionFor($record),
+                                'currentLevel' => $levels->currentLevelFor($record),
+                                'nextLevel' => $levels->nextLevelFor($record),
+                                'achievementsUnlockedCount' => $record->achievementProgress()->whereNotNull('unlocked_at')->count(),
+                                'recentXp' => $record->xpTransactions()->latest('created_at')->limit(10)->get(),
+                                'recentUnlocks' => $record->levelUnlocks()->with('level')->latest('unlocked_at')->limit(5)->get(),
+                            ])->render();
+                        }),
+                ]),
+
+                
         ]);
     }
 }

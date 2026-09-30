@@ -22,8 +22,11 @@
 
     $metaTitle = $seo['meta_title'] ?: $general['site_name'];
     $metaDescription = $seo['meta_description'] ?: $general['short_description'];
-        // E11: هوية Navbar - Avatar مجهَّز بدل أيقونة عامة (بند 64)، محسوبة هنا فقط عند تسجيل الدخول.
+    // E11: هوية Navbar - Avatar مجهَّز بدل أيقونة عامة (بند 64)، محسوبة هنا فقط عند تسجيل الدخول.
     $navLoadout = auth()->check() ? app(\App\Services\PlayerIdentity\CosmeticLoadoutService::class)->loadoutFor(auth()->user()) : null;
+    // E12 (بند 131/274): رقم مستوى صغير فقط - لا XP Bar ضخمة بالـNavbar.
+    $navLevel = auth()->check() ? app(\App\Services\Progression\LevelService::class)->currentLevelFor(auth()->user()) : null;
+
 @endphp
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -167,9 +170,16 @@
                         <x-gem-badge :amount="auth()->user()->wallet?->available_balance ?? 0" />
                     @endif
                     <a href="{{ route('profile.edit') }}" class="hidden sm:inline-flex items-center gap-2 chip !py-1">
-                        <x-player-avatar :avatar="$navLoadout[\App\Models\StoreItem::SLOT_AVATAR]" :frame="$navLoadout[\App\Models\StoreItem::SLOT_FRAME]" :name="auth()->user()->name" size="sm" />
+                        <x-player-avatar :avatar="$navLoadout[\App\Models\StoreItem::SLOT_AVATAR]"
+                            :frame="$navLoadout[\App\Models\StoreItem::SLOT_FRAME]" :name="auth()->user()->name"
+                            size="sm" />
                         {{ auth()->user()->name }}
-                    </a>                    <form method="POST" action="{{ route('logout') }}" class="hidden md:block">
+                        @if ($navLevel)
+                            <span
+                                class="text-[10px] font-black text-amethyst bg-amethyst/10 rounded-full px-1.5 py-0.5">Lv{{ $navLevel->level_number }}</span>
+                        @endif
+                    </a>
+                    <form method="POST" action="{{ route('logout') }}" class="hidden md:block">
                         @csrf
                         <button class="chip !text-rose">خروج</button>
                     </form>

@@ -5,19 +5,16 @@ namespace App\Services;
 use App\Models\CampaignGate;
 use App\Models\CampaignStep;
 use App\Models\User;
+use App\Services\Progression\GameplayProgressionService;
 use App\Services\Qualification\FirstNQualificationRule;
 use App\Services\Qualification\QualificationRule;
 
-/**
- * الموزّع الوحيد بين قيمة gate.qualification_rule وصنف الـRule الفعلي.
- * null أو أي قيمة غير معروفة = لا Qualification خاصة (C6.9) - لا نجعل
- * first_n افتراضياً لأي بوابة أبداً. تُستدعى من نقاط اكتمال الخطوة
- * الثلاث (narrative/puzzle stateless/GameSession) - وليس من GameSessionService
- * نفسها (تبقى عامة تماماً)، بل من الـController العام الذي يعرف Context فقط.
- */
 class QualificationService
 {
-    public function __construct(protected CampaignProgressService $progress) {}
+    public function __construct(
+        protected CampaignProgressService $progress,
+        protected GameplayProgressionService $progression,
+    ) {}
 
     public function ruleFor(CampaignGate $gate): ?QualificationRule
     {
@@ -27,11 +24,6 @@ class QualificationService
         };
     }
 
-    /**
-     * آمنة الاستدعاء دائماً وبأي عدد من المرات بعد أي إكمال خطوة - تفحص
-     * أولاً هل الـGate الحاوية أصبحت مكتملة فعلياً (Derived)، وإن كانت
-     * ولها Rule، تُشغّلها (Idempotent بذاتها). لا شيء يحدث خلاف ذلك.
-     */
     public function afterStepCompletion(User $user, CampaignStep $step): void
     {
         $gate = $step->gate;
@@ -46,13 +38,14 @@ class QualificationService
         }
 
         $rule->qualify($user, $gate);
+
+        $this->progression->afterQualificationEarned($user);
     }
 
     public function isUserQualified(User $user, CampaignGate $gate): bool
     {
         $rule = $this->ruleFor($gate);
 
-        // لا Rule = تأهّل غير مشروط بمجرد الاكتمال (نفس فلسفة C2/C6.9)
         return $rule === null || $rule->isQualified($user, $gate);
     }
 }
