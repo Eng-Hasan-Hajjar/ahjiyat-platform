@@ -4,7 +4,6 @@ namespace App\Services\Progression;
 
 use App\Models\Achievement;
 use App\Models\Currency;
-use App\Models\CurrencyTransaction;
 use App\Models\LevelDefinition;
 use App\Models\StoreItem;
 use App\Models\User;
@@ -71,7 +70,7 @@ class ProgressionRewardService
             return;
         }
 
-        $this->wallets->creditAvailable($user, $currency, $amount, $reason, $reference, CurrencyTransaction::TYPE_PROGRESSION_REWARD);
+        $this->wallets->creditPending($user, $currency, $amount, $reason, $reference);
     }
 
     protected function grantItemIfConfigured(?int $storeItemId, ?int $quantity, User $user, string $reason, Model $reference): void

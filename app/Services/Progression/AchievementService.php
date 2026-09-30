@@ -85,21 +85,30 @@ class AchievementService
         }
     }
 
+       /**
+     * كل مكوِّنات المكافأة (XP + عملة + عنصر) ووسم reward_granted_at داخل
+     * معاملة واحدة - الوسم يُكتَب في النهاية فقط بعد نجاح كل شيء فعليًا،
+     * لا قبله أبدًا (إصلاح خطأ حقيقي: كتابته أولًا بلا معاملة تُغلِّفه كانت
+     * تترك الإنجاز "موسومًا بالمنح" رغم فشل جزء منه فعليًا - فلا تُعاد
+     * المحاولة أبدًا لاحقًا. مكتشَف تجريبيًا بسجل تشخيص مباشر).
+     */
     protected function grantRewards(User $user, Achievement $achievement, UserAchievementProgress $progress): void
     {
-        $progress->update(['reward_granted_at' => now()]);
+        DB::transaction(function () use ($user, $achievement, $progress) {
+            if ($achievement->xp_reward > 0) {
+                $this->xp->grantXp(
+                    $user,
+                    $achievement->xp_reward,
+                    XpTransaction::TYPE_ACHIEVEMENT_REWARD,
+                    "achievement:{$achievement->internal_key}",
+                    $progress,
+                    "achievement:{$achievement->id}:user:{$user->id}:xp",
+                );
+            }
 
-        if ($achievement->xp_reward > 0) {
-            $this->xp->grantXp(
-                $user,
-                $achievement->xp_reward,
-                XpTransaction::TYPE_ACHIEVEMENT_REWARD,
-                "achievement:{$achievement->internal_key}",
-                $progress,
-                "achievement:{$achievement->id}:user:{$user->id}:xp",
-            );
-        }
+            $this->rewards->grantAchievementRewards($achievement, $user, $progress);
 
-        $this->rewards->grantAchievementRewards($achievement, $user, $progress);
+            $progress->update(['reward_granted_at' => now()]);
+        });
     }
 }

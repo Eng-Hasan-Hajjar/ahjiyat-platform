@@ -7,6 +7,7 @@ use App\Models\PlayerProgression;
 use App\Models\User;
 use App\Models\UserLevelUnlock;
 
+use Illuminate\Support\Facades\DB;
 class LevelService
 {
     public function __construct(protected ProgressionRewardService $rewards) {}
@@ -28,17 +29,19 @@ class LevelService
             ->orderBy('level_number')
             ->get();
 
-        foreach ($newlyCrossedLevels as $level) {
-            $unlock = UserLevelUnlock::firstOrCreate(
-                ['user_id' => $user->id, 'level_definition_id' => $level->id],
-                ['unlocked_at' => now()],
-            );
+               foreach ($newlyCrossedLevels as $level) {
+            DB::transaction(function () use ($user, $level) {
+                $unlock = UserLevelUnlock::firstOrCreate(
+                    ['user_id' => $user->id, 'level_definition_id' => $level->id],
+                    ['unlocked_at' => now()],
+                );
 
-            if ($unlock->reward_granted_at === null) {
-                $this->rewards->grantLevelRewards($level, $user, $unlock);
-                $unlock->update(['reward_granted_at' => now()]);
-            }
-        }
+                if ($unlock->reward_granted_at === null) {
+                    $this->rewards->grantLevelRewards($level, $user, $unlock);
+                    $unlock->update(['reward_granted_at' => now()]);
+                }
+            });
+        }   
 
         $progression->update(['current_level' => $highestEligible->level_number]);
     }
