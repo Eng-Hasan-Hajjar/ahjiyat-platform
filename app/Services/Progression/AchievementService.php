@@ -52,7 +52,7 @@ class AchievementService
 
         $evaluatedValue = $evaluator->currentValue($user, $achievement);
 
-        DB::transaction(function () use ($user, $achievement, $evaluatedValue) {
+        $progress = DB::transaction(function () use ($user, $achievement, $evaluatedValue) {
             $progress = UserAchievementProgress::query()
                 ->where('user_id', $user->id)
                 ->where('achievement_id', $achievement->id)
@@ -77,10 +77,12 @@ class AchievementService
                 $progress->update(['unlocked_at' => now()]);
             }
 
-            if ($progress->unlocked_at !== null && $progress->reward_granted_at === null) {
-                $this->grantRewards($user, $achievement, $progress->fresh());
-            }
+            return $progress->fresh();
         });
+
+        if ($progress->unlocked_at !== null && $progress->reward_granted_at === null) {
+            $this->grantRewards($user, $achievement, $progress);
+        }
     }
 
     protected function grantRewards(User $user, Achievement $achievement, UserAchievementProgress $progress): void

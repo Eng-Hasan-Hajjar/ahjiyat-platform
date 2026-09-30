@@ -28,7 +28,7 @@ class XpService
             return $existing;
         }
 
-        return DB::transaction(function () use ($user, $amount, $type, $reason, $source, $idempotencyKey) {
+        [$transaction, $progressionSnapshot] = DB::transaction(function () use ($user, $amount, $type, $reason, $source, $idempotencyKey) {
             $progression = $this->lockedProgression($user);
 
             $transaction = XpTransaction::create([
@@ -44,10 +44,12 @@ class XpService
             $progression->increment('total_xp', $amount);
             $progression->update(['last_xp_at' => now()]);
 
-            $this->levels->recalculateFor($user, $progression->fresh());
-
-            return $transaction;
+            return [$transaction, $progression->fresh()];
         });
+
+        $this->levels->recalculateFor($user, $progressionSnapshot);
+
+        return $transaction;
     }
 
     protected function assertPositiveAmount(int $amount): void

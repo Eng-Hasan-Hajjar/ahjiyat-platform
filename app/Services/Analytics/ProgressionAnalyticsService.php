@@ -29,21 +29,17 @@ class ProgressionAnalyticsService
         });
     }
 
-    public function levelDistribution(): array
+     public function levelDistribution(): array
     {
-        $cacheKey = 'progression.level_distribution';
-
-        return Cache::remember($cacheKey, now()->addMinutes(10), function () {
-            return LevelDefinition::where('is_active', true)
-                ->orderBy('level_number')
-                ->get()
-                ->map(fn (LevelDefinition $level) => [
-                    'level_number' => $level->level_number,
-                    'name' => $level->name,
-                    'users_count' => PlayerProgression::where('current_level', $level->level_number)->count(),
-                ])
-                ->all();
-        });
+        return LevelDefinition::where('is_active', true)
+            ->orderBy('level_number')
+            ->get()
+            ->map(fn (LevelDefinition $level) => [
+                'level_number' => $level->level_number,
+                'name' => $level->name,
+                'users_count' => PlayerProgression::where('current_level', $level->level_number)->count(),
+            ])
+            ->all();
     }
 
     public function topUnlockedAchievements(int $limit = 10): array
