@@ -67,12 +67,16 @@ test('an unused achievement can still change its condition freely, within valid 
 
 test('a used achievement cannot be deleted, an unused one can', function () {
     $usedAchievement = Achievement::factory()->puzzlesSolvedTotal(1)->create();
-    $unusedAchievement = Achievement::factory()->puzzlesSolvedTotal(1)->create();
 
     $user = User::factory()->create();
-    $puzzle = Puzzle::factory()->create(['answer_raw' => 'صح']);
+    // E12 (تشخيص فعلي): تُنشَأ الأحجية بلا أي مصدر XP/عملة، والحل الحقيقي يُقيِّم تلقائيًا
+    // كل إنجاز puzzles_solved_total موجود وقت الحل - لذا ننشئ unusedAchievement بعد الحل
+    // مباشرة، فلا يراها التقييم التلقائي إطلاقًا وتبقى فعليًا غير مُستخدَمة.
+    $puzzle = Puzzle::factory()->create(['answer_raw' => 'صح', 'xp_reward' => 0, 'gem_reward' => 0]);
     $this->puzzles->attempt($user, $puzzle, 'صح');
     $this->achievements->evaluateAchievement($user, $usedAchievement);
+
+    $unusedAchievement = Achievement::factory()->puzzlesSolvedTotal(1)->create();
 
     expect(fn () => $usedAchievement->delete())->toThrow(StoreItemInvariantViolation::class);
 

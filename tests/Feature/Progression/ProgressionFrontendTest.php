@@ -87,9 +87,8 @@ test('the dashboard shows a small progression card linking to /progress for an a
 
 test('the read-only API endpoint returns a safe payload with no admin metadata', function () {
     $user = User::factory()->create();
-    $token = $user->createToken('test')->plainTextToken;
 
-    $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/progress');
+    $response = $this->actingAs($user, 'sanctum')->getJson('/api/progress');
 
     $response->assertOk()->assertJsonStructure(['current_level', 'total_xp', 'progress_percent', 'achievement_count']);
 });

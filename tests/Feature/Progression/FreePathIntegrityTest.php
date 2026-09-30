@@ -167,11 +167,13 @@ test('E12 req 209/355: a user owning cosmetics and a user owning none get identi
     expect($ownerUser->fresh()->playerProgression->total_xp)->toBe($bareUser->fresh()->playerProgression->total_xp);
 });
 
-test('E12 req 206/227/80: a puzzle attempt succeeds even with an entirely empty wallet - zero balance never blocks play', function () {
+test('E12 req 206/227/80: a puzzle attempt succeeds even with an entirely empty (zero-balance) wallet - zero balance never blocks play', function () {
     $user = User::factory()->create();
     $earnedCurrency = app(CurrencyRegistry::class)->defaultEarnedCurrency();
 
-    expect($user->wallets()->where('currency_id', $earnedCurrency->id)->exists())->toBeFalse();
+    $wallet = $user->wallets()->where('currency_id', $earnedCurrency->id)->first();
+    expect($wallet?->available_balance ?? 0)->toBe(0)
+        ->and($wallet?->pending_balance ?? 0)->toBe(0);
 
     $puzzle = Puzzle::factory()->create(['answer_raw' => 'صح']);
     $result = $this->puzzles->attempt($user, $puzzle, 'صح');

@@ -46,16 +46,40 @@ test('E12 req 187: retrying (re-evaluating) does not grant the level reward twic
     $level2 = LevelDefinition::where('level_number', 2)->first();
     $level2->update(['reward_currency_id' => $currency->id, 'reward_currency_amount' => 15]);
 
+    expect($level2->fresh()->reward_currency_id)->toBe($currency->id)
+        ->and($level2->fresh()->reward_currency_amount)->toBe(15);
+
     $this->xp->grantXp($this->user, 100, XpTransaction::TYPE_PUZZLE_SOLVE, 'test');
-    $balanceAfterFirst = $this->user->wallets()->where('currency_id', $currency->id)->first()?->pending_balance ?? 0;
+
+    $unlock = UserLevelUnlock::where('user_id', $this->user->id)
+        ->whereHas('level', fn ($q) => $q->where('level_number', 2))
+        ->first();
+
+    $rewardTransaction = \App\Models\CurrencyTransaction::where('user_id', $this->user->id)
+        ->where('currency_id', $currency->id)
+        ->where('reference_type', $unlock?->getMorphClass())
+        ->first();
+
+    $levelReachedCorrectly = $this->levels->currentLevelFor($this->user)->level_number === 2;
+    $unlockRowExists = $unlock !== null;
+    $unlockRewardMarkedGranted = $unlock?->reward_granted_at !== null;
+    $currencyLedgerRowExistsForThisUnlock = $rewardTransaction !== null;
+    $currencyLedgerRowAmount = $rewardTransaction->amount ?? -1;
+    $balanceAfterFirst = $this->user->wallets()->where('currency_id', $currency->id)->first()?->pending_balance ?? -1;
+
+    expect($levelReachedCorrectly)->toBeTrue()
+        ->and($unlockRowExists)->toBeTrue()
+        ->and($unlockRewardMarkedGranted)->toBeTrue()
+        ->and($currencyLedgerRowExistsForThisUnlock)->toBeTrue()
+        ->and($currencyLedgerRowAmount)->toBe(15)
+        ->and($balanceAfterFirst)->toBe(15);
 
     $progression = $this->levels->progressionFor($this->user);
     $this->levels->recalculateFor($this->user, $progression);
 
     $balanceAfterRetry = $this->user->wallets()->where('currency_id', $currency->id)->first()?->pending_balance ?? 0;
 
-    expect($balanceAfterFirst)->toBe(15)
-        ->and($balanceAfterRetry)->toBe(15);
+    expect($balanceAfterRetry)->toBe(15);
 });
 
 test('level never regresses even if somehow re-evaluated with the same XP', function () {

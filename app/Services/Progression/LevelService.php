@@ -48,12 +48,20 @@ class LevelService
         return PlayerProgression::firstOrCreate(['user_id' => $user->id]);
     }
 
+       /**
+     * لا تُلقي أبدًا حتى لو لم يوجد Level 1 بقاعدة البيانات إطلاقًا (بيئة
+     * اختبار لم تُشغِّل ProgressionSeeder، مثلًا) - إرجاع كائن احتياطي غير
+     * محفوظ بدل ModelNotFoundException، والتي كانت فعليًا تُصبح استجابة
+     * 404 (اكتشاف انحدار حقيقي كسر PublicProfileTest/ProfilePrivacyTest
+     * من E11 - أُصلِح هنا).
+     */
     public function currentLevelFor(User $user): LevelDefinition
     {
         $progression = $this->progressionFor($user);
 
         return LevelDefinition::where('level_number', $progression->current_level)->first()
-            ?? LevelDefinition::where('level_number', 1)->firstOrFail();
+            ?? LevelDefinition::where('level_number', 1)->first()
+            ?? new LevelDefinition(['level_number' => 1, 'name' => 'المستوى الأول', 'xp_required_total' => 0]);
     }
 
     public function nextLevelFor(User $user): ?LevelDefinition
