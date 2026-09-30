@@ -21,11 +21,7 @@ test('E12 req 215: level distribution counts users at each level correctly', fun
     $userAtLevel2 = User::factory()->create();
     app(\App\Services\Progression\XpService::class)->grantXp($userAtLevel2, 100, \App\Models\XpTransaction::TYPE_PUZZLE_SOLVE, 'test');
 
-    $allProgressionRows = \App\Models\PlayerProgression::all(['user_id', 'current_level', 'total_xp'])->toArray();
-    dump('DIAG all PlayerProgression rows:', $allProgressionRows);
-
     $distribution = collect($this->analytics->levelDistribution())->keyBy('level_number');
-    dump('DIAG distribution result:', $distribution->toArray());
 
     expect($distribution[1]['users_count'])->toBe(1)
         ->and($distribution[2]['users_count'])->toBe(1);
