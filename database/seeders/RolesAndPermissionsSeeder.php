@@ -112,6 +112,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'store.purchases.fulfill',
             'store.inventory.view',
             'progression.users.view',
+            'engagement.users.view',
         ]);
 
         $this->grantIfMissing('content-manager', [
@@ -129,6 +130,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'progression.levels.view',
             'progression.levels.create',
             'progression.levels.update',
+            'engagement.quests.view',
+            'engagement.quests.create',
+            'engagement.quests.update',
         ]);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();

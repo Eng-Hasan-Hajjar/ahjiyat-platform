@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\EngagementController;
 use App\Http\Controllers\Api\ProgressController;
 use App\Http\Controllers\Api\PuzzleController;
 use App\Http\Controllers\Api\WalletController;
@@ -23,4 +24,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/wallet/transactions', [WalletController::class, 'transactions']);
 
     Route::get('/progress', [ProgressController::class, 'show']);
+    Route::get('/engagement', [EngagementController::class, 'show']);
 });

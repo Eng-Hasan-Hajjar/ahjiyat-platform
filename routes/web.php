@@ -128,6 +128,7 @@ Route::middleware('auth')->group(function () {
 
         // E12: صفحة التقدُّم - قراءة فقط، لا Mutation عبر أي مسار هنا.
         Route::get('/progress', [\App\Http\Controllers\PlayerProgressionController::class, 'show'])->name('progress.show');
+        Route::get('/quests', [\App\Http\Controllers\PlayerQuestsController::class, 'show'])->name('quests.show');
 
 
     });

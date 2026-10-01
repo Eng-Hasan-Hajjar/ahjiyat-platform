@@ -14,6 +14,7 @@ class XpTransaction extends Model
     public const TYPE_PUZZLE_SOLVE = 'puzzle_solve';
     public const TYPE_CAMPAIGN_STEP = 'campaign_step';
     public const TYPE_ACHIEVEMENT_REWARD = 'achievement_reward';
+    public const TYPE_QUEST_REWARD = 'quest_reward';
 
     public $timestamps = false;
 

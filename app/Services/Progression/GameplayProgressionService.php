@@ -9,6 +9,7 @@ use App\Models\PuzzleAttempt;
 use App\Models\User;
 use App\Models\UserCampaignProgress;
 use App\Models\XpTransaction;
+use App\Services\Engagement\EngagementService;
 use Illuminate\Support\Facades\Log;
 
 class GameplayProgressionService
@@ -17,6 +18,7 @@ class GameplayProgressionService
         protected XpService $xp,
         protected AttemptXpResolver $xpResolver,
         protected AchievementService $achievements,
+        protected EngagementService $engagement,
     ) {}
 
     public function afterPuzzleSolved(User $user, PuzzleAttempt $attempt, Puzzle $puzzle, AttemptContext $context): void
@@ -42,6 +44,9 @@ class GameplayProgressionService
         if ($context->isPresent() && $context->type === AttemptContext::TYPE_CAMPAIGN_STEP) {
             $this->achievements->evaluateForEvent('campaign_step_completed', $user);
         }
+
+        // E13: نفس الحدث الموثوق بالضبط - لا تكرار لمنطق XP/الإنجازات أعلاه، فقط Quest+Streak.
+        $this->engagement->onPuzzleSolved($user, $attempt);
     }
 
     public function afterCampaignStepCompleted(User $user, CampaignStep $step, UserCampaignProgress $progress): void
@@ -67,10 +72,16 @@ class GameplayProgressionService
         }
 
         $this->achievements->evaluateForEvent('campaign_step_completed', $user);
+
+        // E13
+        $this->engagement->onCampaignStepCompleted($user);
     }
 
     public function afterQualificationEarned(User $user): void
     {
         $this->achievements->evaluateForEvent('qualification_earned', $user);
+
+        // E13
+        $this->engagement->onQualificationEarned($user);
     }
 }

@@ -94,6 +94,22 @@
                 <span class="text-xs text-amethyst font-bold shrink-0">تقدُّمي ←</span>
             </a>
         </section>
+
+        {{-- E13 (بند 374): بطاقة مهام صغيرة - بلا أي CTA دفع --}}
+        <section class="mb-12 anim-fade-up d-1">
+            <a href="{{ route('quests.show') }}" class="puzzle-card flex items-center gap-4 hover:border-amethyst/40 transition">
+                <span class="gem-facet w-12 h-12 grid place-items-center text-lg font-black text-white bg-gradient-to-br from-amethyst to-gold shrink-0">
+                    {{ $myStreak?->current_streak ?? 0 }}
+                </span>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-bold text-white text-sm">مهام اليوم: {{ $myQuestsCompletedToday }}/{{ $myQuestsTotalToday }}</span>
+                        <span class="text-xs text-slate-500">سلسلة {{ $myStreak?->current_streak ?? 0 }} يوم</span>
+                    </div>
+                </div>
+                <span class="text-xs text-amethyst font-bold shrink-0">عرض المهام ←</span>
+            </a>
+        </section>
     @endauth
 
     

@@ -210,4 +210,15 @@ return [
         ],
     ],
 
+        'engagement' => [
+        'label' => 'المشاركة (المهام والسلسلة اليومية)',
+        'permissions' => [
+            'engagement.quests.view' => 'عرض تعريفات المهام',
+            'engagement.quests.create' => 'إنشاء مهمة جديدة',
+            'engagement.quests.update' => 'تعديل مهمة',
+            'engagement.quests.deactivate' => 'تفعيل/تعطيل مهمة',
+            'engagement.users.view' => 'عرض مشاركة المستخدمين (المهام/السلسلة)',
+        ],
+    ],
+
 ];

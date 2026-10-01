@@ -168,6 +168,40 @@ class ViewUser extends ViewRecord
                         }),
                 ]),
 
+            // E13 (بند 399-402): Read-Only بالكامل - لا Set Streak/Complete Quest هنا إطلاقًا.
+            Section::make('مشاركة اللاعب (المهام والسلسلة)')
+                ->visible(fn () => auth()->user()?->can('engagement.users.view'))
+                ->schema([
+                    TextEntry::make('engagement_summary')
+                        ->label('')
+                        ->html()
+                        ->state(function (User $record) {
+                            $periods = app(\App\Services\Engagement\QuestPeriodService::class);
+                            $quests = app(\App\Services\Engagement\QuestService::class);
+                            $streaks = app(\App\Services\Engagement\StreakService::class);
+
+                            $dailyPeriod = $periods->dailyContext();
+                            $weeklyPeriod = $periods->weeklyContext();
+
+                            $buildRows = function (string $periodType, $period) use ($record, $quests) {
+                                return \App\Models\QuestDefinition::where('period_type', $periodType)
+                                    ->where('is_active', true)
+                                    ->orderBy('sort_order')
+                                    ->get()
+                                    ->map(fn (\App\Models\QuestDefinition $quest) => [
+                                        'quest' => $quest,
+                                        'progress' => $quests->progressFor($record, $quest, $period),
+                                    ]);
+                            };
+
+                            return view('filament.resources.user-resource.engagement-summary', [
+                                'streak' => $streaks->streakFor($record),
+                                'dailyQuests' => $buildRows(\App\Models\QuestDefinition::PERIOD_DAILY, $dailyPeriod),
+                                'weeklyQuests' => $buildRows(\App\Models\QuestDefinition::PERIOD_WEEKLY, $weeklyPeriod),
+                            ])->render();
+                        }),
+                ]),
+
                 
         ]);
     }

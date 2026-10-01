@@ -5,6 +5,7 @@ namespace App\Services\Progression;
 use App\Models\Achievement;
 use App\Models\Currency;
 use App\Models\LevelDefinition;
+use App\Models\QuestDefinition;
 use App\Models\StoreItem;
 use App\Models\User;
 use App\Services\Economy\CurrencyWalletService;
@@ -54,6 +55,26 @@ class ProgressionRewardService
             $level->reward_item_quantity,
             $user,
             "level:{$level->level_number}",
+            $reference,
+        );
+    }
+
+    /** E13 (بند 9): توسيع لا استبدال - إعادة استخدام كامل لنفس الحارسَين أدناه، بنفس نمط الإنجاز/المستوى حرفيًا. */
+    public function grantQuestRewards(QuestDefinition $quest, User $user, Model $reference): void
+    {
+        $this->grantCurrencyIfConfigured(
+            $quest->reward_currency_id,
+            $quest->reward_currency_amount,
+            $user,
+            "quest:{$quest->internal_key}",
+            $reference,
+        );
+
+        $this->grantItemIfConfigured(
+            $quest->reward_store_item_id,
+            $quest->reward_item_quantity,
+            $user,
+            "quest:{$quest->internal_key}",
             $reference,
         );
     }

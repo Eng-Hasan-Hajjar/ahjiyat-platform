@@ -4,8 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Puzzle;
 use App\Models\PuzzleCategory;
+use App\Models\QuestDefinition;
 use App\Models\Season;
+use App\Models\UserQuestProgress;
 use App\Services\CampaignProgressService;
+use App\Services\Engagement\QuestPeriodService;
+use App\Services\Engagement\StreakService;
 use App\Services\PlatformSettingsService;
 use App\Services\Progression\LevelService;
 
@@ -15,6 +19,8 @@ class HomeController extends Controller
         protected CampaignProgressService $progress,
         protected PlatformSettingsService $settings,
         protected LevelService $levels,
+        protected QuestPeriodService $periods,
+        protected StreakService $streaks,
     ) {}
 
     public function index()
@@ -36,11 +42,24 @@ class HomeController extends Controller
         $myNextLevel = null;
         $myProgressPercent = 0;
 
+        $myQuestsCompletedToday = 0;
+        $myQuestsTotalToday = 0;
+        $myStreak = null;
+
         if (auth()->check()) {
             $myProgression = $this->levels->progressionFor(auth()->user());
             $myCurrentLevel = $this->levels->currentLevelFor(auth()->user());
             $myNextLevel = $this->levels->nextLevelFor(auth()->user());
             $myProgressPercent = $this->levels->progressPercentFor(auth()->user());
+
+            // E13 (بند 374): للعرض فقط - لا إنشاء صفوف تقدُّم جديدة من لوحة التحكم.
+            $dailyPeriod = $this->periods->dailyContext();
+            $myQuestsTotalToday = QuestDefinition::where('period_type', QuestDefinition::PERIOD_DAILY)->where('is_active', true)->count();
+            $myQuestsCompletedToday = UserQuestProgress::where('user_id', auth()->id())
+                ->where('period_key', $dailyPeriod->periodKey)
+                ->whereNotNull('completed_at')
+                ->count();
+            $myStreak = $this->streaks->streakFor(auth()->user());
         }
 
         $featuredSeason = null;
@@ -71,6 +90,7 @@ class HomeController extends Controller
         return view('home', compact(
             'dailyPuzzle', 'categories', 'featuredSeason', 'featuredSeasonCurrentStep', 'featuredSeasonPercentage', 'home',
             'myProgression', 'myCurrentLevel', 'myNextLevel', 'myProgressPercent',
+            'myQuestsCompletedToday', 'myQuestsTotalToday', 'myStreak',
         ));
     }
 }
