@@ -26,10 +26,9 @@ class EngagementController extends Controller
 
         $format = function (string $periodType, $period) use ($user) {
             return QuestDefinition::where('period_type', $periodType)
-                ->where('is_active', true)
                 ->orderBy('sort_order')
                 ->get()
-                ->filter(fn (QuestDefinition $q) => $this->quests->isVisibleTo($user, $q))
+                ->filter(fn (QuestDefinition $q) => $this->quests->isVisibleTo($user, $q, $period))
                 ->map(function (QuestDefinition $q) use ($user, $period) {
                     $progress = $this->quests->progressFor($user, $q, $period);
 

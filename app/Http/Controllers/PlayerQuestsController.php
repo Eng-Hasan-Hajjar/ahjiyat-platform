@@ -42,7 +42,7 @@ class PlayerQuestsController extends Controller
         return QuestDefinition::where('period_type', $periodType)
             ->orderBy('sort_order')
             ->get()
-            ->filter(fn (QuestDefinition $quest) => $this->quests->isVisibleTo($user, $quest))
+            ->filter(fn (QuestDefinition $quest) => $this->quests->isVisibleTo($user, $quest, $period))
             ->map(function (QuestDefinition $quest) use ($user, $period) {
                 $progress = $this->quests->progressFor($user, $quest, $period);
 

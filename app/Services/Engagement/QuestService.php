@@ -43,14 +43,31 @@ class QuestService
         );
     }
 
-    /** بند 366: مهمة غير نشطة لا تظهر للاعب إلا إذا كان له تقدُّم قائم فعليًا بالفعل بها. */
-    public function isVisibleTo(User $user, QuestDefinition $quest): bool
+    /**
+     * E13.1 (بند 18-25، إصلاح حقيقي): كانت تتحقَّق من وجود أي تقدُّم تاريخي
+     * مطلقًا (->exists() بلا تقييد بالفترة) وبلا فحص starts_at/ends_at - ما
+     * يجعل مهمة مُعطَّلة أو منتهية النافذة **ظاهرة للأبد** لمجرد أثر تاريخي
+     * واحد، بل وتُنشئ تقدُّمًا **جديدًا** لها (progressFor()'s firstOrCreate
+     * يُستدعى لاحقًا لكل ما يمر من هنا). الإصلاح: التحقُّق يكون من تقدُّم
+     * الفترة **الحالية** تحديدًا، ومن النافذة الزمنية الفعلية لا من is_active وحدها.
+     */
+    public function isVisibleTo(User $user, QuestDefinition $quest, ?PeriodContext $period = null): bool
     {
-        if ($quest->is_active) {
+        $period ??= $this->periods->contextFor($quest->period_type);
+
+        $withinWindow = ($quest->starts_at === null || $period->end->gte($quest->starts_at))
+            && ($quest->ends_at === null || $period->start->lte($quest->ends_at));
+
+        if ($quest->is_active && $withinWindow) {
             return true;
         }
 
-        return UserQuestProgress::where('user_id', $user->id)->where('quest_definition_id', $quest->id)->exists();
+        // غير نشطة أو خارج نافذتها حاليًا - تبقى ظاهرة فقط إذا بدأها المستخدم
+        // فعلًا بالفترة الحالية **قبل** التعطيل/الانتهاء (بند 19: يُسمَح بإكمالها، لا إسناد جديد).
+        return UserQuestProgress::where('user_id', $user->id)
+            ->where('quest_definition_id', $quest->id)
+            ->where('period_key', $period->periodKey)
+            ->exists();
     }
 
     /**
@@ -64,6 +81,39 @@ class QuestService
         $this->evaluateForEvent('puzzle_solved', $user);
         $this->evaluateForEvent('campaign_step_completed', $user);
         $this->evaluateForEvent('qualification_earned', $user);
+
+        $this->recoverPendingRewards($user);
+    }
+
+    /**
+     * E13.1 (إصلاح حقيقي - بند 2-7): مصدر الاستعادة هو UserQuestProgress
+     * المكتملة وغير المكافأة نفسها - بصرف النظر تمامًا عن الفترة أو حالة
+     * تعريف المهمة الحالية (نشطة/مُعطَّلة/منتهية النافذة). لا يُعيد فتح
+     * التقدُّم، لا يُعدِّل current_value، لا يُنشئ إكمالًا جديدًا - يمنح
+     * المكافأة فقط لسجل اكتمل بالفعل سابقًا. لا اعتماد على Cron: يُستدعى
+     * من مزامنة فتح الصفحة، مستقل تمامًا عن أي لعب جديد (بند 7).
+     */
+    public function recoverPendingRewards(User $user): void
+    {
+        $pending = UserQuestProgress::where('user_id', $user->id)
+            ->whereNotNull('completed_at')
+            ->whereNull('reward_granted_at')
+            ->with('questDefinition')
+            ->get();
+
+        foreach ($pending as $progress) {
+            if ($progress->questDefinition === null) {
+                continue;
+            }
+
+            try {
+                $this->grantRewards($user, $progress->questDefinition, $progress);
+            } catch (\Throwable $e) {
+                Log::error('فشل استرجاع مكافأة مهمة متأخرة', [
+                    'progress_id' => $progress->id, 'user_id' => $user->id, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     public function evaluateForEvent(string $event, User $user): void
@@ -160,24 +210,37 @@ class QuestService
      * بند 139/436: معاملة واحدة تُغلِّف XP+عملة+عنصر+الوسم معًا - الوسم في
      * النهاية فقط بعد نجاح كل شيء. فشل جزئي = إعادة محاولة آمنة لاحقًا،
      * حتى بعد انتهاء الفترة (بند 141 - غير "ضائعة" أبدًا).
+     *
+     * E13.1 (إصلاح سباق حقيقي - بند 8-12): القفل السابق بمعاملة evaluateQuest()
+     * يُفَكّ **قبل** وصولنا هنا - فحص "هل ما زالت تحتاج مكافأة؟" يجب أن يكون
+     * ذرّيًا مع المنح نفسه، لا معتمدًا على قفل سابق انتهى. نُعيد قفل نفس
+     * الصف وإعادة قراءة reward_granted_at **داخل** هذه المعاملة بالذات -
+     * طلب متزامن ثانٍ سيجد العلامة مضبوطة فعلًا فور حصوله على القفل بعد
+     * التزام الأول، فيعود فورًا بلا أي استدعاء لأي خدمة منح.
      */
     protected function grantRewards(User $user, QuestDefinition $quest, UserQuestProgress $progress): void
     {
         DB::transaction(function () use ($user, $quest, $progress) {
+            $locked = UserQuestProgress::where('id', $progress->id)->lockForUpdate()->first();
+
+            if ($locked === null || $locked->reward_granted_at !== null) {
+                return; // خسرنا السباق - جهة أخرى منحتها بالفعل، أو السجل حُذف.
+            }
+
             if ($quest->xp_reward > 0) {
                 $this->xp->grantXp(
                     $user,
                     $quest->xp_reward,
                     XpTransaction::TYPE_QUEST_REWARD,
                     "quest:{$quest->internal_key}",
-                    $progress,
-                    "quest:{$quest->id}:user:{$user->id}:period:{$progress->period_key}:xp",
+                    $locked,
+                    "quest-progress:{$locked->id}:xp",
                 );
             }
 
-            $this->rewards->grantQuestRewards($quest, $user, $progress);
+            $this->rewards->grantQuestRewards($quest, $user, $locked, "quest-progress:{$locked->id}:currency");
 
-            $progress->update(['reward_granted_at' => now()]);
+            $locked->update(['reward_granted_at' => now()]);
         });
     }
 }

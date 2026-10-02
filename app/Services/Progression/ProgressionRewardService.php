@@ -59,8 +59,13 @@ class ProgressionRewardService
         );
     }
 
-    /** E13 (بند 9): توسيع لا استبدال - إعادة استخدام كامل لنفس الحارسَين أدناه، بنفس نمط الإنجاز/المستوى حرفيًا. */
-    public function grantQuestRewards(QuestDefinition $quest, User $user, Model $reference): void
+    /**
+     * E13 (بند 9): توسيع لا استبدال - إعادة استخدام كامل لنفس الحارسَين أدناه، بنفس نمط الإنجاز/المستوى حرفيًا.
+     * E13.1 (بند 12/14): معامل idempotency key اختياري إضافي - دفاع ثانٍ
+     * بجانب قفل الصف بـQuestService، بلا كسر استدعاءات الإنجاز/المستوى
+     * (لا تُمرِّره، فتبقى null، سلوكها الحالي دون أي تغيير).
+     */
+    public function grantQuestRewards(QuestDefinition $quest, User $user, Model $reference, ?string $currencyIdempotencyKey = null): void
     {
         $this->grantCurrencyIfConfigured(
             $quest->reward_currency_id,
@@ -68,6 +73,7 @@ class ProgressionRewardService
             $user,
             "quest:{$quest->internal_key}",
             $reference,
+            $currencyIdempotencyKey,
         );
 
         $this->grantItemIfConfigured(
@@ -79,7 +85,7 @@ class ProgressionRewardService
         );
     }
 
-    protected function grantCurrencyIfConfigured(?int $currencyId, ?int $amount, User $user, string $reason, Model $reference): void
+    protected function grantCurrencyIfConfigured(?int $currencyId, ?int $amount, User $user, string $reason, Model $reference, ?string $idempotencyKey = null): void
     {
         if ($currencyId === null || blank($amount) || $amount <= 0) {
             return;
@@ -91,7 +97,7 @@ class ProgressionRewardService
             return;
         }
 
-        $this->wallets->creditPending($user, $currency, $amount, $reason, $reference);
+        $this->wallets->creditPending($user, $currency, $amount, $reason, $reference, $idempotencyKey);
     }
 
     protected function grantItemIfConfigured(?int $storeItemId, ?int $quantity, User $user, string $reason, Model $reference): void
