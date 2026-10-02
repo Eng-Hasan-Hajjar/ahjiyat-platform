@@ -44,26 +44,51 @@ class QuestService
     }
 
     /**
-     * E13.1 (بند 18-25، إصلاح حقيقي): كانت تتحقَّق من وجود أي تقدُّم تاريخي
-     * مطلقًا (->exists() بلا تقييد بالفترة) وبلا فحص starts_at/ends_at - ما
-     * يجعل مهمة مُعطَّلة أو منتهية النافذة **ظاهرة للأبد** لمجرد أثر تاريخي
-     * واحد، بل وتُنشئ تقدُّمًا **جديدًا** لها (progressFor()'s firstOrCreate
-     * يُستدعى لاحقًا لكل ما يمر من هنا). الإصلاح: التحقُّق يكون من تقدُّم
-     * الفترة **الحالية** تحديدًا، ومن النافذة الزمنية الفعلية لا من is_active وحدها.
+     * E13.1 Final Patch (بند 3-5): المصدر المركزي الوحيد لسؤال "هل الوقت
+     * الحالي الحقيقي now() يقع ضمن [starts_at, ends_at]؟" - مختلف جوهريًا
+     * عن "النطاق الفعّال للاحتساب التاريخي" (max(period_start,starts_at)
+     * → min(period_end,ends_at)) المستخدَم داخل المُقيِّمات نفسها لحساب
+     * القيمة - ذاك يخص صحة العدّ ضمن فترة متداخلة جزئيًا، هذا يخص الأهلية
+     * الحالية فقط. الخلط بينهما كان يُنتج ظهور مهمة تبدأ 18:00 منذ 00:00
+     * (لأن الفترة كاملة كانت "تتقاطع" مع النافذة طوال اليوم، رغم أن اللحظة
+     * الفعلية لم تصلها بعد) - هذا الإصلاح الحقيقي لذلك الخلط.
+     */
+    protected function isWithinTemporalWindowNow(QuestDefinition $quest): bool
+    {
+        $now = now();
+
+        if ($quest->starts_at !== null && $now->lt($quest->starts_at)) {
+            return false;
+        }
+
+        if ($quest->ends_at !== null && $now->gt($quest->ends_at)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * E13.1 (بند 18-25) + Final Patch (بند 1-10): مهمة خارج نافذتها
+     * الزمنية **الحالية الحقيقية** غير مرئية إطلاقًا - بصرف النظر عن أي
+     * تقدُّم قائم (حتى استمرارية التعطيل تتوقَّف فور تجاوز ends_at فعليًا،
+     * بند 10؛ استعادة المكافأة المتأخرة منفصلة تمامًا وتعمل بلا علاقة
+     * بهذه الدالة - راجع recoverPendingRewards()). ضمن النافذة: نشطة =
+     * مرئية دائمًا؛ غير نشطة = مرئية فقط لمن له تقدُّم بالفترة **الحالية
+     * تحديدًا** (استمرارية لا إسناد جديد).
      */
     public function isVisibleTo(User $user, QuestDefinition $quest, ?PeriodContext $period = null): bool
     {
-        $period ??= $this->periods->contextFor($quest->period_type);
+        if (! $this->isWithinTemporalWindowNow($quest)) {
+            return false;
+        }
 
-        $withinWindow = ($quest->starts_at === null || $period->end->gte($quest->starts_at))
-            && ($quest->ends_at === null || $period->start->lte($quest->ends_at));
-
-        if ($quest->is_active && $withinWindow) {
+        if ($quest->is_active) {
             return true;
         }
 
-        // غير نشطة أو خارج نافذتها حاليًا - تبقى ظاهرة فقط إذا بدأها المستخدم
-        // فعلًا بالفترة الحالية **قبل** التعطيل/الانتهاء (بند 19: يُسمَح بإكمالها، لا إسناد جديد).
+        $period ??= $this->periods->contextFor($quest->period_type);
+
         return UserQuestProgress::where('user_id', $user->id)
             ->where('quest_definition_id', $quest->id)
             ->where('period_key', $period->periodKey)
@@ -124,19 +149,37 @@ class QuestService
             return;
         }
 
-        $quests = QuestDefinition::where('is_active', true)
-            ->whereIn('condition_type', $conditionTypes)
-            ->get();
-
-        if ($quests->isEmpty()) {
-            return;
-        }
-
         // بند 241: تُحسَب مرة واحدة لكل نوع فترة بهذا الحدث، لا لكل مهمة على حدة.
         $periodsByType = [
             QuestDefinition::PERIOD_DAILY => $this->periods->dailyContext(),
             QuestDefinition::PERIOD_WEEKLY => $this->periods->weeklyContext(),
         ];
+
+        /**
+         * E13.1 Final Patch (بند 6-9): تصفية is_active=true وحدها كانت
+         * تستبعد مهمة مُعطَّلة **كليًا** من التقييم، حتى لو كان لهذا
+         * المستخدم بالذات تقدُّم قائم بالفترة الحالية (سياسة الاستمرارية
+         * المُعتمَدة بـPart 1 - بند 6/8 من هذا التصحيح) - فيتجمَّد تقدُّمه
+         * عند لحظة التعطيل بالضبط رغم أن الاستمرارية مقصودة. الإصلاح:
+         * نُضيف أيضًا أي مهمة غير نشطة لها بالفعل صف بالفترة الحالية
+         * (ليوم/أسبوع هذا الحدث) **لهذا المستخدم تحديدًا** - لا لغيره
+         * (بند 14)، ولا لفترة سابقة (بند 9/15 يبقيان سليمَين، فـ
+         * isWithinTemporalWindowNow() لاحقًا يُقصي ما تجاوز ends_at أيضًا).
+         */
+        $currentPeriodKeys = array_map(fn ($p) => $p->periodKey, $periodsByType);
+        $inactiveContinuationIds = UserQuestProgress::where('user_id', $user->id)
+            ->whereIn('period_key', $currentPeriodKeys)
+            ->pluck('quest_definition_id');
+
+        $quests = QuestDefinition::whereIn('condition_type', $conditionTypes)
+            ->where(function ($q) use ($inactiveContinuationIds) {
+                $q->where('is_active', true)->orWhereIn('id', $inactiveContinuationIds);
+            })
+            ->get();
+
+        if ($quests->isEmpty()) {
+            return;
+        }
 
         foreach ($quests as $quest) {
             try {
@@ -151,11 +194,9 @@ class QuestService
     {
         $period ??= $this->periods->contextFor($quest->period_type);
 
-        // بند 171: نافذة توفُّر التعريف تُقصي فترات خارج starts_at/ends_at كليًا.
-        if ($quest->starts_at !== null && $period->end->lt($quest->starts_at)) {
-            return;
-        }
-        if ($quest->ends_at !== null && $period->start->gt($quest->ends_at)) {
+        // E13.1 Final Patch: فحص اللحظة الحالية الحقيقية - لا فحص تداخل الفترة
+        // كاملة (كان يفوت حالات نفس اليوم: starts_at/ends_at وسط الفترة الجارية).
+        if (! $this->isWithinTemporalWindowNow($quest)) {
             return;
         }
 
