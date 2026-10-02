@@ -32,7 +32,7 @@ test('E13 req 272/447: a malicious payload attempting to set progress/completed/
 });
 
 test('E13 req 276-280: no farming via wrong attempts, hints, logins, store purchases, or page refreshes', function () {
-    QuestDefinition::factory()->daily(5)->create();
+    $quest = QuestDefinition::factory()->daily(5)->create();
     $puzzle = Puzzle::factory()->create(['answer_raw' => 'صح', 'hint' => 'تلميح']);
 
     foreach (range(1, 20) as $i) {
@@ -51,10 +51,18 @@ test('E13 req 276-280: no farming via wrong attempts, hints, logins, store purch
         $this->actingAs($this->user)->get(route('quests.show'));
     }
 
-    expect(UserQuestProgress::count())->toBe(0)
-        ->and(\App\Models\PlayerStreak::where('user_id', $this->user->id)->exists())->toBeFalse();
-});
+    // بند 33: فتح /quests يُنشئ صف تقدُّم وصف سلسلة بقيمة صفرية بتصميم مقصود
+    // (لعرض الملخَّص) - هذا ليس "زراعة"، فلا مكافأة ولا إكمال ولا قيمة فعلية
+    // نتجت. المِقياس الصحيح هو القيمة والإكمال، لا وجود الصفوف نفسها.
+    $progress = UserQuestProgress::where('user_id', $this->user->id)->where('quest_definition_id', $quest->id)->first();
+    $streak = \App\Models\PlayerStreak::where('user_id', $this->user->id)->first();
 
+    expect($progress?->current_value ?? 0)->toBe(0)
+        ->and($progress?->completed_at)->toBeNull()
+        ->and($progress?->reward_granted_at)->toBeNull()
+        ->and($streak?->current_streak ?? 0)->toBe(0)
+        ->and($streak?->longest_streak ?? 0)->toBe(0);
+});
 test('E13 req 298: daily period is computed from server clock, never from any client-supplied date', function () {
     QuestDefinition::factory()->daily(1)->create();
 

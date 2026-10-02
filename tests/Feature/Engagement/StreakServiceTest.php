@@ -114,18 +114,24 @@ test('E13 req 116: a wrong answer does not update the streak', function () {
 });
 
 test('E13 req 354/229: recalculateFromHistory rebuilds the correct streak from real PuzzleAttempt history alone', function () {
+    // نبني تاريخًا حقيقيًا بنفس الآلية المُثبَتة (لا بناء يدوي هش بـcreated_at
+    // صريح قد يُفقَد بتجميد الساعة) - ثم نحذف صف PlayerStreak المُتولِّد تلقائيًا
+    // بالمسار التدريجي، لنثبت أن الإصلاح وحده يُعيد بناء نفس النتيجة من الصفر.
     Carbon::setTestNow(Carbon::parse('2026-10-05 09:00:00', 'UTC'));
-    $p1 = Puzzle::factory()->create(['answer_raw' => 'ص']);
-    \App\Models\PuzzleAttempt::create(['user_id' => $this->user->id, 'puzzle_id' => $p1->id, 'attempt_number' => 1, 'is_correct' => true, 'used_hint' => false, 'submission_snapshot' => [], 'context_type' => 'none', 'context_id' => 0, 'created_at' => Carbon::parse('2026-10-05 09:00:00', 'UTC')]);
+    e13SolveForStreak($this->user, $this->puzzles);
 
-    $p2 = Puzzle::factory()->create(['answer_raw' => 'ص']);
-    \App\Models\PuzzleAttempt::create(['user_id' => $this->user->id, 'puzzle_id' => $p2->id, 'attempt_number' => 1, 'is_correct' => true, 'used_hint' => false, 'submission_snapshot' => [], 'context_type' => 'none', 'context_id' => 0, 'created_at' => Carbon::parse('2026-10-06 10:00:00', 'UTC')]);
+    Carbon::setTestNow(Carbon::parse('2026-10-06 10:00:00', 'UTC'));
+    e13SolveForStreak($this->user, $this->puzzles);
 
-    // لم يُستدعَ أي Hook تدريجي إطلاقًا - الإصلاح وحده هو مصدر النتيجة.
+    $incrementalStreak = $this->streaks->streakFor($this->user);
+    expect($incrementalStreak->current_streak)->toBe(2); // تأكيد أن تاريخًا حقيقيًا بيومين متتاليين تكوَّن فعلًا
+
+    $incrementalStreak->delete(); // محاكاة فقدان الملخَّص المُجسَّد - PuzzleAttempt الفعلية تبقى
+
     expect(\App\Models\PlayerStreak::where('user_id', $this->user->id)->exists())->toBeFalse();
 
-    $streak = $this->streaks->recalculateFromHistory($this->user);
+    $rebuilt = $this->streaks->recalculateFromHistory($this->user);
 
-    expect($streak->current_streak)->toBe(2)
-        ->and($streak->longest_streak)->toBe(2);
+    expect($rebuilt->current_streak)->toBe(2)
+        ->and($rebuilt->longest_streak)->toBe(2);
 });
