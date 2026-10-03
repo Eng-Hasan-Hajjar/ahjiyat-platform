@@ -63,6 +63,11 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        // E14 (بند 606): تحويل نقر الإعلان - عام (قد يشمل زائرًا غير مسجَّل)، معدَّل معقول يمنع إساءة الاستخدام بلا إزعاج تصفُّح عادي.
+        RateLimiter::for('ad-click', function (Request $request) {
+            return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());
+        });
+
         // طلبات الاستبدال (بند 25) - نفس الحد الحالي: 5 كل ساعة.
         RateLimiter::for('redemption', function (Request $request) {
             return Limit::perMinutes(60, 5)->by($request->user()?->id ?: $request->ip());

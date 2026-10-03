@@ -100,4 +100,18 @@ return [
         'show_legal_links' => ['type' => 'boolean', 'default' => true],
     ],
 
+    /**
+     * E14: مفتاح الإيقاف الشامل + مفاتيح كل مصدر مستقلة. افتراضيًا الكل
+     * مُعطَّل (بند 548/600) - تثبيت جديد يعمل بلا أي إعلان حتى يُفعِّلها
+     * المالك صراحةً من لوحة الإدارة. تُقرَأ عبر PlatformSettingsService
+     * فقط - تغييرها يُبطِل الـCache فورًا (بند 602: لا إعلان عالق بالذاكرة).
+     */
+    'advertising' => [
+        'ads_enabled' => ['type' => 'boolean', 'default' => false],
+        'direct_sponsors_enabled' => ['type' => 'boolean', 'default' => false],
+        'external_ads_enabled' => ['type' => 'boolean', 'default' => false],
+        'max_ads_desktop' => ['type' => 'integer', 'default' => 2],
+        'max_ads_mobile' => ['type' => 'integer', 'default' => 1],
+    ],
+
 ];

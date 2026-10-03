@@ -138,3 +138,6 @@ Route::middleware('auth')->group(function () {
 
 
 });
+// E14 (بند 605): تحويل نقر إعلان - عام، معرِّف Creative فقط، لا رابط من الاستعلام.
+Route::get('/ads/click/{creative}', \App\Http\Controllers\AdClickController::class)
+    ->middleware('throttle:ad-click')->name('ads.click');

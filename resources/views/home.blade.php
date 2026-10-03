@@ -151,4 +151,6 @@
         </section>
     @endif
 
+    <x-ad-slot name="home_inline_primary" />
+
 @endsection

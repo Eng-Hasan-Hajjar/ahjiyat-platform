@@ -113,6 +113,23 @@ class RolesAndPermissionsSeeder extends Seeder
             'store.inventory.view',
             'progression.users.view',
             'engagement.users.view',
+            'ads.campaigns.view',
+            'ads.analytics.view',
+        ]);
+
+        /**
+         * E14 (بند 598 - قرار موثَّق): content-manager يملك create/update/pause
+         * لكن عمدًا بلا ads.campaigns.review - هذا يمنع الاعتماد الذاتي
+         * (Self-Approval) بشكل طبيعي عبر فصل الأدوار القائم أصلًا (المراجعة
+         * تبقى حصرية لـadministrator، صاحب allPermissionNames() الكاملة)،
+         * دون كسر أي سير عمل فعلي بنموذج التوظيف الحالي الصغير بالمشروع.
+         */
+        $this->grantIfMissing('content-manager', [
+            'ads.campaigns.view',
+            'ads.campaigns.create',
+            'ads.campaigns.update',
+            'ads.campaigns.pause',
+            'ads.analytics.view',
         ]);
 
         $this->grantIfMissing('content-manager', [

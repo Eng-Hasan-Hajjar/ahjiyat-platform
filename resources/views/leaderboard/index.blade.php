@@ -44,4 +44,8 @@
         @endforelse
     </div>
 
+    <div class="mt-6">
+        <x-ad-slot name="leaderboard_sidebar" />
+    </div>
+
 @endsection

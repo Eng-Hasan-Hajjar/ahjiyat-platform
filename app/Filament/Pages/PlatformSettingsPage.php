@@ -263,6 +263,25 @@ class PlatformSettingsPage extends Page implements HasForms
                                 Forms\Components\Toggle::make('footer.show_social_links')->label('إظهار روابط التواصل بالفوتر'),
                                 Forms\Components\Toggle::make('footer.show_legal_links')->label('إظهار روابط الشروط والخصوصية'),
                             ])->columns(2),
+
+                        Forms\Components\Tabs\Tab::make('الإعلانات')
+                            ->schema([
+                                Forms\Components\Toggle::make('advertising.ads_enabled')
+                                    ->label('تفعيل الإعلانات عالميًا (مفتاح الإيقاف الشامل)')
+                                    ->helperText('تعطيله يُخفي كل إعلان فورًا بكل مكان بالمنصة، بصرف النظر عن أي إعداد آخر أدناه.')
+                                    ->live(),
+                                Forms\Components\Toggle::make('advertising.direct_sponsors_enabled')
+                                    ->label('تفعيل الرعاة المباشرين')
+                                    ->disabled(fn (Forms\Get $get) => ! $get('advertising.ads_enabled')),
+                                Forms\Components\Toggle::make('advertising.external_ads_enabled')
+                                    ->label('تفعيل مزوِّد الإعلانات الخارجي (Google AdSense)')
+                                    ->helperText('يبقى بلا تأثير فعلي ما لم يُهيَّأ معرِّف الناشر ببيئة الخادم (ADSENSE_CLIENT_ID).')
+                                    ->disabled(fn (Forms\Get $get) => ! $get('advertising.ads_enabled')),
+                                Forms\Components\TextInput::make('advertising.max_ads_desktop')
+                                    ->label('الحد الأقصى للإعلانات بالصفحة - سطح المكتب')->numeric()->minValue(0)->maxValue(5),
+                                Forms\Components\TextInput::make('advertising.max_ads_mobile')
+                                    ->label('الحد الأقصى للإعلانات بالصفحة - الجوّال')->numeric()->minValue(0)->maxValue(5),
+                            ])->columns(2),
                     ]),
             ]);
     }

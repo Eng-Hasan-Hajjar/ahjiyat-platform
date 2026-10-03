@@ -221,4 +221,18 @@ return [
         ],
     ],
 
+    'advertising' => [
+        'label' => 'الإعلانات (المواضع والرعاة)',
+        'permissions' => [
+            'ads.placements.manage' => 'إدارة مواضع الإعلان (تفعيل/تعطيل/إعدادات الجهاز)',
+            'ads.campaigns.view' => 'عرض حملات الرعاة',
+            'ads.campaigns.create' => 'إنشاء حملة راعٍ جديدة',
+            'ads.campaigns.update' => 'تعديل حملة راعٍ',
+            'ads.campaigns.review' => 'مراجعة واعتماد/رفض حملات الرعاة',
+            'ads.campaigns.pause' => 'إيقاف/استئناف حملة راعٍ',
+            'ads.settings.manage' => 'إدارة إعدادات الإعلانات العامة (مفتاح الإيقاف الشامل)',
+            'ads.analytics.view' => 'عرض تحليلات الإعلانات',
+        ],
+    ],
+
 ];
