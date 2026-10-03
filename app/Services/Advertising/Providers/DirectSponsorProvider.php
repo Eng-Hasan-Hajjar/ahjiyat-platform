@@ -6,15 +6,14 @@ use App\Models\AdPlacement;
 use App\Models\SponsorCampaign;
 
 /**
- * E14 (بند 590): المُزوِّد الداخلي الحقيقي - يختار حملة مُعتمَدة ومُجدوَلة
- * حاليًا فعليًا لهذا الموضع. استراتيجية حتمية بسيطة (بند 114/312): أولوية
- * تنازلية، ثم الأقدم إنشاءً عند التساوي - لا مزاد، لا استهداف سلوكي.
+ * المُزوِّد الداخلي الحقيقي - يختار حملة مُعتمَدة ومُجدوَلة حاليًا فعليًا لهذا
+ * الموضع. استراتيجية حتمية بسيطة: أولوية تنازلية، ثم الأقدم إنشاءً عند التساوي.
  */
 class DirectSponsorProvider implements AdProviderContract
 {
     public function isConfigured(): bool
     {
-        return true; // داخلي دائمًا - لا إعداد خارجي مطلوب لوجوده.
+        return true;
     }
 
     public function selectFor(string $placementInternalKey): AdRenderResult

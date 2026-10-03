@@ -3,10 +3,8 @@
 namespace App\Services\Advertising\Providers;
 
 /**
- * E14 (بند 41/585): القيمة المُعادة الموحَّدة من AdServingService - الواجهة
- * (<x-ad-slot>) لا تعرف شيئًا عن Direct أو Google، تتعامل فقط مع هذا الشكل.
- * hasAd=false يعني ببساطة "لا تعرض شيئًا" بكل الحالات (معطَّل، لا حملة
- * مؤهَّلة، فشل مزوِّد خارجي...) - التمييز الداخلي لا يصل للواجهة إطلاقًا.
+ * القيمة المُعادة الموحَّدة من AdServingService - الواجهة (<x-ad-slot>) لا تعرف
+ * شيئًا عن Direct أو Google. hasAd=false يعني "لا تعرض شيئًا" بكل الحالات.
  */
 class AdRenderResult
 {
