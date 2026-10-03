@@ -169,6 +169,9 @@
                     @if ($navigation['show_gem_balance'])
                         <x-gem-badge :amount="auth()->user()->wallet?->available_balance ?? 0" />
                     @endif
+                    @can('admin.access')
+                        <a href="{{ url('/admin') }}" class="hidden md:inline-flex chip !py-1 !text-amethyst">لوحة التحكم</a>
+                    @endcan
                     <a href="{{ route('profile.edit') }}" class="hidden sm:inline-flex items-center gap-2 chip !py-1">
                         <x-player-avatar :avatar="$navLoadout[\App\Models\StoreItem::SLOT_AVATAR]"
                             :frame="$navLoadout[\App\Models\StoreItem::SLOT_FRAME]" :name="auth()->user()->name"
@@ -239,6 +242,10 @@
                         class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-gold transition">الاستبدال</a>
                     <a href="{{ route('inventory.index') }}" @click="mobileOpen = false"
                         class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-gold transition">مقتنياتي</a>
+                        @can('admin.access')
+    <a href="{{ url('/admin') }}" @click="mobileOpen = false"
+        class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-amethyst transition">لوحة التحكم</a>
+@endcan
                     <a href="{{ route('profile.edit') }}" @click="mobileOpen = false"
                         class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">{{ auth()->user()->name }}</a>
 

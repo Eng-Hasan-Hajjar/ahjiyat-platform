@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\Economy\CurrencyRegistry;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -29,7 +30,12 @@ class AdminUserSeeder extends Seeder
             $admin->save();
         }
 
-        Wallet::firstOrCreate(['user_id' => $admin->id]);
+        // المحفظة لازم تحمل العملة الافتراضية المكتسبة (نفس ما يفعله التسجيل العادي)،
+        // وإلا ينهار عرض المحفظة لأنه يقرأ currency->type.
+        Wallet::firstOrCreate([
+            'user_id' => $admin->id,
+            'currency_id' => app(CurrencyRegistry::class)->defaultEarnedCurrency()->id,
+        ]);
 
         $this->command->warn('تم إنشاء حساب المدير: admin@ahjiyat.app / change-me-now - غيّر كلمة المرور فوراً بعد أول دخول.');
     }
