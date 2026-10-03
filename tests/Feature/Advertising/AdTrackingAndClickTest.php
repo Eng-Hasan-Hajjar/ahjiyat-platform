@@ -6,8 +6,6 @@ use App\Models\AdPlacement;
 use App\Models\SponsorCampaign;
 use App\Models\SponsorCreative;
 use App\Services\Advertising\AdPlacementRegistry;
-use App\Services\Advertising\AdServingService;
-use App\Services\Advertising\AdTrackingService;
 use App\Services\PlatformSettingsService;
 
 beforeEach(function () {
@@ -22,6 +20,12 @@ beforeEach(function () {
         ->create(['destination_url' => 'https://real-destination.example.com/landing']);
 });
 
+afterEach(function () {
+    // تنظيف مستمعي الأحداث التي سجَّلناها لمحاكاة فشل قاعدة البيانات.
+    AdImpression::flushEventListeners();
+    AdClick::flushEventListeners();
+});
+
 test('a real direct render creates exactly one impression record', function () {
     $this->get(route('home'))->assertOk();
 
@@ -29,12 +33,19 @@ test('a real direct render creates exactly one impression record', function () {
         ->and(AdImpression::first()->sponsor_campaign_id)->toBe($this->campaign->id);
 });
 
-test('impression tracking failure never breaks the page (item 644)', function () {
-    $tracking = Mockery::mock(AdTrackingService::class);
-    $tracking->shouldReceive('recordImpression')->andThrow(new \RuntimeException('DB down'));
-    $this->app->instance(AdTrackingService::class, $tracking);
+/**
+ * محاكاة فشل حقيقي بطبقة قاعدة البيانات (لا استبدال الخدمة نفسها بـMock):
+ * الخدمة الحقيقية AdTrackingService هي التي تحمل شبكة الأمان (try/catch)،
+ * فاستبدالها بـMock كان يتجاوز الشبكة نفسها ويختبر شيئًا آخر.
+ */
+test('impression write failure never breaks the page (item 644)', function () {
+    AdImpression::creating(function () {
+        throw new \RuntimeException('DB down');
+    });
 
     $this->get(route('home'))->assertOk();
+
+    expect(AdImpression::count())->toBe(0);
 });
 
 test('clicking the tracking route records a click and redirects to the stored URL - not a client-supplied one', function () {
@@ -50,14 +61,15 @@ test('the click route only accepts an identifier - no url query parameter is hon
     $response->assertRedirect('https://real-destination.example.com/landing');
 });
 
-test('click tracking failure still allows a safe redirect to proceed (item 643)', function () {
-    $tracking = Mockery::mock(AdTrackingService::class);
-    $tracking->shouldReceive('recordClick')->andThrow(new \RuntimeException('DB down'));
-    $this->app->instance(AdTrackingService::class, $tracking);
+test('click write failure still allows a safe redirect to proceed (item 643)', function () {
+    AdClick::creating(function () {
+        throw new \RuntimeException('DB down');
+    });
 
     $response = $this->get(route('ads.click', $this->creative));
 
     $response->assertRedirect('https://real-destination.example.com/landing');
+    expect(AdClick::count())->toBe(0);
 });
 
 test('an unsafe destination URL is never redirected to, even if it slipped past review (security > analytics, item 435)', function () {
