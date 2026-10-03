@@ -22,3 +22,4 @@ yarn-error.log
 /.vscode
 /.zed
 database/testing.sqlite
+db_puzzle
