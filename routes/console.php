@@ -31,3 +31,9 @@ Schedule::call(function () {
             }
         });
 })->daily()->name('release-pending-gems')->withoutOverlapping();
+
+// E15: تذكيرات العودة (تحذير السلسلة + مهام اليوم) - ساعيًا. غيابه لا يكسر شيئًا: لا تصل التذكيرات فقط.
+Schedule::command('notifications:dispatch-reengagement')->hourly()->name('notifications-reengagement')->withoutOverlapping();
+
+// E15: تنظيف المقروء القديم يوميًا - صحة النظام لا تعتمد عليه.
+Schedule::command('notifications:prune')->daily()->name('notifications-prune')->withoutOverlapping();

@@ -1,0 +1,58 @@
+<?php
+
+namespace App\Services\Notifications;
+
+/**
+ * سجل مغلق للفئات المنفَّذة فعليًا فقط (لا فئة بلا حدث حقيقي يغذّيها). لا فئة تأتي من نص
+ * إدارة أو من قاعدة البيانات. فئات مؤجَّلة (campaign/season/system/store/engagement): راجع docs/notifications.md.
+ */
+enum NotificationCategory: string
+{
+    case Achievement = 'achievement';
+    case Streak = 'streak';
+    case Quest = 'quest';
+    case Security = 'security';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Achievement => 'الإنجازات',
+            self::Streak => 'السلسلة اليومية',
+            self::Quest => 'المهام اليومية',
+            self::Security => 'الأمان',
+        };
+    }
+
+    public function description(): string
+    {
+        return match ($this) {
+            self::Achievement => 'إشعار عند فتح إنجاز جديد.',
+            self::Streak => 'تذكير واحد في اليوم عند اقتراب انقطاع سلسلتك.',
+            self::Quest => 'تذكير واحد في اليوم بجاهزية مهام اليوم.',
+            self::Security => 'تنبيهات أمان حسابك - إلزامية ولا يمكن تعطيلها.',
+        };
+    }
+
+    /** الأمان إلزامي: لا يخضع لتفضيل المستخدم ولا للمفتاح الشامل. */
+    public function isMandatory(): bool
+    {
+        return $this === self::Security;
+    }
+
+    /** عمود التفضيل بجدول notification_preferences (null للإلزامي). */
+    public function preferenceColumn(): ?string
+    {
+        return match ($this) {
+            self::Achievement => 'achievement_enabled',
+            self::Streak => 'streak_enabled',
+            self::Quest => 'quest_enabled',
+            self::Security => null,
+        };
+    }
+
+    /** @return list<self> */
+    public static function optional(): array
+    {
+        return array_values(array_filter(self::cases(), fn (self $c) => ! $c->isMandatory()));
+    }
+}

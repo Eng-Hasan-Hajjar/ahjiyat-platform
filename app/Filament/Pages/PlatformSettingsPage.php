@@ -64,6 +64,7 @@ class PlatformSettingsPage extends Page implements HasForms
             'announcement' => $settings->getGroup('announcement'),
             'footer' => $settings->getGroup('footer'),
             'advertising' => $settings->getGroup('advertising'),
+            'notifications' => $settings->getGroup('notifications'),
         ]);
     }
 
@@ -290,6 +291,37 @@ class PlatformSettingsPage extends Page implements HasForms
                                     ->label('الحد الأقصى للإعلانات بالصفحة - الجوّال')->numeric()->minValue(0)->maxValue(5)
                                     ->disabled(fn () => ! auth()->user()?->can('ads.settings.manage')),
                             ])->columns(2),
+                        Forms\Components\Tabs\Tab::make('الإشعارات')
+                            ->schema([
+                                Forms\Components\Placeholder::make('notifications_readonly_notice')
+                                    ->label('')
+                                    ->content('لا تملك صلاحية تعديل إعدادات الإشعارات (notifications.settings.manage) - العرض فقط.')
+                                    ->visible(fn () => ! auth()->user()?->can('notifications.settings.manage'))
+                                    ->columnSpanFull(),
+                                Forms\Components\Toggle::make('notifications.notifications_enabled')
+                                    ->label('تفعيل الإشعارات التفاعلية عالميًا')
+                                    ->helperText('عند الإيقاف لا تُنشأ إشعارات جديدة (باستثناء تنبيهات الأمان الإلزامية)، ويبقى صندوق اللاعب القائم مقروءًا. اللعب والمهام والسلسلة لا تتأثر.')
+                                    ->disabled(fn () => ! auth()->user()?->can('notifications.settings.manage')),
+                                Forms\Components\Toggle::make('notifications.streak_warning_enabled')
+                                    ->label('تفعيل تحذير السلسلة اليومية')
+                                    ->disabled(fn () => ! auth()->user()?->can('notifications.settings.manage')),
+                                Forms\Components\TextInput::make('notifications.streak_warning_hour')
+                                    ->label('ساعة بدء تحذير السلسلة (0-23، بتوقيت المنصة UTC)')->numeric()->minValue(0)->maxValue(23)
+                                    ->disabled(fn () => ! auth()->user()?->can('notifications.settings.manage')),
+                                Forms\Components\TextInput::make('notifications.min_streak_for_warning')
+                                    ->label('أقل طول سلسلة يستحق التحذير')->numeric()->minValue(1)->maxValue(30)
+                                    ->disabled(fn () => ! auth()->user()?->can('notifications.settings.manage')),
+                                Forms\Components\Toggle::make('notifications.daily_reminder_enabled')
+                                    ->label('تفعيل تذكير جاهزية مهام اليوم')
+                                    ->disabled(fn () => ! auth()->user()?->can('notifications.settings.manage')),
+                                Forms\Components\TextInput::make('notifications.daily_reminder_hour')
+                                    ->label('ساعة بدء تذكير المهام (0-23، بتوقيت المنصة UTC)')->numeric()->minValue(0)->maxValue(23)
+                                    ->disabled(fn () => ! auth()->user()?->can('notifications.settings.manage')),
+                                Forms\Components\TextInput::make('notifications.max_reengagement_per_day')
+                                    ->label('أقصى عدد تذكيرات عودة للاعب في اليوم')->numeric()->minValue(0)->maxValue(5)
+                                    ->helperText('تذكيرات العودة فقط (تحذير السلسلة، تذكير المهام). الإنجازات والأمان لا تُحتسَب.')
+                                    ->disabled(fn () => ! auth()->user()?->can('notifications.settings.manage')),
+                            ])->columns(2),
                     ]),
             ]);
     }
@@ -299,15 +331,16 @@ class PlatformSettingsPage extends Page implements HasForms
         $user = auth()->user();
         $canGeneral = (bool) $user?->can('settings.update');
         $canAds = (bool) $user?->can('ads.settings.manage');
+        $canNotif = (bool) $user?->can('notifications.settings.manage');
 
-        abort_unless($canGeneral || $canAds, 403, 'ليس لديك صلاحية تعديل الإعدادات - يمكنك العرض فقط.');
+        abort_unless($canGeneral || $canAds || $canNotif, 403, 'ليس لديك صلاحية تعديل الإعدادات - يمكنك العرض فقط.');
 
         $state = $this->form->getState();
         $settings = app(PlatformSettingsService::class);
 
         foreach ($state as $group => $values) {
             // E14.1: الإعلانات تُحكَم بصلاحيتها الخاصة حصرًا (ads.settings.manage) - لا تُكتب هنا أبدًا.
-            if ($group === 'advertising') {
+            if (in_array($group, ['advertising', 'notifications'], true)) {
                 continue;
             }
 
@@ -317,6 +350,7 @@ class PlatformSettingsPage extends Page implements HasForms
         }
 
         $this->saveAdvertising($state['advertising'] ?? null, $canAds, $settings);
+        $this->saveNotifications($state['notifications'] ?? null, $canNotif, $settings);
 
         Notification::make()->success()->title('تم حفظ الإعدادات بنجاح')->send();
     }
@@ -326,6 +360,44 @@ class PlatformSettingsPage extends Page implements HasForms
      * ads.settings.manage تُتجاهَل كليًا (تجاهل آمن) وتُسجَّل تحذيرًا إن اختلفت القيم.
      * التغيير المصرَّح به يُدقَّق (مفاتيح + قيم قديمة/جديدة - قيم منطقية/أرقام فقط، لا أسرار).
      */
+    /**
+     * E15: نفس عقد الإعلانات - الصلاحية الخاصة (notifications.settings.manage) هي الحقيقة بالخادم؛ حمولة معدَّلة
+     * من غير المصرَّح له تُتجاهَل كليًا. التغيير المصرَّح به يُدقَّق (قيم منطقية/أرقام فقط، لا أسرار).
+     */
+    protected function saveNotifications(?array $submitted, bool $canNotif, PlatformSettingsService $settings): void
+    {
+        if ($submitted === null || $submitted === []) {
+            return;
+        }
+
+        $before = $settings->getGroup('notifications');
+
+        if (! $canNotif) {
+            if (array_intersect_key($submitted, $before) !== array_intersect_key($before, $submitted)) {
+                \Illuminate\Support\Facades\Log::warning('محاولة تعديل إعدادات الإشعارات بلا صلاحية notifications.settings.manage - تم تجاهلها', [
+                    'user_id' => Auth::id(),
+                ]);
+            }
+
+            return;
+        }
+
+        $settings->setMany('notifications', $submitted, Auth::user());
+
+        $after = $settings->getGroup('notifications');
+        $changes = [];
+
+        foreach ($after as $key => $value) {
+            if (($before[$key] ?? null) !== $value) {
+                $changes[$key] = ['old' => $before[$key] ?? null, 'new' => $value];
+            }
+        }
+
+        if ($changes !== []) {
+            app(\App\Services\OperationalAuditService::class)->log('notifications.settings.changed', null, ['changes' => $changes], Auth::user());
+        }
+    }
+
     protected function saveAdvertising(?array $submitted, bool $canAds, PlatformSettingsService $settings): void
     {
         if ($submitted === null || $submitted === []) {

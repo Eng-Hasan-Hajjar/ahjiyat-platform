@@ -150,6 +150,7 @@
                 @endif
 
                 @auth
+                    <x-notification-bell />
                     @if ($navigation['show_gem_balance'])
                         <x-gem-badge :amount="auth()->user()->wallet?->available_balance ?? 0" />
                     @endif
@@ -226,6 +227,10 @@
                         class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-gold transition">الاستبدال</a>
                     <a href="{{ route('inventory.index') }}" @click="mobileOpen = false"
                         class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-gold transition">مقتنياتي</a>
+                    @if (auth()->user()->email_verified_at)
+                        <a href="{{ route('notifications.index') }}" @click="mobileOpen = false"
+                            class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">الإشعارات</a>
+                    @endif
                         @can('admin.access')
     <a href="{{ url('/admin') }}" @click="mobileOpen = false"
         class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-amethyst transition">لوحة التحكم</a>

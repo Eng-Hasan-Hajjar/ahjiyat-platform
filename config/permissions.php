@@ -235,4 +235,11 @@ return [
         ],
     ],
 
+    'notifications' => [
+        'label' => 'الإشعارات',
+        'permissions' => [
+            'notifications.settings.manage' => 'إدارة إعدادات الإشعارات العامة (تفعيل/ساعات التذكير/ميزانية التذكيرات)',
+        ],
+    ],
+
 ];

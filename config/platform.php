@@ -114,4 +114,18 @@ return [
         'max_ads_mobile' => ['type' => 'integer', 'default' => 1],
     ],
 
+    /**
+     * E15 - إعدادات الإشعارات العامة (مجموعة قليلة عمدًا، بلا محرّك أعلام). الساعات بالمنطقة الزمنية للمنصة
+     * (config('app.timezone') = UTC) - نفس تعريف "اليوم" بمهام E13 والسلسلة.
+     */
+    'notifications' => [
+        'notifications_enabled' => ['type' => 'boolean', 'default' => true],
+        'streak_warning_enabled' => ['type' => 'boolean', 'default' => true],
+        'streak_warning_hour' => ['type' => 'integer', 'default' => 18],
+        'min_streak_for_warning' => ['type' => 'integer', 'default' => 2],
+        'daily_reminder_enabled' => ['type' => 'boolean', 'default' => true],
+        'daily_reminder_hour' => ['type' => 'integer', 'default' => 10],
+        'max_reengagement_per_day' => ['type' => 'integer', 'default' => 1],
+    ],
+
 ];

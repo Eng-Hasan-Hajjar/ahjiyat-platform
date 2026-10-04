@@ -69,6 +69,19 @@ class QuestService
     }
 
     /**
+     * E15: قراءة فقط - هل توجد مهمة يومية نشطة داخل نافذتها الزمنية الحقيقية الآن؟ لا تُنشئ ولا تعدّل أي صف
+     * تقدّم (تُستعمَل من مجدوِل التذكيرات لمعرفة وجود ما يستحق التذكير بلا Side effect).
+     */
+    public function hasCurrentDailyQuests(): bool
+    {
+        return QuestDefinition::query()
+            ->where('is_active', true)
+            ->where('period_type', QuestDefinition::PERIOD_DAILY)
+            ->get()
+            ->contains(fn (QuestDefinition $quest) => $this->isWithinTemporalWindowNow($quest));
+    }
+
+    /**
      * E13.1 (بند 18-25) + Final Patch (بند 1-10): مهمة خارج نافذتها
      * الزمنية **الحالية الحقيقية** غير مرئية إطلاقًا - بصرف النظر عن أي
      * تقدُّم قائم (حتى استمرارية التعطيل تتوقَّف فور تجاوز ends_at فعليًا،

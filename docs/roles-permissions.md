@@ -69,3 +69,7 @@ php artisan db:seed --class=Database\\Seeders\\RolesAndPermissionsSeeder
 - Bulk Role Assignment / Role Duplication - مؤجَّلة لمهمة صغيرة لاحقة.
 - Resource-level/Tenant Scoping - RBAC عام (Global) فقط بهذه المرحلة.
 - Invitation System.
+
+## الإشعارات (E15)
+- `notifications.settings.manage`: تعديل إعدادات الإشعارات العامة (تبويب «الإشعارات» بإعدادات المنصة). يملكها `administrator` عبر السجل الكامل.
+  لا صلاحية لصندوق اللاعب: الملكية بالمصادقة كافية، ولا وصول إداري لمحتوى صناديق اللاعبين.

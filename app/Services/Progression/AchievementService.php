@@ -2,6 +2,7 @@
 
 namespace App\Services\Progression;
 
+use App\Events\AchievementUnlocked;
 use App\Models\Achievement;
 use App\Models\User;
 use App\Models\UserAchievementProgress;
@@ -52,7 +53,9 @@ class AchievementService
 
         $evaluatedValue = $evaluator->currentValue($user, $achievement);
 
-        $progress = DB::transaction(function () use ($user, $achievement, $evaluatedValue) {
+        $justUnlocked = false;
+
+        $progress = DB::transaction(function () use ($user, $achievement, $evaluatedValue, &$justUnlocked) {
             $progress = UserAchievementProgress::query()
                 ->where('user_id', $user->id)
                 ->where('achievement_id', $achievement->id)
@@ -75,10 +78,23 @@ class AchievementService
 
             if ($progress->unlocked_at === null && $achievement->target_value !== null && $newValue >= $achievement->target_value) {
                 $progress->update(['unlocked_at' => now()]);
+                $justUnlocked = true;
             }
 
             return $progress->fresh();
         });
+
+        // E15: إشعار الفتح = أثر جانبي ثانوي بعد commit فعليًا (أو بعد commit المعاملة الخارجية إن وُجدت)؛ أي
+        // فشل فيه معزول تمامًا ولا يمسّ فتح الإنجاز ولا المكافأة.
+        if ($justUnlocked) {
+            DB::afterCommit(function () use ($user, $achievement) {
+                try {
+                    event(new AchievementUnlocked($user, $achievement));
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            });
+        }
 
         if ($progress->unlocked_at !== null && $progress->reward_granted_at === null) {
             $this->grantRewards($user, $achievement, $progress);

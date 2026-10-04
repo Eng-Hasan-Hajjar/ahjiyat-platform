@@ -62,6 +62,12 @@
             </a>
         </div>
 
+        <div class="puzzle-card !p-6 md:!p-8 anim-fade-up d-1">
+            <h2 class="font-display font-black text-white text-base mb-2">الإشعارات</h2>
+            <p class="text-xs text-slate-400 mb-4">اختر ما يصلك من تذكيرات وإشعارات داخل المنصة.</p>
+            <a href="{{ route('notifications.preferences') }}" class="chip inline-flex">تفضيلات الإشعارات</a>
+        </div>
+
         <div class="puzzle-card !p-6 md:!p-8 anim-fade-up d-2">
             <h2 class="font-display font-black text-lg text-white mb-1">خصوصية الملف الشخصي</h2>
             <p class="text-xs text-slate-500 mb-4">تحدِّد من يستطيع رؤية ملفك العام (الهوية والإحصاءات الآمنة فقط - لا بريدك أو رصيدك أبدًا).</p>

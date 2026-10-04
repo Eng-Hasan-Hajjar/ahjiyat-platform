@@ -116,3 +116,10 @@ server {
     }
 }
 ```
+
+## الجدولة بعد E15 (إشعارات العودة)
+بالإضافة لمهمة تحرير الجواهر المعلَّقة، يجدوِل `routes/console.php`:
+`notifications:dispatch-reengagement` (ساعيًا) و`notifications:prune` (يوميًا). كلاهما يعمل بنفس مدخل Cron الوحيد
+(`php artisan schedule:run` كل دقيقة). غيابه لا يكسر المنصة - لا تصل تذكيرات العودة فقط. التفاصيل: `docs/notifications.md`.
+بعد النشر: `php artisan migrate` ثم `php artisan permissions:sync` ثم `php artisan db:seed --class="Database\Seeders\RolesAndPermissionsSeeder"`
+(ليحصل `administrator` على `notifications.settings.manage`؛ المدير الأعلى يتجاوز الصلاحيات تلقائيًا).
