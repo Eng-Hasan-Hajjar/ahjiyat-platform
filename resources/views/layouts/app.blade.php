@@ -85,32 +85,16 @@
 
     <style>
         :root {
-            --color-primary:
-                {{ $appearance['color_primary'] }}
-            ;
-            --color-secondary:
-                {{ $appearance['color_secondary'] }}
-            ;
-            --color-accent:
-                {{ $appearance['color_accent'] }}
-            ;
-            --color-success:
-                {{ $appearance['color_success'] }}
-            ;
-            --color-warning:
-                {{ $appearance['color_warning'] }}
-            ;
-            --color-danger:
-                {{ $appearance['color_danger'] }}
-            ;
-            --ui-radius:
-                {{ $radiusMap[$appearance['ui_radius']] ?? '1rem' }}
-            ;
+            --color-primary: {{ $appearance['color_primary'] }};
+            --color-secondary: {{ $appearance['color_secondary'] }};
+            --color-accent: {{ $appearance['color_accent'] }};
+            --color-success: {{ $appearance['color_success'] }};
+            --color-warning: {{ $appearance['color_warning'] }};
+            --color-danger: {{ $appearance['color_danger'] }};
+            --ui-radius: {{ $radiusMap[$appearance['ui_radius']] ?? '1rem' }};
             --font-body: "{{ $googleFontFamily }}", ui-sans-serif, system-ui, sans-serif;
             --font-display: "{{ $googleFontFamily }}", ui-sans-serif, system-ui, sans-serif;
-            font-size:
-                {{ $fontSizeMap[$appearance['base_font_size']] ?? '16px' }}
-            ;
+            font-size: {{ $fontSizeMap[$appearance['base_font_size']] ?? '16px' }};
         }
     </style>
 
