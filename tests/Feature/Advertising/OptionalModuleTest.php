@@ -38,7 +38,7 @@ test('ads disabled: an approved sponsor campaign still produces zero impressions
     $placement = AdPlacement::factory()->known(AdPlacementRegistry::HOME_INLINE_PRIMARY)->create();
     $campaign = SponsorCampaign::factory()->approved()->create();
     $campaign->placements()->attach($placement->id);
-    SponsorCreative::factory()->for($campaign, 'campaign')->create();
+    SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
     // ads_enabled يبقى false افتراضيًا - لم نُفعِّله هنا عمدًا.
 
     $this->get(route('home'))->assertOk();
@@ -54,7 +54,7 @@ test('gameplay pages never render an ad slot even when advertising is globally e
     $placement = AdPlacement::factory()->known(AdPlacementRegistry::HOME_INLINE_PRIMARY)->create();
     $campaign = SponsorCampaign::factory()->approved()->create();
     $campaign->placements()->attach($placement->id);
-    SponsorCreative::factory()->for($campaign, 'campaign')->create();
+    SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
 
     $puzzle = \App\Models\Puzzle::factory()->create();
     $response = $this->get(route('puzzles.show', $puzzle));
@@ -70,7 +70,7 @@ test('rendering and clicking a direct sponsor ad creates zero economy/progressio
     $placement = AdPlacement::factory()->known(AdPlacementRegistry::HOME_INLINE_PRIMARY)->create();
     $campaign = SponsorCampaign::factory()->approved()->create();
     $campaign->placements()->attach($placement->id);
-    $creative = SponsorCreative::factory()->for($campaign, 'campaign')->create();
+    $creative = SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
 
     $user = User::factory()->create(['email_verified_at' => now()]);
     $this->actingAs($user);

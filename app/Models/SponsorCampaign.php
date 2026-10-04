@@ -40,6 +40,18 @@ class SponsorCampaign extends Model
         'approved_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        static::updating(fn (SponsorCampaign $c) => \App\Services\Advertising\AdInvariantGuard::campaignUpdating($c));
+        static::deleting(fn (SponsorCampaign $c) => \App\Services\Advertising\AdInvariantGuard::campaignDeleting($c));
+    }
+
+    public function hasHistory(): bool
+    {
+        return AdImpression::where('sponsor_campaign_id', $this->getKey())->exists()
+            || AdClick::where('sponsor_campaign_id', $this->getKey())->exists();
+    }
+
     public function creatives(): HasMany
     {
         return $this->hasMany(SponsorCreative::class);

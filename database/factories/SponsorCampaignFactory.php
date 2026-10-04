@@ -22,6 +22,11 @@ class SponsorCampaignFactory extends Factory
         ];
     }
 
+    public function draft(): static
+    {
+        return $this->state(['status' => SponsorCampaign::STATUS_DRAFT]);
+    }
+
     public function approved(): static
     {
         return $this->state(['status' => SponsorCampaign::STATUS_APPROVED, 'approved_at' => now()]);

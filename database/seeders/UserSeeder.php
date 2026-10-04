@@ -78,7 +78,11 @@ class UserSeeder extends Seeder
                 $user->save();
             }
 
-            Wallet::firstOrCreate(['user_id' => $user->id]);
+            // المحفظة لازم تحمل العملة الافتراضية المكتسبة (كالتسجيل العادي) وإلا ينهار عرض المحفظة.
+            Wallet::firstOrCreate([
+                'user_id' => $user->id,
+                'currency_id' => app(\App\Services\Economy\CurrencyRegistry::class)->defaultEarnedCurrency()->id,
+            ]);
         }
 
         $this->command->info('تم إنشاء '.count($users).' مستخدماً تجريبياً. كلمة مرور الجميع: '.self::TEST_PASSWORD);

@@ -17,7 +17,7 @@ beforeEach(function () {
     $this->campaign = SponsorCampaign::factory()->approved()->create();
     $this->campaign->placements()->attach($this->placement->id);
     $this->creative = SponsorCreative::factory()->for($this->campaign, 'campaign')
-        ->create(['destination_url' => 'https://real-destination.example.com/landing']);
+        ->createQuietly(['destination_url' => 'https://real-destination.example.com/landing']);
 });
 
 afterEach(function () {
@@ -81,7 +81,7 @@ test('an unsafe destination URL is never redirected to, even if it slipped past 
 
 // ===== XSS (item 645) =====
 test('sponsor creative text is rendered escaped, never executed', function () {
-    $this->creative->update(['title' => '<script>alert(1)</script>']);
+    $this->creative->updateQuietly(['title' => '<script>alert(1)</script>']); // الهدف: الهروب (Escaping) لا إعادة المراجعة
 
     $response = $this->get(route('home'));
 

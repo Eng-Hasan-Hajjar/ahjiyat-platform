@@ -63,6 +63,7 @@ class PlatformSettingsPage extends Page implements HasForms
             'access' => $settings->getGroup('access'),
             'announcement' => $settings->getGroup('announcement'),
             'footer' => $settings->getGroup('footer'),
+            'advertising' => $settings->getGroup('advertising'),
         ]);
     }
 
@@ -263,24 +264,31 @@ class PlatformSettingsPage extends Page implements HasForms
                                 Forms\Components\Toggle::make('footer.show_social_links')->label('إظهار روابط التواصل بالفوتر'),
                                 Forms\Components\Toggle::make('footer.show_legal_links')->label('إظهار روابط الشروط والخصوصية'),
                             ])->columns(2),
-
                         Forms\Components\Tabs\Tab::make('الإعلانات')
                             ->schema([
+                                Forms\Components\Placeholder::make('ads_readonly_notice')
+                                    ->label('')
+                                    ->content('لا تملك صلاحية تعديل إعدادات الإعلانات (ads.settings.manage) - العرض فقط.')
+                                    ->visible(fn () => ! auth()->user()?->can('ads.settings.manage'))
+                                    ->columnSpanFull(),
                                 Forms\Components\Toggle::make('advertising.ads_enabled')
                                     ->label('تفعيل الإعلانات عالميًا (مفتاح الإيقاف الشامل)')
                                     ->helperText('تعطيله يُخفي كل إعلان فورًا بكل مكان بالمنصة، بصرف النظر عن أي إعداد آخر أدناه.')
+                                    ->disabled(fn () => ! auth()->user()?->can('ads.settings.manage'))
                                     ->live(),
                                 Forms\Components\Toggle::make('advertising.direct_sponsors_enabled')
                                     ->label('تفعيل الرعاة المباشرين')
-                                    ->disabled(fn (Forms\Get $get) => ! $get('advertising.ads_enabled')),
+                                    ->disabled(fn (Forms\Get $get) => ! auth()->user()?->can('ads.settings.manage') || ! $get('advertising.ads_enabled')),
                                 Forms\Components\Toggle::make('advertising.external_ads_enabled')
                                     ->label('تفعيل مزوِّد الإعلانات الخارجي (Google AdSense)')
                                     ->helperText('يبقى بلا تأثير فعلي ما لم يُهيَّأ معرِّف الناشر ببيئة الخادم (ADSENSE_CLIENT_ID).')
-                                    ->disabled(fn (Forms\Get $get) => ! $get('advertising.ads_enabled')),
+                                    ->disabled(fn (Forms\Get $get) => ! auth()->user()?->can('ads.settings.manage') || ! $get('advertising.ads_enabled')),
                                 Forms\Components\TextInput::make('advertising.max_ads_desktop')
-                                    ->label('الحد الأقصى للإعلانات بالصفحة - سطح المكتب')->numeric()->minValue(0)->maxValue(5),
+                                    ->label('الحد الأقصى للإعلانات بالصفحة - سطح المكتب')->numeric()->minValue(0)->maxValue(5)
+                                    ->disabled(fn () => ! auth()->user()?->can('ads.settings.manage')),
                                 Forms\Components\TextInput::make('advertising.max_ads_mobile')
-                                    ->label('الحد الأقصى للإعلانات بالصفحة - الجوّال')->numeric()->minValue(0)->maxValue(5),
+                                    ->label('الحد الأقصى للإعلانات بالصفحة - الجوّال')->numeric()->minValue(0)->maxValue(5)
+                                    ->disabled(fn () => ! auth()->user()?->can('ads.settings.manage')),
                             ])->columns(2),
                     ]),
             ]);
@@ -288,16 +296,68 @@ class PlatformSettingsPage extends Page implements HasForms
 
     public function save(): void
     {
-        abort_unless(auth()->user()?->can('settings.update'), 403, 'ليس لديك صلاحية تعديل الإعدادات - يمكنك العرض فقط.');
+        $user = auth()->user();
+        $canGeneral = (bool) $user?->can('settings.update');
+        $canAds = (bool) $user?->can('ads.settings.manage');
+
+        abort_unless($canGeneral || $canAds, 403, 'ليس لديك صلاحية تعديل الإعدادات - يمكنك العرض فقط.');
 
         $state = $this->form->getState();
         $settings = app(PlatformSettingsService::class);
 
         foreach ($state as $group => $values) {
-            $settings->setMany($group, $values, Auth::user());
+            // E14.1: الإعلانات تُحكَم بصلاحيتها الخاصة حصرًا (ads.settings.manage) - لا تُكتب هنا أبدًا.
+            if ($group === 'advertising') {
+                continue;
+            }
+
+            if ($canGeneral) {
+                $settings->setMany($group, $values, Auth::user());
+            }
         }
 
+        $this->saveAdvertising($state['advertising'] ?? null, $canAds, $settings);
+
         Notification::make()->success()->title('تم حفظ الإعدادات بنجاح')->send();
+    }
+
+    /**
+     * الحقيقة هنا (خادم)، لا حقول disabled ولا تبويب مخفي: حمولة معدَّلة من مستخدم بلا
+     * ads.settings.manage تُتجاهَل كليًا (تجاهل آمن) وتُسجَّل تحذيرًا إن اختلفت القيم.
+     * التغيير المصرَّح به يُدقَّق (مفاتيح + قيم قديمة/جديدة - قيم منطقية/أرقام فقط، لا أسرار).
+     */
+    protected function saveAdvertising(?array $submitted, bool $canAds, PlatformSettingsService $settings): void
+    {
+        if ($submitted === null || $submitted === []) {
+            return;
+        }
+
+        $before = $settings->getGroup('advertising');
+
+        if (! $canAds) {
+            if (array_intersect_key($submitted, $before) !== array_intersect_key($before, $submitted)) {
+                \Illuminate\Support\Facades\Log::warning('محاولة تعديل إعدادات الإعلانات بلا صلاحية ads.settings.manage - تم تجاهلها', [
+                    'user_id' => Auth::id(),
+                ]);
+            }
+
+            return;
+        }
+
+        $settings->setMany('advertising', $submitted, Auth::user());
+
+        $after = $settings->getGroup('advertising');
+        $changes = [];
+
+        foreach ($after as $key => $value) {
+            if (($before[$key] ?? null) !== $value) {
+                $changes[$key] = ['old' => $before[$key] ?? null, 'new' => $value];
+            }
+        }
+
+        if ($changes !== []) {
+            app(\App\Services\OperationalAuditService::class)->log('ads.settings.changed', null, ['changes' => $changes], Auth::user());
+        }
     }
 
     public function resetAppearance(): void

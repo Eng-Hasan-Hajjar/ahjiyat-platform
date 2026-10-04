@@ -13,7 +13,7 @@ beforeEach(function () {
     $this->placement = AdPlacement::factory()->known(AdPlacementRegistry::HOME_INLINE_PRIMARY)->create();
     $this->campaign = SponsorCampaign::factory()->approved()->create();
     // مادة حقيقية: جداول التتبُّع لها مفاتيح أجنبية فعلية، فلا يصح رقم وهمي.
-    $this->creative = SponsorCreative::factory()->for($this->campaign, 'campaign')->create();
+    $this->creative = SponsorCreative::factory()->for($this->campaign, 'campaign')->createQuietly();
 });
 
 function e14Impression(object $t): void

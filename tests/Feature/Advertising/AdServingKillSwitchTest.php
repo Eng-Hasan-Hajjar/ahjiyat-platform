@@ -17,7 +17,7 @@ function e14ApprovedCampaign(string $placementKey): SponsorCampaign
     $placement = AdPlacement::factory()->known($placementKey)->create();
     $campaign = SponsorCampaign::factory()->approved()->create(['priority' => 10]);
     $campaign->placements()->attach($placement->id);
-    SponsorCreative::factory()->for($campaign, 'campaign')->create();
+    SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
 
     return $campaign;
 }
@@ -115,7 +115,7 @@ test('desktop_enabled=false on a placement means no ad on desktop even if global
     $placement = AdPlacement::factory()->known(AdPlacementRegistry::HOME_INLINE_PRIMARY)->create(['desktop_enabled' => false]);
     $campaign = SponsorCampaign::factory()->approved()->create();
     $campaign->placements()->attach($placement->id);
-    SponsorCreative::factory()->for($campaign, 'campaign')->create();
+    SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
 
     expect($this->serving->serve(AdPlacementRegistry::HOME_INLINE_PRIMARY, false)->hasAd)->toBeFalse();
 });

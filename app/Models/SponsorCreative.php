@@ -20,6 +20,20 @@ class SponsorCreative extends Model
         'is_active' => 'boolean',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(fn (SponsorCreative $c) => \App\Services\Advertising\AdInvariantGuard::creativeCreating($c));
+        static::updating(fn (SponsorCreative $c) => \App\Services\Advertising\AdInvariantGuard::creativeUpdating($c));
+        static::deleting(fn (SponsorCreative $c) => \App\Services\Advertising\AdInvariantGuard::creativeDeleting($c));
+    }
+
+    /** لها Impression أو Click سابق؟ (سجل تحليلات لا يُحذَف أبدًا). */
+    public function hasHistory(): bool
+    {
+        return AdImpression::where('sponsor_creative_id', $this->getKey())->exists()
+            || AdClick::where('sponsor_creative_id', $this->getKey())->exists();
+    }
+
     public function campaign(): BelongsTo
     {
         return $this->belongsTo(SponsorCampaign::class, 'sponsor_campaign_id');

@@ -62,7 +62,8 @@ test('submitting for review requires at least one active creative', function () 
 
 test('full lifecycle: draft -> pending_review -> approved -> paused -> approved', function () {
     $campaign = SponsorCampaign::factory()->create();
-    SponsorCreative::factory()->for($campaign, 'campaign')->create();
+    SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
+    $campaign->placements()->attach(AdPlacement::factory()->known(AdPlacementRegistry::HOME_INLINE_PRIMARY)->create()->id);
 
     $this->campaigns->submitForReview($campaign);
     expect($campaign->fresh()->status)->toBe(SponsorCampaign::STATUS_PENDING_REVIEW);
@@ -80,7 +81,7 @@ test('full lifecycle: draft -> pending_review -> approved -> paused -> approved'
 
 test('rejecting a campaign requires a note and records it', function () {
     $campaign = SponsorCampaign::factory()->pendingReview()->create();
-    SponsorCreative::factory()->for($campaign, 'campaign')->create();
+    SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
 
     $this->campaigns->reject($campaign, $this->admin, 'صفحة الهبوط غير آمنة');
 
@@ -91,7 +92,7 @@ test('rejecting a campaign requires a note and records it', function () {
 // ===== Sensitive edit re-review (domain-level, item 339-341) =====
 test('changing a creative destination_url on an approved campaign resets it to pending_review', function () {
     $campaign = SponsorCampaign::factory()->approved()->create();
-    $creative = SponsorCreative::factory()->for($campaign, 'campaign')->create(['destination_url' => 'https://old.example.com']);
+    $creative = SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly(['destination_url' => 'https://old.example.com']);
 
     $this->campaigns->updateCreative($creative, ['destination_url' => 'https://new.example.com'], $this->admin);
 
@@ -101,7 +102,7 @@ test('changing a creative destination_url on an approved campaign resets it to p
 
 test('changing a creative title on an approved campaign resets it to pending_review', function () {
     $campaign = SponsorCampaign::factory()->approved()->create();
-    $creative = SponsorCreative::factory()->for($campaign, 'campaign')->create(['title' => 'قديم']);
+    $creative = SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly(['title' => 'قديم']);
 
     $this->campaigns->updateCreative($creative, ['title' => 'جديد تمامًا'], $this->admin);
 
@@ -127,9 +128,10 @@ test('changing sponsor_name on an approved campaign resets review', function () 
 
 test('an unsafe destination URL cannot pass approval even if it slipped into a creative', function () {
     $campaign = SponsorCampaign::factory()->pendingReview()->create();
-    SponsorCreative::factory()->for($campaign, 'campaign')->create();
-    // محاكاة تجاوز النموذج - كتابة مباشرة غير آمنة بقاعدة البيانات.
-    $campaign->creatives()->first()->update(['destination_url' => 'javascript:alert(1)']);
+    SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
+    $campaign->placements()->attach(AdPlacement::factory()->known(AdPlacementRegistry::HOME_INLINE_PRIMARY)->create()->id);
+    // محاكاة فساد بقاعدة البيانات خارج النموذج (الحارس يرفض هذا الرابط عند الإدخال الآن) - approve() تفحص من جديد.
+    $campaign->creatives()->first()->forceFill(['destination_url' => 'javascript:alert(1)'])->saveQuietly();
 
     expect(fn () => $this->campaigns->approve($campaign, $this->admin))->toThrow(AdInvariantViolation::class);
 });
@@ -140,7 +142,7 @@ test('a campaign starting later today is not servable now, but becomes servable 
     $placement = AdPlacement::factory()->known(AdPlacementRegistry::HOME_INLINE_PRIMARY)->create();
     $campaign = SponsorCampaign::factory()->approved()->create(['starts_at' => Carbon::parse('2026-10-05 18:00:00', 'UTC')]);
     $campaign->placements()->attach($placement->id);
-    SponsorCreative::factory()->for($campaign, 'campaign')->create();
+    SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
 
     expect($this->serving->serve(AdPlacementRegistry::HOME_INLINE_PRIMARY, false)->hasAd)->toBeFalse();
 
@@ -153,7 +155,7 @@ test('a campaign ending earlier today is no longer servable after its end time, 
     $placement = AdPlacement::factory()->known(AdPlacementRegistry::HOME_INLINE_PRIMARY)->create();
     $campaign = SponsorCampaign::factory()->approved()->create(['ends_at' => Carbon::parse('2026-10-05 12:00:00', 'UTC')]);
     $campaign->placements()->attach($placement->id);
-    SponsorCreative::factory()->for($campaign, 'campaign')->create();
+    SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
 
     expect($this->serving->serve(AdPlacementRegistry::HOME_INLINE_PRIMARY, false)->hasAd)->toBeTrue();
 
@@ -167,11 +169,11 @@ test('two eligible campaigns for the same placement - the higher priority one is
 
     $low = SponsorCampaign::factory()->approved()->create(['priority' => 1]);
     $low->placements()->attach($placement->id);
-    SponsorCreative::factory()->for($low, 'campaign')->create(['title' => 'منخفضة الأولوية']);
+    SponsorCreative::factory()->for($low, 'campaign')->createQuietly(['title' => 'منخفضة الأولوية']);
 
     $high = SponsorCampaign::factory()->approved()->create(['priority' => 99]);
     $high->placements()->attach($placement->id);
-    SponsorCreative::factory()->for($high, 'campaign')->create(['title' => 'عالية الأولوية']);
+    SponsorCreative::factory()->for($high, 'campaign')->createQuietly(['title' => 'عالية الأولوية']);
 
     $result = $this->serving->serve(AdPlacementRegistry::HOME_INLINE_PRIMARY, false);
 
@@ -182,7 +184,7 @@ test('a rejected campaign never renders even when its schedule and priority woul
     $placement = AdPlacement::factory()->known(AdPlacementRegistry::HOME_INLINE_PRIMARY)->create();
     $campaign = SponsorCampaign::factory()->rejected()->create(['priority' => 99]);
     $campaign->placements()->attach($placement->id);
-    SponsorCreative::factory()->for($campaign, 'campaign')->create();
+    SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
 
     expect($this->serving->serve(AdPlacementRegistry::HOME_INLINE_PRIMARY, false)->hasAd)->toBeFalse();
 });
@@ -191,7 +193,7 @@ test('a paused campaign never renders', function () {
     $placement = AdPlacement::factory()->known(AdPlacementRegistry::HOME_INLINE_PRIMARY)->create();
     $campaign = SponsorCampaign::factory()->paused()->create();
     $campaign->placements()->attach($placement->id);
-    SponsorCreative::factory()->for($campaign, 'campaign')->create();
+    SponsorCreative::factory()->for($campaign, 'campaign')->createQuietly();
 
     expect($this->serving->serve(AdPlacementRegistry::HOME_INLINE_PRIMARY, false)->hasAd)->toBeFalse();
 });

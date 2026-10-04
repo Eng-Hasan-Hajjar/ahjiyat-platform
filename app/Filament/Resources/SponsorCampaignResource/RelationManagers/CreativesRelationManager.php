@@ -28,6 +28,8 @@ class CreativesRelationManager extends RelationManager
             Forms\Components\TextInput::make('cta_label')->label('نص الزر')->maxLength(40),
             Forms\Components\TextInput::make('destination_url')->label('رابط الوجهة')
                 ->required()->url()->maxLength(2048)
+                ->regex('/^https:\/\//i')
+                ->validationMessages(['regex' => 'يجب أن يبدأ الرابط بـ https:// (غير ذلك يُرفض).'])
                 ->helperText('HTTPS فقط - يُرفَض أي بروتوكول آخر.')
                 ->extraInputAttributes(['dir' => 'ltr']),
             Forms\Components\FileUpload::make('image_path')->label('صورة (اختياري)')
@@ -47,7 +49,13 @@ class CreativesRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('destination_url')->label('الرابط')->limit(40),
                 Tables\Columns\IconColumn::make('is_active')->label('نشطة')->boolean(),
             ])
-            ->headerActions([Tables\Actions\CreateAction::make()])
+            ->headerActions([
+                // الإضافة تمرّ عبر الخدمة (لا إنشاء مباشر): الحارس يتحقق من الرابط ويُبطل اعتماد حملة معتمدة/مُوقَفة.
+                Tables\Actions\CreateAction::make()
+                    ->using(function (array $data, $livewire) {
+                        return app(SponsorCampaignService::class)->createCreative($livewire->getOwnerRecord(), $data, auth()->user());
+                    }),
+            ])
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->using(function (SponsorCreative $record, array $data) {
@@ -55,7 +63,12 @@ class CreativesRelationManager extends RelationManager
 
                         return $record->fresh();
                     }),
-                Tables\Actions\DeleteAction::make(),
+                // لا حذف لمادة لها سجل تحليلات (الحذف مرفوض أيضًا بالنموذج وبقاعدة البيانات - هذا إخفاء للزر فقط).
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn (SponsorCreative $record) => ! $record->hasHistory())
+                    ->using(function (SponsorCreative $record) {
+                        app(SponsorCampaignService::class)->deleteCreative($record, auth()->user());
+                    }),
             ]);
     }
 }

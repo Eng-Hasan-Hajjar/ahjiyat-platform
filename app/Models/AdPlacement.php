@@ -26,6 +26,17 @@ class AdPlacement extends Model
         'mobile_enabled' => 'boolean',
     ];
 
+    protected static function booted(): void
+    {
+        static::deleting(fn (AdPlacement $p) => \App\Services\Advertising\AdInvariantGuard::placementDeleting($p));
+    }
+
+    public function hasHistory(): bool
+    {
+        return AdImpression::where('ad_placement_id', $this->getKey())->exists()
+            || AdClick::where('ad_placement_id', $this->getKey())->exists();
+    }
+
     public function campaigns(): BelongsToMany
     {
         return $this->belongsToMany(SponsorCampaign::class, 'campaign_ad_placement');
