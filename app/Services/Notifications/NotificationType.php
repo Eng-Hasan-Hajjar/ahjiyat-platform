@@ -12,6 +12,7 @@ namespace App\Services\Notifications;
  *  - جدولة ساعية على player_streaks + مهام يومية قائمة → daily_quests_available
  *  - Illuminate\Auth\Events\PasswordReset (حدث موجود أصلًا) → security_password_reset
  *  - SeasonStarted (حدث مجال، SeasonLifecycleService: الموسم صار مباشرًا لأول مرة) → season_started
+ *  - CampaignBecameAvailable (حدث مجال، CampaignLifecycleService: الحملة أُتيحت لأول مرة) → campaign_available
  */
 enum NotificationType: string
 {
@@ -20,6 +21,7 @@ enum NotificationType: string
     case DailyQuestsAvailable = 'daily_quests_available';
     case SecurityPasswordReset = 'security_password_reset';
     case SeasonStarted = 'season_started';
+    case CampaignAvailable = 'campaign_available';
 
     public function category(): NotificationCategory
     {
@@ -29,6 +31,7 @@ enum NotificationType: string
             self::DailyQuestsAvailable => NotificationCategory::Quest,
             self::SecurityPasswordReset => NotificationCategory::Security,
             self::SeasonStarted => NotificationCategory::Season,
+            self::CampaignAvailable => NotificationCategory::Campaign,
         };
     }
 
@@ -46,6 +49,7 @@ enum NotificationType: string
             self::StreakAtRisk => 100,
             self::DailyQuestsAvailable => 50,
             self::SeasonStarted => 20,
+            self::CampaignAvailable => 15,
             self::AchievementUnlocked => 10,
         };
     }
@@ -59,6 +63,7 @@ enum NotificationType: string
             self::DailyQuestsAvailable => '🎯',
             self::SecurityPasswordReset => '🛡️',
             self::SeasonStarted => '🏁',
+            self::CampaignAvailable => '🧭',
         };
     }
 
@@ -71,6 +76,7 @@ enum NotificationType: string
             self::DailyQuestsAvailable => ['quests.show'],
             self::SecurityPasswordReset => ['profile.edit'],
             self::SeasonStarted => ['seasons.show'],
+            self::CampaignAvailable => ['campaigns.show'],
         };
     }
 
@@ -87,6 +93,7 @@ enum NotificationType: string
             self::DailyQuestsAvailable => 'مهام اليوم جاهزة',
             self::SecurityPasswordReset => 'أُعيد تعيين كلمة مرور حسابك',
             self::SeasonStarted => 'بدأ موسم: '.($params['name'] ?? ''),
+            self::CampaignAvailable => 'حملة جديدة متاحة: '.($params['name'] ?? ''),
         };
     }
 
@@ -98,6 +105,7 @@ enum NotificationType: string
             self::DailyQuestsAvailable => 'مهام اليوم متاحة الآن. حلّ أحجية وتقدّم نحو أهدافك اليومية.',
             self::SecurityPasswordReset => 'إن لم تكن أنت من أعاد تعيينها، تواصل مع الدعم فورًا وراجع أمان حسابك.',
             self::SeasonStarted => 'الموسم متاح الآن ويمكنك الانضمام واللعب.',
+            self::CampaignAvailable => 'الحملة متاحة الآن ويمكنك البدء بها.',
         };
     }
 

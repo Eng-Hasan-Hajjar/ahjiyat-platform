@@ -40,3 +40,6 @@ Schedule::command('notifications:prune')->daily()->name('notifications-prune')->
 
 // التقاط بدء المواسم الناتج عن مرور الوقت. غيابه لا يكسر شيئًا: البدء بالحفظ الإداري يُلتقَط فورًا بخطافات النماذج.
 Schedule::command('seasons:sync-live-state')->everyFiveMinutes()->name('seasons-sync-live-state')->withoutOverlapping();
+
+// التقاط إتاحة الحملات الناتجة عن مرور الوقت. غيابه لا يكسر شيئًا: الإتاحة بالحفظ الإداري تُلتقَط فورًا بخطاف النموذج.
+Schedule::command('campaigns:sync-availability')->everyFiveMinutes()->name('campaigns-sync-availability')->withoutOverlapping();

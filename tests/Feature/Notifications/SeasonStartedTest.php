@@ -29,10 +29,16 @@ beforeEach(function () {
 
 afterEach(fn () => Carbon::setTestNow());
 
+/** حملة بلا أحداث النموذج: إتاحة الحملة ميزة مستقلة (CampaignAvailableTest) ولا تُلوِّث إشعارات هذه الاختبارات. */
+function e15Camp(array $attrs = []): Campaign
+{
+    return Campaign::withoutEvents(fn () => Campaign::factory()->create($attrs));
+}
+
 /** موسم بلا تشغيل أحداث نموذج الموسم (لا خطافات) ليتحكم الاختبار بلحظة المزامنة بنفسه. */
 function e15Season(array $campaign = [], array $season = []): Season
 {
-    $c = Campaign::factory()->create($campaign + ['is_active' => true, 'starts_at' => null, 'ends_at' => null]);
+    $c = e15Camp($campaign + ['is_active' => true, 'starts_at' => null, 'ends_at' => null]);
 
     return Season::withoutEvents(fn () => Season::factory()->create($season + ['campaign_id' => $c->id, 'is_published' => true]));
 }
@@ -105,7 +111,7 @@ test('the transition is atomic: if another process wins the race, this call upda
 
 test('went_live_at is written once: deactivating then reactivating (campaign or publication) never fires SeasonStarted again', function () {
     Event::fake([SeasonStarted::class]);
-    $campaign = Campaign::factory()->create(['is_active' => true]);
+    $campaign = e15Camp(['is_active' => true]);
     $season = Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]); // يبدأ فعليًا عند الإنشاء
     $first = $season->fresh()->went_live_at;
 
@@ -147,7 +153,7 @@ test('the event fires only AFTER commit: a rolled-back transition leaves no even
 
 test('publishing a season (is_published false -> true) syncs and starts a live season once', function () {
     Event::fake([SeasonStarted::class]);
-    $campaign = Campaign::factory()->create(['is_active' => true]);
+    $campaign = e15Camp(['is_active' => true]);
     $season = Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => false]);
     Event::assertNotDispatched(SeasonStarted::class);
 
@@ -158,7 +164,7 @@ test('publishing a season (is_published false -> true) syncs and starts a live s
 
 test('activating the campaign (is_active false -> true) syncs its published season', function () {
     Event::fake([SeasonStarted::class]);
-    $campaign = Campaign::factory()->create(['is_active' => false]);
+    $campaign = e15Camp(['is_active' => false]);
     Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]);
     Event::assertNotDispatched(SeasonStarted::class);
 
@@ -169,7 +175,7 @@ test('activating the campaign (is_active false -> true) syncs its published seas
 
 test('changing campaign starts_at (future -> past) syncs', function () {
     Event::fake([SeasonStarted::class]);
-    $campaign = Campaign::factory()->create(['is_active' => true, 'starts_at' => now()->addDay()]);
+    $campaign = e15Camp(['is_active' => true, 'starts_at' => now()->addDay()]);
     Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]);
     Event::assertNotDispatched(SeasonStarted::class);
 
@@ -180,7 +186,7 @@ test('changing campaign starts_at (future -> past) syncs', function () {
 
 test('changing campaign ends_at (past -> future) syncs a season that never started', function () {
     Event::fake([SeasonStarted::class]);
-    $campaign = Campaign::factory()->create(['is_active' => true, 'ends_at' => now()->subHour()]);
+    $campaign = e15Camp(['is_active' => true, 'ends_at' => now()->subHour()]);
     Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]);
     Event::assertNotDispatched(SeasonStarted::class);
 
@@ -200,7 +206,7 @@ test('unrelated campaign edits do not trigger a sync (the hook watches only is_a
 });
 
 test('a sync failure inside a save hook never breaks the admin save', function () {
-    $campaign = Campaign::factory()->create(['is_active' => false]);
+    $campaign = e15Camp(['is_active' => false]);
     $season = Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]);
 
     $this->app->bind(SeasonLifecycleService::class, fn () => throw new RuntimeException('lifecycle is down'));
@@ -218,7 +224,7 @@ test('seasons that were already live before the migration are backfilled silentl
     expect(Schema::hasColumn('seasons', 'went_live_at'))->toBeFalse();
 
     $mk = fn (array $campaign, array $season = []) => Season::withoutEvents(fn () => Season::factory()->create($season + [
-        'campaign_id' => Campaign::factory()->create($campaign + ['is_active' => true, 'starts_at' => null, 'ends_at' => null])->id,
+        'campaign_id' => e15Camp($campaign + ['is_active' => true, 'starts_at' => null, 'ends_at' => null])->id,
         'is_published' => true,
     ]));
 
@@ -260,7 +266,7 @@ test('SeasonStarted creates exactly one season_started notification per eligible
     $unverified = User::factory()->create(['email_verified_at' => null]);
     $frozen = User::factory()->create(['is_frozen' => true]);
 
-    $campaign = Campaign::factory()->create(['title' => 'موسم الاختبار الكبير', 'is_active' => true]);
+    $campaign = e15Camp(['title' => 'موسم الاختبار الكبير', 'is_active' => true]);
     $season = Season::factory()->create(['campaign_id' => $campaign->id, 'slug' => 'big-test-season', 'is_published' => true]);
 
     $rows = DatabaseNotification::where('type_key', 'season_started')->get();
@@ -292,7 +298,7 @@ test('the global notifications switch suppresses season notifications (the seaso
     app(PlatformSettingsService::class)->set('notifications', 'notifications_enabled', false);
     User::factory()->count(2)->create();
 
-    $campaign = Campaign::factory()->create(['is_active' => true]);
+    $campaign = e15Camp(['is_active' => true]);
     $season = Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]);
 
     expect($season->fresh()->went_live_at)->not->toBeNull()->and(DatabaseNotification::count())->toBe(0);
@@ -302,7 +308,7 @@ test('the fan-out runs in bounded chunks and still reaches every user exactly on
     config(['player_notifications.chunk_size' => 3]);
     User::factory()->count(8)->create();
 
-    $campaign = Campaign::factory()->create(['is_active' => true]);
+    $campaign = e15Camp(['is_active' => true]);
     $season = Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]);
 
     $perUser = DatabaseNotification::where('type_key', 'season_started')->pluck('notifiable_id')->countBy();
@@ -319,7 +325,7 @@ test('the season notification grants nothing: no XP, currency, quest progress, s
     ];
     $before = $snapshot();
 
-    $campaign = Campaign::factory()->create(['is_active' => true]);
+    $campaign = e15Camp(['is_active' => true]);
     Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]);
 
     expect(DatabaseNotification::where('type_key', 'season_started')->count())->toBe(3)->and($snapshot())->toBe($before);
@@ -329,7 +335,7 @@ test('a broken notification pipeline never breaks the season: it still starts an
     User::factory()->count(2)->create();
     $this->app->bind(NotificationDispatcher::class, fn () => throw new RuntimeException('notification pipeline is down'));
 
-    $campaign = Campaign::factory()->create(['is_active' => true]);
+    $campaign = e15Camp(['is_active' => true]);
     $season = Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]);
     $campaign->update(['title' => 'عنوان بعد العطل']);
 

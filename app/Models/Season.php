@@ -27,9 +27,11 @@ class Season extends Model
 
     protected static function booted(): void
     {
-        // انتقال حقيقي: نشر الموسم (أو إنشاؤه منشورًا). القرار الفعلي "هل صار مباشرًا؟" بـSeasonLifecycleService وحده.
-        static::saved(function (Season $season) {
-            if ($season->wasRecentlyCreated || $season->wasChanged('is_published')) {
+        // انتقال حقيقي: إنشاء موسم منشور، أو نشر موسم موجود. القرار الفعلي "هل صار مباشرًا؟" بـSeasonLifecycleService وحده.
+        static::created(fn (Season $season) => \App\Services\SeasonLifecycleService::syncFromHook($season));
+
+        static::updated(function (Season $season) {
+            if ($season->wasChanged('is_published')) {
                 \App\Services\SeasonLifecycleService::syncFromHook($season);
             }
         });

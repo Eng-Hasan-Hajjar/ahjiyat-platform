@@ -38,7 +38,7 @@ test('registry integrity: every type has a category, a real internal route, an i
 
     expect(NotificationType::reEngagementKeys())->toEqualCanonicalizing(['streak_at_risk', 'daily_quests_available'])
         ->and(NotificationCategory::Security->isMandatory())->toBeTrue()
-        ->and(NotificationCategory::optional())->toHaveCount(4);
+        ->and(NotificationCategory::optional())->toHaveCount(5);
 });
 
 test('E15-G/198: the same semantic event dispatched 10 times yields exactly one row', function () {

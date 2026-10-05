@@ -23,19 +23,29 @@ class Campaign extends Model
             'is_active' => 'boolean',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'became_available_at' => 'datetime',
         ];
     }
 
     protected static function booted(): void
     {
-        // انتقالات حقيقية تُغيّر "هل الموسم مباشر؟": تفعيل الحملة أو تعديل نافذتها الزمنية.
-        static::saved(function (Campaign $campaign) {
-            if ($campaign->wasChanged(['is_active', 'starts_at', 'ends_at'])) {
-                $season = $campaign->season;
+        // أُنشئت متاحة = إتاحة أولى حقيقية. (created لا saved: كائن أُنشئ للتو يحتفظ بـwasRecentlyCreated=true
+        // فكان أي حفظ لاحق عليه يُطلق المزامنة بلا سبب.)
+        static::created(fn (Campaign $campaign) => \App\Services\CampaignLifecycleService::syncFromHook($campaign));
 
-                if ($season !== null) {
-                    \App\Services\SeasonLifecycleService::syncFromHook($season);
-                }
+        static::updated(function (Campaign $campaign) {
+            // الحقول الثلاثة هي كل ما يدخل بتعريف التوفر (CampaignProgressService::isCampaignAvailable).
+            if (! $campaign->wasChanged(['is_active', 'starts_at', 'ends_at'])) {
+                return;
+            }
+
+            \App\Services\CampaignLifecycleService::syncFromHook($campaign);
+
+            // وهي نفسها ما يُغيّر "هل الموسم مباشر؟" لموسم هذه الحملة.
+            $season = $campaign->season;
+
+            if ($season !== null) {
+                \App\Services\SeasonLifecycleService::syncFromHook($season);
             }
         });
     }

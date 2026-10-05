@@ -13,6 +13,7 @@ enum NotificationCategory: string
     case Quest = 'quest';
     case Security = 'security';
     case Season = 'season';
+    case Campaign = 'campaign';
 
     public function label(): string
     {
@@ -22,6 +23,7 @@ enum NotificationCategory: string
             self::Quest => 'المهام اليومية',
             self::Security => 'الأمان',
             self::Season => 'المواسم',
+            self::Campaign => 'الحملات',
         };
     }
 
@@ -33,6 +35,7 @@ enum NotificationCategory: string
             self::Quest => 'تذكير واحد في اليوم بجاهزية مهام اليوم.',
             self::Security => 'تنبيهات أمان حسابك - إلزامية ولا يمكن تعطيلها.',
             self::Season => 'إشعار واحد عند بدء موسم جديد.',
+            self::Campaign => 'إشعار واحد عند إتاحة حملة جديدة.',
         };
     }
 
@@ -51,6 +54,7 @@ enum NotificationCategory: string
             self::Quest => 'quest_enabled',
             self::Security => null,
             self::Season => 'season_enabled',
+            self::Campaign => 'campaign_enabled',
         };
     }
 

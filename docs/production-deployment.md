@@ -129,3 +129,8 @@ server {
 - المجدوِل (Cron الواحد `schedule:run`) يشغّل `seasons:sync-live-state` كل 5 دقائق لالتقاط بدء المواسم بمرور الوقت.
 - توزيع إشعارات «بدأ الموسم» يمرّ بالصف: مع `QUEUE_CONNECTION=database` شغّل عاملًا (`php artisan queue:work`)؛ بدونه تبقى الـJobs بالانتظار ولا تضيع. اللعب وتسجيل بدء الموسم لا يعتمدان على الصف.
 
+## إتاحة الحملات (E15+)
+- `php artisan migrate` يضيف `campaigns.became_available_at` ويعبّئه رجعيًا **بلا إشعارات** للحملات المتاحة قبل الترحيل، ويضيف `notification_preferences.campaign_enabled`.
+- المجدوِل (Cron الواحد `schedule:run`) يشغّل `campaigns:sync-availability` كل 5 دقائق لالتقاط إتاحة الحملات بمرور الوقت.
+- توزيع إشعارات «حملة متاحة» يمرّ بالصف كـ«بدء الموسم»: مع `QUEUE_CONNECTION=database` شغّل عاملًا (`php artisan queue:work`)؛ بدونه تبقى الـJobs بالانتظار ولا تضيع. اللعب وتسجيل الإتاحة لا يعتمدان على الصف.
+
