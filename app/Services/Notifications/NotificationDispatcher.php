@@ -17,7 +17,8 @@ use Throwable;
  *  - Idempotency دلالي: قيد فريد (notifiable + idempotency_key) - التكرار يُرجِع Duplicate لا خطأ.
  *  - الإلزامي (الأمان) يتجاوز المفتاح الشامل وتفضيل المستخدم؛ كل ما عداه يتطلب: الشامل + التفضيل.
  *  - التفضيلات والمفتاح الشامل تُقرَأ لحظة الإرسال نفسها (لا لقطة قديمة).
- *  - الوجهة (action_route) تُختار من سجل النوع حصرًا؛ المستدعي لا يملك تمرير مسار.
+ *  - الوجهة (action_route) من سجل النوع حصرًا: المستدعي يستطيع فقط الاختيار من allowedRoutes() للنوع؛ أي قيمة خارجها تُتجاهَل
+ *    فيُستعمل المسار الافتراضي - لا مسار اعتباطيًا أبدًا.
  */
 class NotificationDispatcher
 {
@@ -31,8 +32,9 @@ class NotificationDispatcher
      * @param  array<string, scalar>  $refs  مراجع كيانات اختيارية (achievement_id ...) - لا يُعتمد عليها بلا فحص.
      * @param  array<string, scalar>  $actionParams  معاملات مسار الوجهة الداخلية (مثل slug الموسم): scalar فقط؛ المسار نفسه من
      *                                               سجل النوع حصرًا ويتحقق NotificationUrlResolver منه ومن المعاملات عند كل استعمال.
+     * @param  string|null  $actionRoute  اختيار مسار من allowedRoutes() للنوع فقط (مثل seasons.show أو campaigns.show)؛ غيره يُتجاهَل.
      */
-    public function dispatch(User $user, NotificationType $type, array $params, string $idempotencyKey, array $refs = [], array $actionParams = []): DispatchResult
+    public function dispatch(User $user, NotificationType $type, array $params, string $idempotencyKey, array $refs = [], array $actionParams = [], ?string $actionRoute = null): DispatchResult
     {
         try {
             if (! $type->category()->isMandatory()) {
@@ -51,7 +53,7 @@ class NotificationDispatcher
                 'title' => Str::limit($type->title($params), 120, ''),
                 'body' => Str::limit($type->body($params), 300, ''),
                 'icon' => $type->icon(),
-                'action_route' => $type->defaultRoute(),
+                'action_route' => ($actionRoute !== null && in_array($actionRoute, $type->allowedRoutes(), true)) ? $actionRoute : $type->defaultRoute(),
                 'action_params' => array_filter($actionParams, 'is_scalar'),
                 'idempotency_key' => $idempotencyKey,
                 'refs' => $refs,

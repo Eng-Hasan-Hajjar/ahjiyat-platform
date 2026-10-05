@@ -26,6 +26,9 @@ class QualificationService
 
     public function afterStepCompletion(User $user, CampaignStep $step): void
     {
+        // E15+: نقطة الإكمال المركزية لكل أنواع الخطوات. اكتشاف فتح مراحل جديدة - لا يمسّ منطق التأهيل ولا يكسر التقدّم أبدًا.
+        StageUnlockService::recordSafely($user, $step);
+
         $gate = $step->gate;
         $rule = $this->ruleFor($gate);
 
