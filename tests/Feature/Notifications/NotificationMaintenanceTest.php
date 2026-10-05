@@ -112,3 +112,20 @@ test('E15 UI regression: the bell panel is an OPAQUE surface - never .glass (96%
         ->and($classes)->not->toContain('glass')
         ->and(collect($classes)->contains(fn ($c) => preg_match('/^bg-night-\d+\//', $c) === 1))->toBeFalse(); // لا شفافية alpha
 });
+
+test('E15 UI regression: interactive containers on the notification pages never use .puzzle-card (its glow layer swallowed clicks)', function () {
+    foreach (['notifications/index', 'notifications/preferences'] as $view) {
+        $html = file_get_contents(resource_path("views/{$view}.blade.php"));
+
+        preg_match_all('/<(form|article)\b[^>]*class="([^"]*)"/', $html, $m, PREG_SET_ORDER);
+        expect($m)->not->toBeEmpty("{$view} must have containers");
+
+        foreach ($m as [, $tag, $classes]) {
+            expect(preg_split('/\s+/', $classes))->not->toContain('puzzle-card', "{$view}: <{$tag}> must not be a puzzle-card");
+        }
+    }
+
+    $profile = file_get_contents(resource_path('views/profile/edit.blade.php'));
+    preg_match('/<div class="([^"]*)">\s*<h2[^>]*>الإشعارات<\/h2>/u', $profile, $p);
+    expect($p[1] ?? '')->not->toContain('puzzle-card')->and($p[1] ?? '')->toContain('glass');
+});

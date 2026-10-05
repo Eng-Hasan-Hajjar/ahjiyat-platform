@@ -40,7 +40,7 @@
             @forelse ($notifications as $n)
                 @php($type = \App\Services\Notifications\NotificationType::tryFrom((string) $n->type_key))
                 @php($url = $resolver->resolve((array) $n->data))
-                <article class="puzzle-card !p-4 md:!p-5 flex gap-4 {{ $n->read_at === null ? 'border-amethyst/40' : 'opacity-80' }}" data-notification-id="{{ $n->id }}">
+                <article class="glass rounded-3xl p-4 md:p-5 flex gap-4 transition {{ $n->read_at === null ? '!border-amethyst/40' : 'opacity-80' }}" data-notification-id="{{ $n->id }}">
                     <span class="text-2xl leading-none mt-1" aria-hidden="true">{{ $type?->icon() ?? '🔔' }}</span>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-start justify-between gap-3">

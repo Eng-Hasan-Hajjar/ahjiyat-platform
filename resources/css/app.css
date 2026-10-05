@@ -160,6 +160,9 @@ body {
     content: "";
     position: absolute;
     inset: 0;
+    /* طبقة وهج زخرفية فقط. بلا pointer-events:none كانت تغطي البطاقة كلها وتلتقط النقر قبل أي مربع/حقل/زر
+       غير موضوع (position) بداخلها - فلا تعمل المربعات ولا أزرار .btn-gem/.chip داخل البطاقات. */
+    pointer-events: none;
     opacity: 0;
     transition: opacity .3s;
     background: radial-gradient(400px 160px at 80% -10%, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent 60%);

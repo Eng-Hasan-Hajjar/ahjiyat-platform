@@ -19,7 +19,7 @@
             </div>
         @endunless
 
-        <form method="POST" action="{{ route('notifications.preferences.update') }}" class="puzzle-card !p-6 space-y-5">
+        <form method="POST" action="{{ route('notifications.preferences.update') }}" class="glass rounded-3xl p-6 space-y-5">
             @csrf
             @method('PUT')
 
