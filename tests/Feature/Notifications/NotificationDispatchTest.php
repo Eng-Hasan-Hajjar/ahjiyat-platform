@@ -36,7 +36,10 @@ test('registry integrity: every type has a category, a real internal route, an i
         }
     }
 
-    expect(NotificationType::reEngagementKeys())->toEqualCanonicalizing(['streak_at_risk', 'daily_quests_available'])
+    // التذكيرات الاستعادية بميزانية يومية: السلسلة والمهام وتذكيرا "ينتهي قريبًا" (الأخيران بأولوية بين الاثنين).
+    expect(NotificationType::reEngagementKeys())->toEqualCanonicalizing(['streak_at_risk', 'daily_quests_available', 'season_ending_soon', 'campaign_ending_soon'])
+        ->and(NotificationType::reEngagementKeys(NotificationType::SeasonEndingSoon))->toEqualCanonicalizing(['streak_at_risk', 'season_ending_soon', 'campaign_ending_soon'])
+        ->and(NotificationType::reEngagementKeys(NotificationType::StreakAtRisk))->toBe(['streak_at_risk'])
         ->and(NotificationCategory::Security->isMandatory())->toBeTrue()
         ->and(NotificationCategory::optional())->toHaveCount(5);
 });

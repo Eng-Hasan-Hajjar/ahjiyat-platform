@@ -5,13 +5,14 @@ namespace App\Services;
 use App\GameEngine\Support\AttemptContext;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * تعريف واحد لـ"مستخدمون لديهم تقدّم حملة فعلي" ولأزواج (مستخدم، حملة) التي يتقدّمون بها: تعتمد عليه أوامر التعبئة
- * الرجعية الصامتة (فتح المراحل، إكمال الحملات) كي لا يختلف تعريفها بينها. التقدّم الفعلي = سرد/تأمل مكتمل، أو محاولة
- * أحجية صحيحة بسياق خطوة حملة.
+ * تعريف واحد لـ"تقدّم حملة فعلي" وللعلاقة بين المستخدمين والحملات التي يتقدّمون بها: تعتمد عليه أوامر التعبئة الرجعية
+ * الصامتة (فتح المراحل، إكمال الحملات) وتذكيرات "ينتهي قريبًا"، كي لا يختلف تعريفه بينها. التقدّم الفعلي = سرد/تأمل
+ * مكتمل، أو محاولة أحجية صحيحة بسياق خطوة حملة.
  */
 final class CampaignProgressPairs
 {
@@ -26,6 +27,17 @@ final class CampaignProgressPairs
     }
 
     /**
+     * مستخدمو حملة معيّنة ذوو تقدّم فعلي فيها (الاتجاه المعاكس لـcampaignsByUser). استعلام يُستعمل مع chunkById.
+     */
+    public static function usersForCampaignQuery(int $campaignId): Builder
+    {
+        return User::query()->where(function ($q) use ($campaignId) {
+            $q->whereIn('id', self::narrativeRows()->where('s.campaign_id', $campaignId)->select('p.user_id'))
+                ->orWhereIn('id', self::puzzleRows()->where('s.campaign_id', $campaignId)->select('pa.user_id'));
+        });
+    }
+
+    /**
      * أزواج لدفعة مستخدمين بدفعة استعلامات واحدة (لا استعلام لكل مستخدم).
      *
      * @param  array<int, int>  $userIds
@@ -33,22 +45,30 @@ final class CampaignProgressPairs
      */
     public static function campaignsByUser(array $userIds): Collection
     {
-        $narrative = DB::table('user_campaign_progress as p')
+        return self::puzzleRows()->whereIn('pa.user_id', $userIds)
+            ->union(self::narrativeRows()->whereIn('p.user_id', $userIds))
+            ->get()
+            ->groupBy('user_id')
+            ->map(fn (Collection $rows) => $rows->pluck('campaign_id')->unique()->values());
+    }
+
+    private static function narrativeRows(): QueryBuilder
+    {
+        return DB::table('user_campaign_progress as p')
             ->join('campaign_steps as st', 'st.id', '=', 'p.campaign_step_id')
             ->join('campaign_gates as g', 'g.id', '=', 'st.campaign_gate_id')
             ->join('campaign_stages as s', 's.id', '=', 'g.campaign_stage_id')
-            ->whereIn('p.user_id', $userIds)->whereNotNull('p.completed_at')
+            ->whereNotNull('p.completed_at')
             ->select('p.user_id', 's.campaign_id');
+    }
 
+    private static function puzzleRows(): QueryBuilder
+    {
         return DB::table('puzzle_attempts as pa')
             ->join('campaign_steps as st', 'st.id', '=', 'pa.context_id')
             ->join('campaign_gates as g', 'g.id', '=', 'st.campaign_gate_id')
             ->join('campaign_stages as s', 's.id', '=', 'g.campaign_stage_id')
-            ->whereIn('pa.user_id', $userIds)->where('pa.is_correct', true)->where('pa.context_type', AttemptContext::TYPE_CAMPAIGN_STEP)
-            ->select('pa.user_id', 's.campaign_id')
-            ->union($narrative)
-            ->get()
-            ->groupBy('user_id')
-            ->map(fn (Collection $rows) => $rows->pluck('campaign_id')->unique()->values());
+            ->where('pa.is_correct', true)->where('pa.context_type', AttemptContext::TYPE_CAMPAIGN_STEP)
+            ->select('pa.user_id', 's.campaign_id');
     }
 }

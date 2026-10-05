@@ -66,7 +66,7 @@ class ReEngagementService
             ->whereDate('player_streaks.last_active_date', $yesterday)
             ->select('player_streaks.id as id', 'player_streaks.user_id as user_id', 'player_streaks.current_streak as current_streak')
             ->chunkById($this->chunkSize(), function (Collection $rows) use (&$stats, $today) {
-                $used = $this->policy->usedToday($rows->pluck('user_id')->all());
+                $used = $this->policy->usedToday($rows->pluck('user_id')->all(), NotificationType::StreakAtRisk); // الأعلى أولوية: لا يحجبه تذكير أدنى
                 $users = User::query()->whereIn('id', $rows->pluck('user_id')->all())->get()->keyBy('id');
                 $max = $this->policy->maxPerDay();
 

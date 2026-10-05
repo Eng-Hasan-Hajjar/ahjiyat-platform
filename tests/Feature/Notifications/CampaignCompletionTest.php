@@ -235,19 +235,20 @@ test('exactly one campaign_completed notification per user and campaign, with a 
         ->and(app(NotificationUrlResolver::class)->resolve($row->data))->toBe('/campaigns/'.$c->slug);
 });
 
-test('the link goes to the published season page when the campaign has one, otherwise to the campaign page', function (bool $published, string $route, string $prefix) {
+test('the notification follows the page the player actually sees: a published season sends season_completed (seasons.show), otherwise campaign_completed (campaigns.show)', function (bool $published, string $type, string $route, string $prefix) {
     [$c, , $steps] = e15ccCampaign([1]);
     Season::withoutEvents(fn () => Season::factory()->create(['campaign_id' => $c->id, 'slug' => 'done-season', 'is_published' => $published]));
     $user = User::factory()->create();
 
     e15ccFinish($user, $steps);
-    $data = e15ccNotes($user)->first()->data;
+    $row = DatabaseNotification::where('type_key', $type)->where('notifiable_id', $user->id)->first();
 
-    expect($data['action_route'])->toBe($route)
-        ->and(app(NotificationUrlResolver::class)->resolve($data))->toBe($prefix.($published ? 'done-season' : $c->slug));
+    expect($row)->not->toBeNull()
+        ->and($row->data['action_route'])->toBe($route)
+        ->and(app(NotificationUrlResolver::class)->resolve($row->data))->toBe($prefix.($published ? 'done-season' : $c->slug));
 })->with([
-    'published season' => [true, 'seasons.show', '/seasons/'],
-    'draft season (its page is a 404 for players)' => [false, 'campaigns.show', '/campaigns/'],
+    'published season' => [true, 'season_completed', 'seasons.show', '/seasons/'],
+    'draft season (its page is a 404 for players)' => [false, 'campaign_completed', 'campaigns.show', '/campaigns/'],
 ]);
 
 test('global notifications off or the campaign preference off: the completion is recorded normally, only the notification is suppressed', function (string $how) {

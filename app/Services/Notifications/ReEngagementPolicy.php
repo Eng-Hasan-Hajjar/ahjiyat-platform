@@ -39,9 +39,11 @@ class ReEngagementPolicy
 
     /**
      * @param  list<int>  $userIds
+     * @param  NotificationType|null  $asType  إن حُدِّد: تُحتسَب فقط التذكيرات بأولوية ≥ أولوية هذا النوع - فالأدنى أولوية لا يحجب الأعلى
+     *                                          (سلسلة 100 > ينتهي قريبًا 70 > مهام 50). بلا تحديد: كل التذكيرات (سلوك E15 الأصلي).
      * @return array<int, int> عدد تذكيرات العودة المُنشأة اليوم لكل مستخدم.
      */
-    public function usedToday(array $userIds): array
+    public function usedToday(array $userIds, ?NotificationType $asType = null): array
     {
         if ($userIds === []) {
             return [];
@@ -52,7 +54,7 @@ class ReEngagementPolicy
         return DatabaseNotification::query()
             ->where('notifiable_type', (new User)->getMorphClass())
             ->whereIn('notifiable_id', $userIds)
-            ->whereIn('type_key', NotificationType::reEngagementKeys())
+            ->whereIn('type_key', NotificationType::reEngagementKeys($asType))
             ->whereBetween('created_at', [$start, $end])
             ->selectRaw('notifiable_id, count(*) as used')
             ->groupBy('notifiable_id')

@@ -32,6 +32,10 @@ Schedule::call(function () {
         });
 })->daily()->name('release-pending-gems')->withoutOverlapping();
 
+// تذكيرات "ينتهي قريبًا" للمواسم والحملات المستقلة (قراءة فقط) - ساعيًا، وقبل تذكيرات العودة بنفس الساعة (ترتيب التسجيل)
+// كي يسبق ينتهي-قريبًا تذكير المهام الأدنى أولوية. غيابه لا يكسر شيئًا: لا تصل التذكيرات فقط.
+Schedule::command('notifications:dispatch-lifecycle-reminders')->hourly()->name('notifications-lifecycle-reminders')->withoutOverlapping();
+
 // E15: تذكيرات العودة (تحذير السلسلة + مهام اليوم) - ساعيًا. غيابه لا يكسر شيئًا: لا تصل التذكيرات فقط.
 Schedule::command('notifications:dispatch-reengagement')->hourly()->name('notifications-reengagement')->withoutOverlapping();
 

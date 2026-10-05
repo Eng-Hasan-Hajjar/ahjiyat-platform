@@ -148,3 +148,9 @@ server {
   يُشغَّل بجانب `campaigns:backfill-stage-unlocks` (الترتيب بينهما غير مهم).
 - الإشعار صف متزامن خفيف: لا يحتاج صفًا ولا مجدولًا، والتقدّم لا يتأثر بفشل الإشعار أو بفشل تسجيل الإكمال.
 
+## حزمة دورة الحياة: إكمال الموسم + ينتهي قريبًا (E15+)
+- **لا ترحيل جديد.** الأمر `notifications:dispatch-lifecycle-reminders` يُجدوَل **ساعيًا تلقائيًا** (Cron الواحد `schedule:run`)، فلا خطوة يدوية.
+- نافذة التذكير 24 ساعة قبل `campaign.ends_at`: `config/player_notifications.php` (`ending_soon_window_hours`).
+- استثناء من أكمل الحملة يعتمد على `user_campaign_completions`: تأكد أنك شغّلت `campaigns:backfill-completions` مرة واحدة بعد `migrate` (القسم السابق) قبل الاعتماد على التذكيرات.
+- بغياب المجدوِل لا تصل تذكيرات "ينتهي قريبًا" فقط؛ إشعار إكمال الموسم/الحملة لا يعتمد عليه.
+

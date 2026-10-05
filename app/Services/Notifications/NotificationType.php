@@ -14,7 +14,9 @@ namespace App\Services\Notifications;
  *  - SeasonStarted (حدث مجال، SeasonLifecycleService: الموسم صار مباشرًا لأول مرة) → season_started
  *  - CampaignBecameAvailable (حدث مجال، CampaignLifecycleService: الحملة أُتيحت لأول مرة) → campaign_available
  *  - StageUnlockedForUser (حدث مجال لكل مستخدم، StageUnlockService بعد إكمال خطوة حقيقية) → stage_unlocked
- *  - CampaignCompletedForUser (حدث مجال لكل مستخدم، CampaignCompletionService بعد إكمال خطوة حقيقية) → campaign_completed
+ *  - CampaignCompletedForUser (حدث مجال لكل مستخدم، CampaignCompletionService بعد إكمال خطوة حقيقية) → campaign_completed،
+ *    أو season_completed إن كانت الحملة مرتبطة بموسم منشور (القرار داخل المستمع: إشعار واحد فقط للإكمال نفسه)
+ *  - LifecycleReminderService (مجدول ساعيًا، قراءة فقط) → season_ending_soon / campaign_ending_soon
  */
 enum NotificationType: string
 {
@@ -26,6 +28,9 @@ enum NotificationType: string
     case CampaignAvailable = 'campaign_available';
     case StageUnlocked = 'stage_unlocked';
     case CampaignCompleted = 'campaign_completed';
+    case SeasonCompleted = 'season_completed';
+    case SeasonEndingSoon = 'season_ending_soon';
+    case CampaignEndingSoon = 'campaign_ending_soon';
 
     public function category(): NotificationCategory
     {
@@ -38,13 +43,15 @@ enum NotificationType: string
             self::CampaignAvailable => NotificationCategory::Campaign,
             self::StageUnlocked => NotificationCategory::Campaign,
             self::CampaignCompleted => NotificationCategory::Campaign,
+            self::SeasonCompleted, self::SeasonEndingSoon => NotificationCategory::Season,
+            self::CampaignEndingSoon => NotificationCategory::Campaign,
         };
     }
 
     /** تذكير "عودة" (يخضع لميزانية اليوم) - مقابل المعاملاتي (إنجاز) والأمان (لا ميزانية). */
     public function isReEngagement(): bool
     {
-        return in_array($this, [self::StreakAtRisk, self::DailyQuestsAvailable], true);
+        return in_array($this, [self::StreakAtRisk, self::DailyQuestsAvailable, self::SeasonEndingSoon, self::CampaignEndingSoon], true);
     }
 
     /** أعلى = أهم. اختيار الأولوية يتم بتقسيم الجمهور + الميزانية (راجع ReEngagementService). */
@@ -58,6 +65,8 @@ enum NotificationType: string
             self::CampaignAvailable => 15,
             self::StageUnlocked => 14,
             self::CampaignCompleted => 16,
+            self::SeasonCompleted => 17,
+            self::SeasonEndingSoon, self::CampaignEndingSoon => 70, // بين تحذير السلسلة (100) وتذكير المهام (50)
             self::AchievementUnlocked => 10,
         };
     }
@@ -74,6 +83,8 @@ enum NotificationType: string
             self::CampaignAvailable => '🧭',
             self::StageUnlocked => '🔓',
             self::CampaignCompleted => '✅',
+            self::SeasonCompleted => '🏅',
+            self::SeasonEndingSoon, self::CampaignEndingSoon => '⏳',
         };
     }
 
@@ -89,6 +100,8 @@ enum NotificationType: string
             self::CampaignAvailable => ['campaigns.show'],
             self::StageUnlocked => ['campaigns.show', 'seasons.show'],
             self::CampaignCompleted => ['campaigns.show', 'seasons.show'],
+            self::SeasonCompleted, self::SeasonEndingSoon => ['seasons.show'],
+            self::CampaignEndingSoon => ['campaigns.show'],
         };
     }
 
@@ -108,6 +121,9 @@ enum NotificationType: string
             self::CampaignAvailable => 'حملة جديدة متاحة: '.($params['name'] ?? ''),
             self::StageUnlocked => 'تم فتح مرحلة جديدة لك: '.($params['stage'] ?? ''),
             self::CampaignCompleted => 'أكملت الحملة بنجاح: '.($params['campaign'] ?? ''),
+            self::SeasonCompleted => 'أكملت الموسم بنجاح: '.($params['season'] ?? ''),
+            self::SeasonEndingSoon => 'ينتهي الموسم قريبًا: '.($params['name'] ?? ''),
+            self::CampaignEndingSoon => 'تنتهي الحملة قريبًا: '.($params['name'] ?? ''),
         };
     }
 
@@ -122,15 +138,18 @@ enum NotificationType: string
             self::CampaignAvailable => 'الحملة متاحة الآن ويمكنك البدء بها.',
             self::StageUnlocked => 'مرحلة «'.($params['stage'] ?? '').'» من حملة «'.($params['campaign'] ?? '').'» أصبحت متاحة لك الآن.',
             self::CampaignCompleted => 'أنهيت جميع مراحل حملة «'.($params['campaign'] ?? '').'».',
+            self::SeasonCompleted => 'أنهيت جميع مراحل موسم «'.($params['season'] ?? '').'».',
+            self::SeasonEndingSoon => 'ينتهي موسم «'.($params['name'] ?? '').'» خلال '.($params['hours'] ?? '').' ساعة أو أقل، وما زال بإمكانك إكماله.',
+            self::CampaignEndingSoon => 'تنتهي حملة «'.($params['name'] ?? '').'» خلال '.($params['hours'] ?? '').' ساعة أو أقل، وما زال بإمكانك إكمالها.',
         };
     }
 
     /** @return list<string> */
-    public static function reEngagementKeys(): array
+    public static function reEngagementKeys(?self $atLeast = null): array
     {
         return array_values(array_map(
             fn (self $t) => $t->value,
-            array_filter(self::cases(), fn (self $t) => $t->isReEngagement()),
+            array_filter(self::cases(), fn (self $t) => $t->isReEngagement() && ($atLeast === null || $t->priority() >= $atLeast->priority())),
         ));
     }
 }
