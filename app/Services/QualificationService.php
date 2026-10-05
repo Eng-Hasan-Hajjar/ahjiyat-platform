@@ -28,6 +28,7 @@ class QualificationService
     {
         // E15+: نقطة الإكمال المركزية لكل أنواع الخطوات. اكتشاف فتح مراحل جديدة - لا يمسّ منطق التأهيل ولا يكسر التقدّم أبدًا.
         StageUnlockService::recordSafely($user, $step);
+        CampaignCompletionService::recordSafely($user, $step); // أول إكمال للحملة (سجل إعلان فقط)
 
         $gate = $step->gate;
         $rule = $this->ruleFor($gate);

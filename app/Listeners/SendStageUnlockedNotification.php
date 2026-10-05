@@ -6,6 +6,7 @@ use App\Events\StageUnlockedForUser;
 use App\Models\Campaign;
 use App\Models\CampaignStage;
 use App\Models\User;
+use App\Services\Notifications\CampaignNotificationLink;
 use App\Services\Notifications\NotificationDispatcher;
 use App\Services\Notifications\NotificationType;
 
@@ -27,8 +28,7 @@ class SendStageUnlockedNotification
                 return;
             }
 
-            $season = $campaign->season;
-            $viaSeason = $season !== null && $season->is_published; // موسم غير منشور: صفحته 404 للاعب
+            [$route, $params] = CampaignNotificationLink::for($campaign);
 
             app(NotificationDispatcher::class)->dispatch(
                 $user,
@@ -36,8 +36,8 @@ class SendStageUnlockedNotification
                 ['stage' => $stage->title, 'campaign' => $campaign->title],
                 "stage-unlocked:{$user->id}:{$stage->id}",
                 ['campaign_id' => $campaign->id, 'stage_id' => $stage->id],
-                $viaSeason ? ['season' => $season->slug] : ['campaign' => $campaign->slug],
-                $viaSeason ? 'seasons.show' : 'campaigns.show',
+                $params,
+                $route,
             );
         } catch (\Throwable $e) {
             report($e);

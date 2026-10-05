@@ -14,6 +14,7 @@ namespace App\Services\Notifications;
  *  - SeasonStarted (حدث مجال، SeasonLifecycleService: الموسم صار مباشرًا لأول مرة) → season_started
  *  - CampaignBecameAvailable (حدث مجال، CampaignLifecycleService: الحملة أُتيحت لأول مرة) → campaign_available
  *  - StageUnlockedForUser (حدث مجال لكل مستخدم، StageUnlockService بعد إكمال خطوة حقيقية) → stage_unlocked
+ *  - CampaignCompletedForUser (حدث مجال لكل مستخدم، CampaignCompletionService بعد إكمال خطوة حقيقية) → campaign_completed
  */
 enum NotificationType: string
 {
@@ -24,6 +25,7 @@ enum NotificationType: string
     case SeasonStarted = 'season_started';
     case CampaignAvailable = 'campaign_available';
     case StageUnlocked = 'stage_unlocked';
+    case CampaignCompleted = 'campaign_completed';
 
     public function category(): NotificationCategory
     {
@@ -35,6 +37,7 @@ enum NotificationType: string
             self::SeasonStarted => NotificationCategory::Season,
             self::CampaignAvailable => NotificationCategory::Campaign,
             self::StageUnlocked => NotificationCategory::Campaign,
+            self::CampaignCompleted => NotificationCategory::Campaign,
         };
     }
 
@@ -54,6 +57,7 @@ enum NotificationType: string
             self::SeasonStarted => 20,
             self::CampaignAvailable => 15,
             self::StageUnlocked => 14,
+            self::CampaignCompleted => 16,
             self::AchievementUnlocked => 10,
         };
     }
@@ -69,6 +73,7 @@ enum NotificationType: string
             self::SeasonStarted => '🏁',
             self::CampaignAvailable => '🧭',
             self::StageUnlocked => '🔓',
+            self::CampaignCompleted => '✅',
         };
     }
 
@@ -83,6 +88,7 @@ enum NotificationType: string
             self::SeasonStarted => ['seasons.show'],
             self::CampaignAvailable => ['campaigns.show'],
             self::StageUnlocked => ['campaigns.show', 'seasons.show'],
+            self::CampaignCompleted => ['campaigns.show', 'seasons.show'],
         };
     }
 
@@ -101,6 +107,7 @@ enum NotificationType: string
             self::SeasonStarted => 'بدأ موسم: '.($params['name'] ?? ''),
             self::CampaignAvailable => 'حملة جديدة متاحة: '.($params['name'] ?? ''),
             self::StageUnlocked => 'تم فتح مرحلة جديدة لك: '.($params['stage'] ?? ''),
+            self::CampaignCompleted => 'أكملت الحملة بنجاح: '.($params['campaign'] ?? ''),
         };
     }
 
@@ -114,6 +121,7 @@ enum NotificationType: string
             self::SeasonStarted => 'الموسم متاح الآن ويمكنك الانضمام واللعب.',
             self::CampaignAvailable => 'الحملة متاحة الآن ويمكنك البدء بها.',
             self::StageUnlocked => 'مرحلة «'.($params['stage'] ?? '').'» من حملة «'.($params['campaign'] ?? '').'» أصبحت متاحة لك الآن.',
+            self::CampaignCompleted => 'أنهيت جميع مراحل حملة «'.($params['campaign'] ?? '').'».',
         };
     }
 

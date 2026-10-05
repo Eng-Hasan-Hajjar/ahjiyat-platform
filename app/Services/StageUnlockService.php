@@ -3,14 +3,10 @@
 namespace App\Services;
 
 use App\Events\StageUnlockedForUser;
-use App\GameEngine\Support\AttemptContext;
 use App\Models\Campaign;
 use App\Models\CampaignStage;
 use App\Models\CampaignStep;
-use App\Models\PuzzleAttempt;
 use App\Models\User;
-use App\Models\UserCampaignProgress;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -20,15 +16,12 @@ use Illuminate\Support\Facades\DB;
  *
  * - المرحلة الأولى (بلا سابقات) مفتوحة للجميع بإتاحة الحملة، فلا تُسجَّل ولا تُعلَن (CampaignBecameAvailable يغطيها).
  * - مرشَّحو الإعلان: المراحل اللاحقة لمرحلة الخطوة المُكمَلة فقط، المفتوحة الآن وغير المسجَّلة.
- * - لا إعلان عن إعادة إكمال: يُعلَن فقط إن كان إكمال الخطوة حديثًا (RECENT_COMPLETION_SECONDS)؛ غير ذلك يُسجَّل بصمت. هذا ما
+ * - لا إعلان عن إعادة إكمال: يُعلَن فقط إن كان إكمال الخطوة حديثًا (StepCompletionRecency::WINDOW_SECONDS)؛ غير ذلك يُسجَّل بصمت. هذا ما
  *   يمنع إشعارًا تاريخيًا في الفترة بين الترحيل وتشغيل campaigns:backfill-stage-unlocks (بلا أي Feature Flag).
  * - insertOrIgnore ذري: لا يُطلَق الحدث إلا إن أُنشئ صف فعلًا، وبعد commit.
  */
 class StageUnlockService
 {
-    /** إكمال أقدم من هذه النافذة يُعدّ إعادة/تاريخيًا: يُسجَّل الفتح بصمت ولا يُعلَن. */
-    public const RECENT_COMPLETION_SECONDS = 120;
-
     public function __construct(protected CampaignProgressService $progress) {}
 
     /** نقطة دخول مسار التقدّم: لا تكسر التقدّم الأساسي أبدًا (حتى لو فشل إنشاء الخدمة أو الجدول غير موجود بعد). */
@@ -53,7 +46,7 @@ class StageUnlockService
             return 0;
         }
 
-        $announce = $this->completedRecently($user, $step);
+        $announce = StepCompletionRecency::isRecent($user, $step);
         $recorded = 0;
 
         foreach ($this->newlyUnlockedStages($user, $campaign, $ownStage) as $stage) {
@@ -154,20 +147,5 @@ class StageUnlockService
                 report($e); // الحدث ثانوي: فشله لا يمسّ التقدّم ولا سجل الفتح.
             }
         });
-    }
-
-    /** لحظة إكمال الخطوة (لأول مرة) حديثة؟ السرد/التأمل: completed_at. الأحجية: أول محاولة صحيحة بسياق الخطوة. */
-    protected function completedRecently(User $user, CampaignStep $step): bool
-    {
-        $at = match ($step->kind) {
-            CampaignStep::KIND_NARRATIVE, CampaignStep::KIND_REFLECTION => UserCampaignProgress::query()
-                ->where('user_id', $user->getKey())->where('campaign_step_id', $step->getKey())->value('completed_at'),
-            CampaignStep::KIND_PUZZLE => $step->puzzle_id === null ? null : PuzzleAttempt::query()
-                ->where('user_id', $user->getKey())->where('puzzle_id', $step->puzzle_id)->where('is_correct', true)
-                ->where('context_type', AttemptContext::TYPE_CAMPAIGN_STEP)->where('context_id', $step->getKey())->min('created_at'),
-            default => null,
-        };
-
-        return $at !== null && Carbon::parse($at)->greaterThanOrEqualTo(now()->subSeconds(self::RECENT_COMPLETION_SECONDS));
     }
 }
