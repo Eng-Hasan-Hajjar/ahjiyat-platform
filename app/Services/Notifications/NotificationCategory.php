@@ -14,6 +14,7 @@ enum NotificationCategory: string
     case Security = 'security';
     case Season = 'season';
     case Campaign = 'campaign';
+    case Social = 'social';
 
     public function label(): string
     {
@@ -24,6 +25,7 @@ enum NotificationCategory: string
             self::Security => 'الأمان',
             self::Season => 'المواسم',
             self::Campaign => 'الحملات',
+            self::Social => 'الاجتماعية',
         };
     }
 
@@ -36,6 +38,7 @@ enum NotificationCategory: string
             self::Security => 'تنبيهات أمان حسابك - إلزامية ولا يمكن تعطيلها.',
             self::Season => 'إشعار واحد عند بدء موسم جديد.',
             self::Campaign => 'إشعار واحد عند إتاحة حملة جديدة.',
+            self::Social => 'طلبات الصداقة الجديدة وقبول طلباتك.',
         };
     }
 
@@ -55,6 +58,7 @@ enum NotificationCategory: string
             self::Security => null,
             self::Season => 'season_enabled',
             self::Campaign => 'campaign_enabled',
+            self::Social => 'social_enabled',
         };
     }
 

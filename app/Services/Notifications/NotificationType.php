@@ -17,6 +17,7 @@ namespace App\Services\Notifications;
  *  - CampaignCompletedForUser (حدث مجال لكل مستخدم، CampaignCompletionService بعد إكمال خطوة حقيقية) → campaign_completed،
  *    أو season_completed إن كانت الحملة مرتبطة بموسم منشور (القرار داخل المستمع: إشعار واحد فقط للإكمال نفسه)
  *  - LifecycleReminderService (مجدول ساعيًا، قراءة فقط) → season_ending_soon / campaign_ending_soon
+ *  - FriendRequestCreated / FriendshipAccepted (أحداث مجال بعد commit، FriendshipService) → friend_request_received / friend_request_accepted
  */
 enum NotificationType: string
 {
@@ -31,6 +32,8 @@ enum NotificationType: string
     case SeasonCompleted = 'season_completed';
     case SeasonEndingSoon = 'season_ending_soon';
     case CampaignEndingSoon = 'campaign_ending_soon';
+    case FriendRequestReceived = 'friend_request_received';
+    case FriendRequestAccepted = 'friend_request_accepted';
 
     public function category(): NotificationCategory
     {
@@ -45,6 +48,7 @@ enum NotificationType: string
             self::CampaignCompleted => NotificationCategory::Campaign,
             self::SeasonCompleted, self::SeasonEndingSoon => NotificationCategory::Season,
             self::CampaignEndingSoon => NotificationCategory::Campaign,
+            self::FriendRequestReceived, self::FriendRequestAccepted => NotificationCategory::Social,
         };
     }
 
@@ -67,6 +71,8 @@ enum NotificationType: string
             self::CampaignCompleted => 16,
             self::SeasonCompleted => 17,
             self::SeasonEndingSoon, self::CampaignEndingSoon => 70, // بين تحذير السلسلة (100) وتذكير المهام (50)
+            self::FriendRequestReceived => 25,
+            self::FriendRequestAccepted => 24,
             self::AchievementUnlocked => 10,
         };
     }
@@ -85,6 +91,7 @@ enum NotificationType: string
             self::CampaignCompleted => '✅',
             self::SeasonCompleted => '🏅',
             self::SeasonEndingSoon, self::CampaignEndingSoon => '⏳',
+            self::FriendRequestReceived, self::FriendRequestAccepted => '🤝',
         };
     }
 
@@ -102,6 +109,7 @@ enum NotificationType: string
             self::CampaignCompleted => ['campaigns.show', 'seasons.show'],
             self::SeasonCompleted, self::SeasonEndingSoon => ['seasons.show'],
             self::CampaignEndingSoon => ['campaigns.show'],
+            self::FriendRequestReceived, self::FriendRequestAccepted => ['friends.index'],
         };
     }
 
@@ -124,6 +132,8 @@ enum NotificationType: string
             self::SeasonCompleted => 'أكملت الموسم بنجاح: '.($params['season'] ?? ''),
             self::SeasonEndingSoon => 'ينتهي الموسم قريبًا: '.($params['name'] ?? ''),
             self::CampaignEndingSoon => 'تنتهي الحملة قريبًا: '.($params['name'] ?? ''),
+            self::FriendRequestReceived => 'أرسل لك '.($params['name'] ?? '').' طلب صداقة',
+            self::FriendRequestAccepted => 'قبل '.($params['name'] ?? '').' طلب صداقتك',
         };
     }
 
@@ -141,6 +151,8 @@ enum NotificationType: string
             self::SeasonCompleted => 'أنهيت جميع مراحل موسم «'.($params['season'] ?? '').'».',
             self::SeasonEndingSoon => 'ينتهي موسم «'.($params['name'] ?? '').'» خلال '.($params['hours'] ?? '').' ساعة أو أقل، وما زال بإمكانك إكماله.',
             self::CampaignEndingSoon => 'تنتهي حملة «'.($params['name'] ?? '').'» خلال '.($params['hours'] ?? '').' ساعة أو أقل، وما زال بإمكانك إكمالها.',
+            self::FriendRequestReceived => 'يمكنك قبول الطلب أو رفضه من صفحة الأصدقاء.',
+            self::FriendRequestAccepted => 'أصبحتما صديقين.',
         };
     }
 

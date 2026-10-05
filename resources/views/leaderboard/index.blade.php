@@ -4,7 +4,14 @@
 
 @section('content')
 
-    <h1 class="font-display font-black text-2xl md:text-3xl text-white mb-6 anim-fade-up">لوحة الصدارة</h1>
+    <h1 class="font-display font-black text-2xl md:text-3xl text-white mb-4 anim-fade-up">لوحة الصدارة</h1>
+
+    @auth
+        <div class="flex gap-2 mb-5 anim-fade-up" role="group" aria-label="نطاق لوحة الصدارة">
+            <a href="{{ route('leaderboard.index') }}" class="chip {{ $scope === 'global' ? '!border-amethyst !text-amethyst' : '' }}" aria-current="{{ $scope === 'global' ? 'page' : 'false' }}">عام</a>
+            <a href="{{ route('leaderboard.index', ['scope' => 'friends']) }}" class="chip {{ $scope === 'friends' ? '!border-amethyst !text-amethyst' : '' }}" aria-current="{{ $scope === 'friends' ? 'page' : 'false' }}">الأصدقاء</a>
+        </div>
+    @endauth
 
     <div class="glass rounded-2xl divide-y divide-white/5 anim-fade-up d-1">
         @forelse ($topUsers as $index => $user)
@@ -40,7 +47,7 @@
                 </span>
             </div>
         @empty
-            <p class="px-4 py-10 text-center text-slate-500 text-sm">لا توجد بيانات كافية بعد.</p>
+            <p class="px-4 py-10 text-center text-slate-500 text-sm">{{ $scope === 'friends' ? 'لا أحد منكم (أنت وأصدقاؤك) لديه محاولات صحيحة بعد.' : 'لا توجد بيانات كافية بعد.' }}</p>
         @endforelse
     </div>
 

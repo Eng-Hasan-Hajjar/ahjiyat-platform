@@ -140,6 +140,9 @@
                     <a href="{{ route('wallet.index') }}" class="hover:text-gold transition">محفظتي</a>
                     <a href="{{ route('redemption.index') }}" class="hover:text-gold transition">الاستبدال</a>
                     <a href="{{ route('inventory.index') }}" class="hover:text-gold transition">مقتنياتي</a>
+                    @if (auth()->user()->email_verified_at)
+                        <a href="{{ route('friends.index') }}" class="hover:text-white transition">الأصدقاء</a>
+                    @endif
                 @endauth
 
             </nav>
@@ -230,6 +233,8 @@
                     @if (auth()->user()->email_verified_at)
                         <a href="{{ route('notifications.index') }}" @click="mobileOpen = false"
                             class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">الإشعارات</a>
+                        <a href="{{ route('friends.index') }}" @click="mobileOpen = false"
+                            class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">الأصدقاء</a>
                     @endif
                         @can('admin.access')
     <a href="{{ url('/admin') }}" @click="mobileOpen = false"

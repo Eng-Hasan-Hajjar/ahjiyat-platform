@@ -41,7 +41,7 @@ test('registry integrity: every type has a category, a real internal route, an i
         ->and(NotificationType::reEngagementKeys(NotificationType::SeasonEndingSoon))->toEqualCanonicalizing(['streak_at_risk', 'season_ending_soon', 'campaign_ending_soon'])
         ->and(NotificationType::reEngagementKeys(NotificationType::StreakAtRisk))->toBe(['streak_at_risk'])
         ->and(NotificationCategory::Security->isMandatory())->toBeTrue()
-        ->and(NotificationCategory::optional())->toHaveCount(5);
+        ->and(NotificationCategory::optional())->toHaveCount(6);
 });
 
 test('E15-G/198: the same semantic event dispatched 10 times yields exactly one row', function () {

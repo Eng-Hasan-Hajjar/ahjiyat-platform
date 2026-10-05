@@ -22,7 +22,14 @@
 
         <div class="flex justify-center -mt-2 mb-2">
             <span class="chip !py-1 !px-4 text-xs !text-amethyst">المستوى {{ $stats['current_level'] }}</span>
+            <span class="chip !py-1 !px-4 text-xs me-2">الأصدقاء {{ $friendsCount }}</span>
         </div>
+
+        @if ($friendRelation !== null)
+            <div class="mt-4 glass rounded-2xl p-4 anim-fade-up">
+                @include('friends._actions', ['other' => $player, 'relation' => $friendRelation, 'withBlock' => true])
+            </div>
+        @endif
 
         @if ($isOwner && ! $player->isProfilePublic())
             <div class="mt-4 rounded-xl bg-white/5 border border-white/10 text-slate-400 text-xs font-bold px-4 py-3 text-center anim-fade-up">

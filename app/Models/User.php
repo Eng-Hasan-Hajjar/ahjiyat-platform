@@ -51,6 +51,7 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_frozen' => 'boolean',
+            'friend_requests_enabled' => 'boolean',
             'last_seen_at' => 'datetime',
             'frozen_at' => 'datetime',
         ];

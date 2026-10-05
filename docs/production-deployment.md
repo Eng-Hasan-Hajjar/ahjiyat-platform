@@ -154,3 +154,9 @@ server {
 - استثناء من أكمل الحملة يعتمد على `user_campaign_completions`: تأكد أنك شغّلت `campaigns:backfill-completions` مرة واحدة بعد `migrate` (القسم السابق) قبل الاعتماد على التذكيرات.
 - بغياب المجدوِل لا تصل تذكيرات "ينتهي قريبًا" فقط؛ إشعار إكمال الموسم/الحملة لا يعتمد عليه.
 
+## الأصدقاء والحظر (E16)
+- `php artisan migrate` ينشئ `friendships` و`user_blocks` ويضيف `users.friend_requests_enabled` و`notification_preferences.social_enabled` (الافتراضي مفعَّل لكل الحسابات القائمة). **لا تعبئة رجعية ولا أمر يدوي.**
+- `npm run build` مطلوب لظهور تنسيق الصفحات الجديدة (Blade جديدة). لا مجدول جديد.
+- تحديد المعدّل بـ`AppServiceProvider` (`friend-requests`، `friend-actions`، `player-search`) والـcooldown بالكاش: تأكد أن مخزن الكاش مشترك بين العمال (database/redis) في الإنتاج.
+- الإعدادات: `config/friends.php` (cooldown، حد البحث، أحجام الصفحات).
+

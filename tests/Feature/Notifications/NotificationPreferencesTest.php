@@ -14,8 +14,8 @@ test('E15-18/21: the preferences page is clear, shows every optional category en
     $html = $this->actingAs($this->user)->get(route('notifications.preferences'))->assertOk()
         ->assertSee('الإنجازات')->assertSee('السلسلة اليومية')->assertSee('المهام اليومية')->assertSee('إلزامي')->getContent();
 
-    expect(substr_count($html, 'type="checkbox"'))->toBe(5)
-        ->and(preg_match_all('/type="checkbox"[^>]*checked/', $html))->toBe(5)
+    expect(substr_count($html, 'type="checkbox"'))->toBe(6)
+        ->and(preg_match_all('/type="checkbox"[^>]*checked/', $html))->toBe(6)
         ->and(\DB::table('notification_preferences')->count())->toBe(0); // العرض لا يُنشئ صفًا
 });
 

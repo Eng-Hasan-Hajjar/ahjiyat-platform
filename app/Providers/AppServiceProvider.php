@@ -78,6 +78,22 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('store-purchase', function (Request $request) {
             return Limit::perMinute(8)->by($request->user()?->id ?: $request->ip());
         });
+
+        // E16: الأصدقاء. إرسال الطلبات بالدقيقة وبالساعة (مع cooldown إعادة الإرسال داخل FriendshipService)؛ بقية الإجراءات
+        // والبحث أوسع. المفتاح المستخدم المصادَق (لا IP). لا يمنع الاستخدام الطبيعي.
+        RateLimiter::for('friend-requests', function (Request $request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return [Limit::perMinute(10)->by("friend-req-min:{$key}"), Limit::perHour(60)->by("friend-req-hour:{$key}")];
+        });
+
+        RateLimiter::for('friend-actions', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('player-search', function (Request $request) {
+            return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());
+        });
                 // E11: تجهيز/إزالة تجميليات - UX تتطلب تجربة سريعة (تبديل/معاينة)، لا حساسية مالية هنا.
         RateLimiter::for('cosmetic-equip', function (Request $request) {
             return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());

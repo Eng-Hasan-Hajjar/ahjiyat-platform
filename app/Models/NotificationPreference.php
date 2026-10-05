@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NotificationPreference extends Model
 {
-    protected $fillable = ['user_id', 'quest_enabled', 'streak_enabled', 'achievement_enabled', 'season_enabled', 'campaign_enabled'];
+    protected $fillable = ['user_id', 'quest_enabled', 'streak_enabled', 'achievement_enabled', 'season_enabled', 'campaign_enabled', 'social_enabled'];
 
     /** غياب الصف = الافتراضيات: الكل مفعَّل (تنطبق أيضًا على نسخة غير محفوظة). */
     protected $attributes = [
@@ -16,6 +16,7 @@ class NotificationPreference extends Model
         'achievement_enabled' => true,
         'season_enabled' => true,
         'campaign_enabled' => true,
+        'social_enabled' => true,
     ];
 
     protected function casts(): array
@@ -26,6 +27,7 @@ class NotificationPreference extends Model
             'achievement_enabled' => 'boolean',
             'season_enabled' => 'boolean',
             'campaign_enabled' => 'boolean',
+            'social_enabled' => 'boolean',
         ];
     }
 
