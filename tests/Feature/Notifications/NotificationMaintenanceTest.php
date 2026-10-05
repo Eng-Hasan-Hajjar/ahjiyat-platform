@@ -102,3 +102,13 @@ test('E15-176/174: no websockets and no aggressive polling were introduced in th
 
     expect(preg_match('/setInterval|setTimeout|fetch\(|EventSource|WebSocket|Echo\./', $bell))->toBe(0);
 });
+
+test('E15 UI regression: the bell panel is an OPAQUE surface - never .glass (96% transparent, nested backdrop-filter shows page text through it)', function () {
+    $bell = file_get_contents(resource_path('views/components/notification-bell.blade.php'));
+    preg_match('/<div x-show="open"[^>]*class="([^"]+)"/s', $bell, $m);
+    $classes = preg_split('/\s+/', trim($m[1] ?? ''));
+
+    expect($classes)->toContain('bg-night-900')
+        ->and($classes)->not->toContain('glass')
+        ->and(collect($classes)->contains(fn ($c) => preg_match('/^bg-night-\d+\//', $c) === 1))->toBeFalse(); // لا شفافية alpha
+});

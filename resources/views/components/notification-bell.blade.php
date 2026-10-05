@@ -13,8 +13,11 @@
             @endif
         </button>
 
+        {{-- سطح معتم عمدًا (bg-night-900) لا .glass: خلفية .glass شفافة 96% وتعتمد على backdrop-filter، واللوحة داخل
+             شريط تنقل له backdrop-filter أيضًا فلا يستطيع العنصر المتداخل أخذ عينة من خلفه - فيظهر نص الصفحة من تحتها.
+             bg-night-900 له تجاوز بالثيم الفاتح بـapp.css (var(--color-bg)) فتبقى معتمة بالثيمين. --}}
         <div x-show="open" x-cloak x-transition role="menu"
-            class="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:end-0 sm:mt-2 sm:w-80 glass rounded-2xl border border-white/10 z-50 overflow-hidden">
+            class="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:end-0 sm:mt-2 sm:w-80 bg-night-900 rounded-2xl border border-white/10 shadow-2xl shadow-black/40 z-50 overflow-hidden">
             <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
                 <span class="font-black text-white text-sm">الإشعارات</span>
                 @if ($unread > 0)
