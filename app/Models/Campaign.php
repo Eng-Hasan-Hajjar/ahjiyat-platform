@@ -26,6 +26,20 @@ class Campaign extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        // انتقالات حقيقية تُغيّر "هل الموسم مباشر؟": تفعيل الحملة أو تعديل نافذتها الزمنية.
+        static::saved(function (Campaign $campaign) {
+            if ($campaign->wasChanged(['is_active', 'starts_at', 'ends_at'])) {
+                $season = $campaign->season;
+
+                if ($season !== null) {
+                    \App\Services\SeasonLifecycleService::syncFromHook($season);
+                }
+            }
+        });
+    }
+
     public function stages(): HasMany
     {
         return $this->hasMany(CampaignStage::class);

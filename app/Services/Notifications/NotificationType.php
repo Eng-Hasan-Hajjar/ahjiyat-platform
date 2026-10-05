@@ -11,6 +11,7 @@ namespace App\Services\Notifications;
  *  - جدولة ساعية (ReEngagementService) على player_streaks → streak_at_risk
  *  - جدولة ساعية على player_streaks + مهام يومية قائمة → daily_quests_available
  *  - Illuminate\Auth\Events\PasswordReset (حدث موجود أصلًا) → security_password_reset
+ *  - SeasonStarted (حدث مجال، SeasonLifecycleService: الموسم صار مباشرًا لأول مرة) → season_started
  */
 enum NotificationType: string
 {
@@ -18,6 +19,7 @@ enum NotificationType: string
     case StreakAtRisk = 'streak_at_risk';
     case DailyQuestsAvailable = 'daily_quests_available';
     case SecurityPasswordReset = 'security_password_reset';
+    case SeasonStarted = 'season_started';
 
     public function category(): NotificationCategory
     {
@@ -26,6 +28,7 @@ enum NotificationType: string
             self::StreakAtRisk => NotificationCategory::Streak,
             self::DailyQuestsAvailable => NotificationCategory::Quest,
             self::SecurityPasswordReset => NotificationCategory::Security,
+            self::SeasonStarted => NotificationCategory::Season,
         };
     }
 
@@ -42,6 +45,7 @@ enum NotificationType: string
             self::SecurityPasswordReset => 1000,
             self::StreakAtRisk => 100,
             self::DailyQuestsAvailable => 50,
+            self::SeasonStarted => 20,
             self::AchievementUnlocked => 10,
         };
     }
@@ -54,6 +58,7 @@ enum NotificationType: string
             self::StreakAtRisk => '🔥',
             self::DailyQuestsAvailable => '🎯',
             self::SecurityPasswordReset => '🛡️',
+            self::SeasonStarted => '🏁',
         };
     }
 
@@ -65,6 +70,7 @@ enum NotificationType: string
             self::StreakAtRisk => ['puzzles.index'],
             self::DailyQuestsAvailable => ['quests.show'],
             self::SecurityPasswordReset => ['profile.edit'],
+            self::SeasonStarted => ['seasons.show'],
         };
     }
 
@@ -80,6 +86,7 @@ enum NotificationType: string
             self::StreakAtRisk => 'حافظ على سلسلتك اليومية',
             self::DailyQuestsAvailable => 'مهام اليوم جاهزة',
             self::SecurityPasswordReset => 'أُعيد تعيين كلمة مرور حسابك',
+            self::SeasonStarted => 'بدأ موسم: '.($params['name'] ?? ''),
         };
     }
 
@@ -90,6 +97,7 @@ enum NotificationType: string
             self::StreakAtRisk => 'سلسلتك الحالية '.(int) ($params['streak'] ?? 0).' يومًا. حلّ أحجية واحدة قبل نهاية اليوم لتستمر.',
             self::DailyQuestsAvailable => 'مهام اليوم متاحة الآن. حلّ أحجية وتقدّم نحو أهدافك اليومية.',
             self::SecurityPasswordReset => 'إن لم تكن أنت من أعاد تعيينها، تواصل مع الدعم فورًا وراجع أمان حسابك.',
+            self::SeasonStarted => 'الموسم متاح الآن ويمكنك الانضمام واللعب.',
         };
     }
 

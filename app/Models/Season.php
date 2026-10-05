@@ -21,7 +21,18 @@ class Season extends Model
             'theme_config' => 'array',
             'is_published' => 'boolean',
             'is_featured' => 'boolean',
+            'went_live_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // انتقال حقيقي: نشر الموسم (أو إنشاؤه منشورًا). القرار الفعلي "هل صار مباشرًا؟" بـSeasonLifecycleService وحده.
+        static::saved(function (Season $season) {
+            if ($season->wasRecentlyCreated || $season->wasChanged('is_published')) {
+                \App\Services\SeasonLifecycleService::syncFromHook($season);
+            }
+        });
     }
 
     public function campaign(): BelongsTo

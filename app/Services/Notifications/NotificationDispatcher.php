@@ -29,8 +29,10 @@ class NotificationDispatcher
     /**
      * @param  array<string, mixed>  $params  معاملات نص الإشعار (مثل name/streak) - نصوص عادية، تُهرَّب عند العرض.
      * @param  array<string, scalar>  $refs  مراجع كيانات اختيارية (achievement_id ...) - لا يُعتمد عليها بلا فحص.
+     * @param  array<string, scalar>  $actionParams  معاملات مسار الوجهة الداخلية (مثل slug الموسم): scalar فقط؛ المسار نفسه من
+     *                                               سجل النوع حصرًا ويتحقق NotificationUrlResolver منه ومن المعاملات عند كل استعمال.
      */
-    public function dispatch(User $user, NotificationType $type, array $params, string $idempotencyKey, array $refs = []): DispatchResult
+    public function dispatch(User $user, NotificationType $type, array $params, string $idempotencyKey, array $refs = [], array $actionParams = []): DispatchResult
     {
         try {
             if (! $type->category()->isMandatory()) {
@@ -50,7 +52,7 @@ class NotificationDispatcher
                 'body' => Str::limit($type->body($params), 300, ''),
                 'icon' => $type->icon(),
                 'action_route' => $type->defaultRoute(),
-                'action_params' => [],
+                'action_params' => array_filter($actionParams, 'is_scalar'),
                 'idempotency_key' => $idempotencyKey,
                 'refs' => $refs,
             ];

@@ -123,3 +123,9 @@ server {
 (`php artisan schedule:run` كل دقيقة). غيابه لا يكسر المنصة - لا تصل تذكيرات العودة فقط. التفاصيل: `docs/notifications.md`.
 بعد النشر: `php artisan migrate` ثم `php artisan permissions:sync` ثم `php artisan db:seed --class="Database\Seeders\RolesAndPermissionsSeeder"`
 (ليحصل `administrator` على `notifications.settings.manage`؛ المدير الأعلى يتجاوز الصلاحيات تلقائيًا).
+
+## بدء المواسم (E15+)
+- `php artisan migrate` يضيف `seasons.went_live_at` ويعبّئه رجعيًا **بلا إشعارات** للمواسم التي بدأت قبل الترحيل، ويضيف `notification_preferences.season_enabled`.
+- المجدوِل (Cron الواحد `schedule:run`) يشغّل `seasons:sync-live-state` كل 5 دقائق لالتقاط بدء المواسم بمرور الوقت.
+- توزيع إشعارات «بدأ الموسم» يمرّ بالصف: مع `QUEUE_CONNECTION=database` شغّل عاملًا (`php artisan queue:work`)؛ بدونه تبقى الـJobs بالانتظار ولا تضيع. اللعب وتسجيل بدء الموسم لا يعتمدان على الصف.
+

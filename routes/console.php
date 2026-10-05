@@ -37,3 +37,6 @@ Schedule::command('notifications:dispatch-reengagement')->hourly()->name('notifi
 
 // E15: تنظيف المقروء القديم يوميًا - صحة النظام لا تعتمد عليه.
 Schedule::command('notifications:prune')->daily()->name('notifications-prune')->withoutOverlapping();
+
+// التقاط بدء المواسم الناتج عن مرور الوقت. غيابه لا يكسر شيئًا: البدء بالحفظ الإداري يُلتقَط فورًا بخطافات النماذج.
+Schedule::command('seasons:sync-live-state')->everyFiveMinutes()->name('seasons-sync-live-state')->withoutOverlapping();

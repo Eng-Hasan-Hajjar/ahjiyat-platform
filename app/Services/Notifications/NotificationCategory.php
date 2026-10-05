@@ -12,6 +12,7 @@ enum NotificationCategory: string
     case Streak = 'streak';
     case Quest = 'quest';
     case Security = 'security';
+    case Season = 'season';
 
     public function label(): string
     {
@@ -20,6 +21,7 @@ enum NotificationCategory: string
             self::Streak => 'السلسلة اليومية',
             self::Quest => 'المهام اليومية',
             self::Security => 'الأمان',
+            self::Season => 'المواسم',
         };
     }
 
@@ -30,6 +32,7 @@ enum NotificationCategory: string
             self::Streak => 'تذكير واحد في اليوم عند اقتراب انقطاع سلسلتك.',
             self::Quest => 'تذكير واحد في اليوم بجاهزية مهام اليوم.',
             self::Security => 'تنبيهات أمان حسابك - إلزامية ولا يمكن تعطيلها.',
+            self::Season => 'إشعار واحد عند بدء موسم جديد.',
         };
     }
 
@@ -47,6 +50,7 @@ enum NotificationCategory: string
             self::Streak => 'streak_enabled',
             self::Quest => 'quest_enabled',
             self::Security => null,
+            self::Season => 'season_enabled',
         };
     }
 
