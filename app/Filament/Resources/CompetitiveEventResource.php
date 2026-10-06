@@ -8,6 +8,7 @@ use App\Models\Puzzle;
 use App\Services\Competitive\CompetitiveEligibility;
 use App\Services\Competitive\CompetitiveEventAdminService;
 use App\Services\Competitive\CompetitiveException;
+use App\Services\Competitive\Rewards\CompetitiveRewardDistributionService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -45,7 +46,7 @@ class CompetitiveEventResource extends Resource
         return $form->schema([
             Forms\Components\TextInput::make('title')->label('العنوان')->required()->maxLength(120)->live(onBlur: true)
                 ->afterStateUpdated(fn ($state, Forms\Set $set, string $operation) => $operation === 'create' ? $set('slug', Str::slug((string) $state)) : null),
-            Forms\Components\TextInput::make('slug')->label('المعرّف في الرابط')->required()->alphaDash()->maxLength(80)->unique(ignoreRecord: true)
+            Forms\Components\TextInput::make('slug')->label('المعرّف في الرابط')->required()->alphaDash()->maxLength(80)->unique(ignoreRecord: true)->notIn(CompetitiveEvent::RESERVED_SLUGS)
                 ->disabled(fn (?CompetitiveEvent $record) => static::lockedAfterPublish($record))->dehydrated(fn (?CompetitiveEvent $record) => ! static::lockedAfterPublish($record)),
             Forms\Components\Textarea::make('description')->label('الوصف')->maxLength(2000)->columnSpanFull(),
             Forms\Components\Select::make('puzzle_id')->label('الأحجية (بلا تلميح، إجابة منفردة)')->required()->searchable()
@@ -84,12 +85,34 @@ class CompetitiveEventResource extends Resource
                     ->formatStateUsing(fn ($state, CompetitiveEvent $record) => $state.($record->max_participants !== null ? ' / '.$record->max_participants : '')),
                 Tables\Columns\TextColumn::make('results_count')->label('أرسلوا نتائجهم'),
                 Tables\Columns\IconColumn::make('is_featured')->label('مميزة')->boolean(),
+                Tables\Columns\TextColumn::make('rewards_status')->label('الجوائز')
+                    ->visible(fn () => auth()->user()?->can('competitive_events.rewards.view') ?? false)
+                    ->state(function (CompetitiveEvent $record) {
+                        if (! $record->rewardRules()->exists()) {
+                            return '—';
+                        }
+
+                        $c = app(CompetitiveRewardDistributionService::class)->counts($record);
+
+                        return "مؤهَّلون {$c['eligible']} · ممنوحة {$c['granted']} · معلّقة {$c['pending']} · فاشلة {$c['failed']}";
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
                 static::lifecycleAction('publish', 'نشر', 'success', fn (CompetitiveEvent $r) => $r->status === CompetitiveEvent::STATUS_DRAFT, 'publish', 'تم نشر المنافسة.'),
                 static::lifecycleAction('cancel', 'إلغاء', 'danger', fn (CompetitiveEvent $r) => in_array($r->status, [CompetitiveEvent::STATUS_DRAFT, CompetitiveEvent::STATUS_PUBLISHED], true), 'cancel', 'أُلغيت المنافسة (لا قبول لنتائج جديدة، والتاريخ محفوظ).'),
                 static::lifecycleAction('finalize', 'اعتماد النتائج', 'warning', fn (CompetitiveEvent $r) => $r->phase() === CompetitiveEvent::PHASE_ENDED, 'finalize', 'اعتُمدت النتائج النهائية.'),
+                Tables\Actions\Action::make('retry_rewards')->label('إعادة محاولة الجوائز الفاشلة')->color('warning')->icon('heroicon-o-arrow-path')->requiresConfirmation()
+                    ->visible(fn (CompetitiveEvent $r) => $r->status === CompetitiveEvent::STATUS_COMPLETED && (auth()->user()?->can('retryRewards', $r) ?? false)
+                        && $r->rewardGrants()->where('status', 'failed')->exists())
+                    ->action(function (CompetitiveEvent $record) {
+                        try {
+                            $s = app(CompetitiveRewardDistributionService::class)->retryFailed($record, auth()->user());
+                            Notification::make()->success()->title("أُعيدت المحاولة: {$s['granted']} ممنوحة، {$s['failed']} ما زالت فاشلة.")->send();
+                        } catch (CompetitiveException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+                        }
+                    }),
                 Tables\Actions\Action::make('results')->label('النتائج')->icon('heroicon-o-trophy')
                     ->visible(fn (CompetitiveEvent $r) => $r->status !== CompetitiveEvent::STATUS_DRAFT)
                     ->url(fn (CompetitiveEvent $r) => route('competitions.show', $r), shouldOpenInNewTab: true),
@@ -111,6 +134,11 @@ class CompetitiveEventResource extends Resource
                     Notification::make()->danger()->title($e->getMessage())->send();
                 }
             });
+    }
+
+    public static function getRelations(): array
+    {
+        return [CompetitiveEventResource\RelationManagers\RewardRulesRelationManager::class];
     }
 
     public static function getPages(): array
