@@ -52,6 +52,9 @@
                         @endforeach
                     </ol>
                 @endif
+                @if ($tw = $teamWinners->get($event->id))
+                    <p class="mt-3 text-sm text-slate-300">🏆 الفريق الفائز: <a href="{{ route('teams.show', $tw->team) }}" class="font-bold text-white hover:text-amethyst focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst rounded">{{ $tw->team->name }}</a> <span class="text-xs text-slate-500">({{ $tw->score }} نقطة)</span></p>
+                @endif
             </article>
         @empty
             <p class="glass rounded-2xl px-4 py-12 text-center text-slate-500 text-sm">لا منافسات معتمَدة مطابقة بعد.</p>

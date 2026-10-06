@@ -14,7 +14,7 @@
 - فهرس للصندوق `(notifiable_type, notifiable_id, read_at, created_at)` لعدّ غير المقروء والترتيب.
 - التفضيلات: جدول `notification_preferences` (صف لكل مستخدم، أعمدة صريحة). غياب الصف = الافتراضيات (الكل مفعَّل).
 
-## 3. الأنواع المنفَّذة (20) ومصدر كل منها
+## 3. الأنواع المنفَّذة (25) ومصدر كل منها
 
 | النوع | الفئة | المصدر الحقيقي (Event source → type) | تذكير عودة؟ |
 |---|---|---|---|
@@ -38,6 +38,11 @@
 | `competitive_event_ending_soon` | competitive | `CompetitiveLifecycleService` (ساعي): لمن لم يرسل نتيجته | **نعم** (ميزانية يومية بأولوية 70) |
 | `competitive_event_result_ready` | competitive | حدث `CompetitiveEventFinalized` ← وظيفة بدفعات | لا |
 | `competitive_reward_granted` | competitive | حدث `CompetitiveRewardGranted` بعد **منح فعلي** ناجح بخدمة التوزيع (E18)؛ لا إشعار لجائزة فاشلة | لا |
+| `team_invitation_received` | social | `TeamInvitationCreated` (لدعوة معلّقة) → المدعو؛ مفتاح `team-invite:{id}` | لا |
+| `team_invitation_accepted` | social | `TeamInvitationAccepted` → الداعي؛ `team-invite-accepted:{id}` | لا |
+| `team_join_request_received` | social | `TeamJoinRequestCreated` → مالك الفريق ومشرفوه (دون محظور مع الطالب)؛ `team-join-request:{id}` | لا |
+| `team_join_request_accepted` | social | `TeamJoinRequestAccepted` → الطالب؛ `team-join-accepted:{id}` | لا |
+| `team_member_removed` | social | `TeamMemberRemoved` → المُزال (معلوماتي محايد)؛ `team-member-removed:{team}:{user}:{membership}` | لا |
 
 ### مؤجَّل صراحةً (لا مصدر حقيقة يدعمه الآن - لا نخترع أحداثًا)
 - **`system_announcement`:** شريط الإعلان الداخلي (`announcement`) موجود ويؤدي الغرض - لا نكرره.
@@ -215,4 +220,7 @@
 
 ## 20. إشعار الجوائز التنافسية (E18)
 `competitive_reward_granted` تحت فئة `competitive` (تفضيل `competitive_enabled`). مفتاحه الدلالي `competitive-reward-granted:{grant}`. لا يُرسل إلا بعد منح فعلي ناجح؛ فشل المنح لا يُنتج إشعار نجاح، ونجاح إعادة المحاولة يُنتج إشعارًا واحدًا. المنح نفسه لا يتأثر بإيقاف الإشعارات. التفاصيل: `docs/competitive-rewards.md`.
+
+## 21. إشعارات الفرق (E19)
+خمسة أنواع تحت فئة `social` وتفضيل `social_enabled` الموجودين (لا فئة ولا تفضيل جديد). تُرسَل بعد commit عبر أحداث مجال من خدمات الفرق، بمفاتيح دلالية، ولا تُرسَل لمن يخص السجل حالة خاطئة (مثلًا إعادة بث "قُبلت" لدعوة معلّقة لا تُنتج إشعارًا). **لا إشعار** للرفض أو الإلغاء أو الانتهاء أو المغادرة. إشعار الإزالة معلوماتي محايد بلا اسم من أزاله. الروابط: `teams.invitations`، `teams.manage`/`teams.show`، `teams.index`. فشل الإشعار لا يتراجع بأي إجراء. التفاصيل: `docs/teams.md`.
 

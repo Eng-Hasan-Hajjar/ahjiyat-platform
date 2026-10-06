@@ -34,9 +34,12 @@ class CompetitionHallOfFameController extends Controller
 
         $cards->attach($podium->flatten()->pluck('user')->filter()->unique('id'), $request->user());
 
+        // E19: الفريق الفائز (المركز الأول بترتيب الفرق المخزَّن النهائي) لكل حدث بالصفحة: استعلام واحد.
+        $teamWinners = \App\Models\CompetitiveEventTeamResult::query()->whereIn('competitive_event_id', $events->pluck('id'))->where('rank', 1)->with('team:id,name,slug')->get()->keyBy('competitive_event_id');
+
         $range = $finalized()->selectRaw('min(ends_at) as first_end, max(ends_at) as last_end')->first();
         $years = $range?->first_end === null ? [] : range((int) date('Y', strtotime($range->last_end)), (int) date('Y', strtotime($range->first_end)));
 
-        return view('competitions.hall-of-fame', ['events' => $events, 'podium' => $podium, 'years' => $years, 'year' => $year, 'term' => $term]);
+        return view('competitions.hall-of-fame', ['events' => $events, 'podium' => $podium, 'teamWinners' => $teamWinners, 'years' => $years, 'year' => $year, 'term' => $term]);
     }
 }

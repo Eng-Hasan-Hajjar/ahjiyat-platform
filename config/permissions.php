@@ -236,6 +236,15 @@ return [
         ],
     ],
 
+    'teams' => [
+        'label' => 'الفرق',
+        'permissions' => [
+            'teams.view' => 'عرض الفرق وأعضائها (إدارة)',
+            'teams.manage' => 'تدخل إداري: نقل ملكية فريق وإزالة عضو عبر الخدمة',
+            'teams.deactivate' => 'تعطيل الفرق وإعادة تفعيلها',
+        ],
+    ],
+
     'competitive_events' => [
         'label' => 'المنافسات (E17)',
         'permissions' => [

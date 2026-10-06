@@ -273,6 +273,29 @@
                     <div style="color:#94a3b8;">لا منافسات بالفترة.</div>
                 @endforelse
             </x-filament::section>
+
+            {{-- الفرق (E19): أرقام مجمَّعة --}}
+            <x-filament::section>
+                <x-slot name="heading">الفرق</x-slot>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:1rem; margin-bottom:1rem;">
+                    @foreach ([
+                        'إجمالي الفرق' => $k['teams']['total'],
+                        'فرق مفعَّلة' => $k['teams']['active'],
+                        'أعضاء بالفرق' => $k['teams']['members_in_teams'],
+                        'متوسط حجم الفريق' => $k['teams']['avg_size'],
+                        'دعوات معلّقة' => $k['teams']['pending_invitations'],
+                        'طلبات انضمام' => $k['teams']['pending_requests'],
+                        'فرق شاركت تنافسيًا' => $k['teams']['competing_teams'],
+                    ] as $label => $value)
+                        <div><div style="font-size:1.2rem; font-weight:900;">{{ $value }}</div><div style="color:#94a3b8; font-size:.75rem;">{{ $label }}</div></div>
+                    @endforeach
+                </div>
+                @forelse ($k['teams']['top_teams'] as $row)
+                    <div style="display:flex; justify-content:space-between; padding:.3rem 0; border-bottom:1px solid rgba(148,163,184,.1); font-size:.85rem;"><span>{{ $row['name'] }}</span><span>{{ $row['wins'] }} انتصار · {{ $row['events'] }} منافسة</span></div>
+                @empty
+                    <div style="color:#94a3b8;">لا ترتيبات فرق معتمَدة بعد.</div>
+                @endforelse
+            </x-filament::section>
         @endif
 
         {{-- الأمان --}}

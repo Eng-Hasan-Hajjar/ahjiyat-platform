@@ -38,6 +38,8 @@ class PlayerProfileController extends Controller
             'friendsCount' => $this->friendships->friendsCount($user),
             // E18: ملخص تنافسي مشتق (أرقام مجمَّعة من نتائج معتمَدة فقط).
             'competitive' => $this->competitive->eventStats($user),
+            // E19: شارة الفريق (فريق عام مفعَّل فقط؛ الخاص/المعطَّل لا يُكشف).
+            'team' => app(\App\Services\Teams\TeamMembershipService::class)->publicTeamFor($user),
         ]);
     }
 }

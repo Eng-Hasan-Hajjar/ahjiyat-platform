@@ -52,6 +52,8 @@ class CompetitiveEventService
                 return CompetitiveEventParticipant::create([
                     'competitive_event_id' => $locked->getKey(),
                     'user_id' => $user->getKey(),
+                    // E19: لقطة فريق اللاعب (المفعَّل) لحظة التسجيل. ترتيب الفرق يقرأ هذه اللقطة لا العضوية الحالية؛ بلا فريق = NULL.
+                    'team_id_snapshot' => app(\App\Services\Teams\TeamMembershipService::class)->teamIdFor($user),
                     'status' => CompetitiveEventParticipant::STATUS_REGISTERED,
                     'registered_at' => now(),
                 ]);

@@ -39,6 +39,9 @@ Schedule::command('notifications:dispatch-lifecycle-reminders')->hourly()->name(
 // E15: تذكيرات العودة (تحذير السلسلة + مهام اليوم) - ساعيًا. غيابه لا يكسر شيئًا: لا تصل التذكيرات فقط.
 Schedule::command('competitive:process-lifecycle')->hourly()->name('competitive-process-lifecycle')->withoutOverlapping();
 
+// E19: دعوات الفرق، عدّادات الأعضاء، وترتيب الفرق المتأخر (بعد اعتماد المنافسات).
+Schedule::command('teams:process-lifecycle')->hourly()->name('teams-process-lifecycle')->withoutOverlapping();
+
 Schedule::command('notifications:dispatch-reengagement')->hourly()->name('notifications-reengagement')->withoutOverlapping();
 
 // E15: تنظيف المقروء القديم يوميًا - صحة النظام لا تعتمد عليه.

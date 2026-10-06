@@ -35,7 +35,15 @@ class CompetitionController extends Controller
         $viewer = $request->user();
         $scope = $this->board->scopeFor($viewer, $request->query('scope'));
 
+        // E19: تبويب الفرق يظهر فقط حين توجد بيانات فرق (مشارك بلقطة). نهائي بعد الاعتماد، ومؤقت قبله. لا يمسّ ترتيب الأفراد.
+        $teams = app(\App\Services\Teams\TeamCompetitiveRankingService::class);
+        $hasTeams = $teams->hasTeamData($event);
+        $tab = $hasTeams && $request->query('tab') === 'teams' ? 'teams' : 'players';
+
         return view('competitions.show', [
+            'hasTeams' => $hasTeams,
+            'tab' => $tab,
+            'teamStandings' => $tab === 'teams' ? $teams->standings($event) : null,
             'event' => $event->load(['puzzle:id,title,difficulty,time_limit_seconds', 'rewardRules' => fn ($q) => $q->where('is_active', true), 'rewardRules.currency:id,name', 'rewardRules.storeItem:id,name']),
             'myGrant' => $viewer === null ? null : \App\Models\CompetitiveRewardGrant::query()->where('competitive_event_id', $event->id)->where('user_id', $viewer->id)->where('status', 'granted')->first(['reward_label', 'final_rank']),
             'state' => $this->events->joinState($viewer, $event),

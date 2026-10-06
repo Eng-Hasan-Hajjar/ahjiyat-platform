@@ -98,6 +98,17 @@
             </div>
         </div>
 
-        @include('competitions._leaderboard', ['board' => $board, 'event' => $event, 'scope' => $scope])
+        @if ($hasTeams)
+            <nav class="flex gap-2 mb-3" aria-label="عرض الترتيب">
+                <a href="{{ route('competitions.show', $event) }}" class="chip {{ $tab === 'players' ? '!border-amethyst !text-white' : '' }}" @if ($tab === 'players') aria-current="page" @endif>اللاعبون</a>
+                <a href="{{ route('competitions.show', [$event, 'tab' => 'teams']) }}" class="chip {{ $tab === 'teams' ? '!border-amethyst !text-white' : '' }}" @if ($tab === 'teams') aria-current="page" @endif>الفرق</a>
+            </nav>
+        @endif
+
+        @if ($tab === 'teams')
+            @include('competitions._teams-standings', ['standings' => $teamStandings])
+        @else
+            @include('competitions._leaderboard', ['board' => $board, 'event' => $event, 'scope' => $scope])
+        @endif
     </div>
 @endsection

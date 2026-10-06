@@ -1,0 +1,11 @@
+<?php
+
+namespace App\Filament\Resources\TeamResource\Pages;
+
+use App\Filament\Resources\TeamResource;
+use Filament\Resources\Pages\ViewRecord;
+
+class ViewTeam extends ViewRecord
+{
+    protected static string $resource = TeamResource::class;
+}

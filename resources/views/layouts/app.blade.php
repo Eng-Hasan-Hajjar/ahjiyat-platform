@@ -133,6 +133,7 @@
                     <a href="{{ route('challenges.index') }}" class="hover:text-white transition">التحديات</a>
                 @endif
                 <a href="{{ route('competitions.index') }}" class="hover:text-white transition">المنافسات</a>
+                <a href="{{ route('teams.index') }}" class="hover:text-white transition">الفرق</a>
                 @if ($navigation['show_leaderboard_link'])
                     <a href="{{ route('leaderboard.index') }}" class="hover:text-white transition">لوحة الصدارة</a>
                 @endif
@@ -219,6 +220,8 @@
                 @endif
                 <a href="{{ route('competitions.index') }}" @click="mobileOpen = false"
                     class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">المنافسات</a>
+                <a href="{{ route('teams.index') }}" @click="mobileOpen = false"
+                    class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">الفرق</a>
                 @if ($navigation['show_leaderboard_link'])
                     <a href="{{ route('leaderboard.index') }}" @click="mobileOpen = false"
                         class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">لوحة الصدارة</a>

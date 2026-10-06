@@ -19,6 +19,7 @@ namespace App\Services\Notifications;
  *  - LifecycleReminderService (مجدول ساعيًا، قراءة فقط) → season_ending_soon / campaign_ending_soon
  *  - FriendChallenge{Created,Accepted,Completed} (أحداث مجال بعد commit، FriendChallengeService) → friend_challenge_received/accepted/result_ready
  *  - CompetitiveRewardGranted (بعد منح فعلي ناجح بخدمة التوزيع) → competitive_reward_granted
+ *  - TeamInvitationCreated/Accepted, TeamJoinRequestCreated/Accepted, TeamMemberRemoved (أحداث مجال بعد commit بخدمات الفرق، E19) → team_* (فئة social؛ بلا إشعار للرفض)
  *  - CompetitiveLifecycleService (مجدول ساعيًا) → competitive_event_started/ending_soon؛ CompetitiveEventFinalized → competitive_event_result_ready
  *  - FriendRequestCreated / FriendshipAccepted (أحداث مجال بعد commit، FriendshipService) → friend_request_received / friend_request_accepted
  */
@@ -44,6 +45,11 @@ enum NotificationType: string
     case CompetitiveEventEndingSoon = 'competitive_event_ending_soon';
     case CompetitiveEventResultReady = 'competitive_event_result_ready';
     case CompetitiveRewardGranted = 'competitive_reward_granted';
+    case TeamInvitationReceived = 'team_invitation_received';
+    case TeamInvitationAccepted = 'team_invitation_accepted';
+    case TeamJoinRequestReceived = 'team_join_request_received';
+    case TeamJoinRequestAccepted = 'team_join_request_accepted';
+    case TeamMemberRemoved = 'team_member_removed';
 
     public function category(): NotificationCategory
     {
@@ -58,7 +64,8 @@ enum NotificationType: string
             self::CampaignCompleted => NotificationCategory::Campaign,
             self::SeasonCompleted, self::SeasonEndingSoon => NotificationCategory::Season,
             self::CampaignEndingSoon => NotificationCategory::Campaign,
-            self::FriendRequestReceived, self::FriendRequestAccepted, self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => NotificationCategory::Social,
+            self::FriendRequestReceived, self::FriendRequestAccepted, self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady,
+            self::TeamInvitationReceived, self::TeamInvitationAccepted, self::TeamJoinRequestReceived, self::TeamJoinRequestAccepted, self::TeamMemberRemoved => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted => NotificationCategory::Competitive,
         };
     }
@@ -91,6 +98,11 @@ enum NotificationType: string
             self::CompetitiveEventEndingSoon => 70, // مع تذكيري النهاية الآخرين: بين تحذير السلسلة وتذكير المهام
             self::CompetitiveEventResultReady => 20,
             self::CompetitiveRewardGranted => 19,
+            self::TeamInvitationReceived => 28,
+            self::TeamJoinRequestReceived => 29,
+            self::TeamInvitationAccepted => 13,
+            self::TeamJoinRequestAccepted => 12,
+            self::TeamMemberRemoved => 11,
             self::AchievementUnlocked => 10,
         };
     }
@@ -113,6 +125,7 @@ enum NotificationType: string
             self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => '⚔️',
             self::CompetitiveEventStarted, self::CompetitiveEventResultReady => '🏆',
             self::CompetitiveRewardGranted => '🎁',
+            self::TeamInvitationReceived, self::TeamInvitationAccepted, self::TeamJoinRequestReceived, self::TeamJoinRequestAccepted, self::TeamMemberRemoved => '👥',
             self::CompetitiveEventEndingSoon => '⏳',
         };
     }
@@ -134,6 +147,10 @@ enum NotificationType: string
             self::FriendRequestReceived, self::FriendRequestAccepted => ['friends.index'],
             self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => ['friends.challenges.show'],
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted => ['competitions.show'],
+            self::TeamInvitationReceived => ['teams.invitations'],
+            self::TeamInvitationAccepted, self::TeamJoinRequestReceived => ['teams.manage', 'teams.show'],
+            self::TeamJoinRequestAccepted => ['teams.show'],
+            self::TeamMemberRemoved => ['teams.index'],
         };
     }
 
@@ -165,6 +182,11 @@ enum NotificationType: string
             self::CompetitiveEventEndingSoon => 'تنتهي المنافسة قريبًا: '.($params['title'] ?? ''),
             self::CompetitiveEventResultReady => 'نتائج المنافسة جاهزة: '.($params['title'] ?? ''),
             self::CompetitiveRewardGranted => 'حصلت على جائزة '.($params['placement'] ?? '').' في '.($params['title'] ?? ''),
+            self::TeamInvitationReceived => 'دعاك '.($params['name'] ?? '').' للانضمام إلى فريق «'.($params['team'] ?? '').'»',
+            self::TeamInvitationAccepted => 'انضم '.($params['name'] ?? '').' إلى فريق «'.($params['team'] ?? '').'»',
+            self::TeamJoinRequestReceived => 'طلب '.($params['name'] ?? '').' الانضمام إلى فريق «'.($params['team'] ?? '').'»',
+            self::TeamJoinRequestAccepted => 'قُبل طلب انضمامك إلى فريق «'.($params['team'] ?? '').'»',
+            self::TeamMemberRemoved => 'لم تعد عضوًا في فريق «'.($params['team'] ?? '').'»',
         };
     }
 
@@ -191,6 +213,11 @@ enum NotificationType: string
             self::CompetitiveEventEndingSoon => 'لم تُرسل نتيجتك بعد. تنتهي المنافسة خلال '.($params['hours'] ?? '').' ساعة أو أقل.',
             self::CompetitiveEventResultReady => 'ترتيبك النهائي: '.($params['rank'] ?? '').'.',
             self::CompetitiveRewardGranted => 'مُنحت لك: '.($params['reward'] ?? '').'.',
+            self::TeamInvitationReceived => 'يمكنك قبول الدعوة أو تجاهلها من صفحة دعواتك.',
+            self::TeamInvitationAccepted => 'قَبِل دعوتك وأصبح عضوًا بالفريق.',
+            self::TeamJoinRequestReceived => 'راجع الطلب من صفحة إدارة الفريق.',
+            self::TeamJoinRequestAccepted => 'أهلًا بك في الفريق.',
+            self::TeamMemberRemoved => 'يمكنك الانضمام إلى فريق آخر أو إنشاء فريقك من صفحة الفرق.',
         };
     }
 

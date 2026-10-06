@@ -162,7 +162,8 @@ class AnalyticsCenter extends Page
             return null;
         }
 
-        return app(CompetitiveAnalyticsService::class)->overview($this->getPeriod());
+        // E19: أرقام الفرق تُلحَق بنتائج المنافسات (نفس الصلاحية؛ مجمَّعة بلا هويات).
+        return app(CompetitiveAnalyticsService::class)->overview($this->getPeriod()) + ['teams' => app(\App\Services\Analytics\TeamAnalyticsService::class)->overview()];
     }
 
     public function economyAnalytics(): ?array

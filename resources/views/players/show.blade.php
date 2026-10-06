@@ -63,6 +63,9 @@
                 <h2 id="competitive-title" class="font-display font-black text-lg text-white">المنافسات</h2>
                 <a href="{{ route('players.competitive', $player) }}" class="chip text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" aria-label="خزانة الجوائز وسجل منافسات {{ $player->name }}">خزانة الجوائز والسجل ←</a>
             </div>
+            @if ($team)
+                <p class="mt-3 text-sm text-slate-300">الفريق: <a href="{{ route('teams.show', $team) }}" class="font-bold text-white hover:text-amethyst focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst rounded">👥 {{ $team->name }}</a></p>
+            @endif
             <dl class="grid grid-cols-3 gap-3 mt-3 text-center">
                 <div><dd class="font-display font-black text-xl text-gold">{{ $competitive['events_won'] }}</dd><dt class="text-xs text-slate-400">فوز</dt></div>
                 <div><dd class="font-display font-black text-xl text-white">{{ $competitive['top3'] }}</dd><dt class="text-xs text-slate-400">ضمن الثلاثة الأوائل</dt></div>

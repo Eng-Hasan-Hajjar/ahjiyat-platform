@@ -12,7 +12,7 @@ class CompetitiveEventParticipant extends Model
 
     public const STATUS_COMPLETED = 'completed';
 
-    protected $fillable = ['competitive_event_id', 'user_id', 'status', 'registered_at', 'completed_at'];
+    protected $fillable = ['competitive_event_id', 'user_id', 'team_id_snapshot', 'status', 'registered_at', 'completed_at'];
 
     protected function casts(): array
     {

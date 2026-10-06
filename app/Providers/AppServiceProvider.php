@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Services\AuthorizationSafetyService;
+use App\Services\Teams\TeamService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -18,6 +20,16 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // E19-E20: قبل حذف أي حساب يُعالَج ما يملكه من فرق (نقل الملكية لأقدم مشرف/عضو، وإلا أرشفة): لا فريق يتيم بلا مالك.
+        // فشل المعالجة لا يمنع الحذف (owner_id يصير NULL بقيد القاعدة والفريق يبقى قابلًا لتدخل الإدارة).
+        User::deleting(function (User $user) {
+            try {
+                app(TeamService::class)->releaseOwnershipFor($user);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        });
+
         // Super Admin يتجاوز كل فحص can()/authorize() في التطبيق بالكامل -
         // Server-side حصراً. مصدر الفحص الوحيد AuthorizationSafetyService.
         Gate::before(function ($user, string $ability) {
@@ -101,6 +113,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('competitive-register', function (Request $request) {
             return Limit::perMinute(20)->by($request->user()?->id ?: $request->ip());
         });
+
+        // E19: الفرق. إنشاء نادر؛ الدعوات/الطلبات تحت حد يمنع الإزعاج؛ إجراءات الإدارة والقبول معتدلة.
+        RateLimiter::for('team-create', fn (Request $request) => [Limit::perMinute(2)->by('tc:'.($request->user()?->id ?: $request->ip())), Limit::perHour(5)->by('tch:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('team-invite', fn (Request $request) => [Limit::perMinute(10)->by('ti:'.($request->user()?->id ?: $request->ip())), Limit::perHour(40)->by('tih:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('team-join', fn (Request $request) => [Limit::perMinute(8)->by('tj:'.($request->user()?->id ?: $request->ip())), Limit::perHour(30)->by('tjh:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('team-actions', fn (Request $request) => Limit::perMinute(40)->by('ta:'.($request->user()?->id ?: $request->ip())));
 
         RateLimiter::for('competitive-play', function (Request $request) {
             return Limit::perMinute(20)->by($request->user()?->id ?: $request->ip());
