@@ -160,3 +160,11 @@ server {
 - تحديد المعدّل بـ`AppServiceProvider` (`friend-requests`، `friend-actions`، `player-search`) والـcooldown بالكاش: تأكد أن مخزن الكاش مشترك بين العمال (database/redis) في الإنتاج.
 - الإعدادات: `config/friends.php` (cooldown، حد البحث، أحجام الصفحات).
 
+## المنافسات وتحدّيات الأصدقاء (E17)
+- `php artisan migrate` ينشئ `friend_challenges` و`friend_challenge_results` و`competitive_events` و`competitive_event_participants` و`competitive_event_results` ويضيف `notification_preferences.competitive_enabled` (مفعَّل افتراضيًا). **لا تعبئة رجعية ولا أمر يدوي.**
+- `php artisan permissions:sync` ثم `php artisan db:seed --class="Database\Seeders\RolesAndPermissionsSeeder"` (التسلسل المعتاد أعلاه) لإنشاء مجموعة `competitive_events.*` (view, create, update, delete, publish, cancel, finalize) ومنحها لدور `administrator`؛ بدون إعادة تشغيل الـSeeder لا يرى المدير مورد المنافسات.
+- **مجدول جديد:** `competitive:process-lifecycle` ساعيًا (مسجَّل بـ`routes/console.php`). بدون المجدول: لا إشعارات بدء/قرب نهاية، ولا اعتماد تلقائي للنتائج (يبقى زر "اعتماد النتائج" بلوحة الإدارة)، ولا تجسيد لانتهاء التحديات (يبقى مشتقًا من الوقت).
+- `npm run build` مطلوب لتنسيق الصفحات الجديدة. الإعدادات في `config/competitive.php`.
+- محدّدات المعدّل (`AppServiceProvider`): `friend-challenges`، `competitive-register`، `competitive-play`؛ الكاش مشترك بين العمال في الإنتاج.
+- أحجية الحدث: بلا تلميح، إجابة منفردة (نصي/ذاكرة/تسلسل)؛ يُنصح بأحجية مخصّصة (يمكن إبقاؤها غير مفعَّلة في الفهرس العام).
+

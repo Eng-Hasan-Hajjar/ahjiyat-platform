@@ -1,0 +1,11 @@
+<?php
+
+namespace App\Filament\Resources\CompetitiveEventResource\Pages;
+
+use App\Filament\Resources\CompetitiveEventResource;
+use Filament\Resources\Pages\CreateRecord;
+
+class CreateCompetitiveEvent extends CreateRecord
+{
+    protected static string $resource = CompetitiveEventResource::class;
+}

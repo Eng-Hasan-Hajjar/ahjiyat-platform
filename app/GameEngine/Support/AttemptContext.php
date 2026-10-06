@@ -14,6 +14,11 @@ final class AttemptContext
 {
     public const TYPE_CAMPAIGN_STEP = 'campaign_step';
 
+    /** E17: سياقات تنافسية. جلساتها لا تمرّ بمسار المحاولات/المكافآت القياسي أبدًا (CompetitiveRunService فقط). */
+    public const TYPE_FRIEND_CHALLENGE = 'friend_challenge';
+
+    public const TYPE_COMPETITIVE_EVENT = 'competitive_event';
+
     private function __construct(
         public readonly ?string $type,
         public readonly ?int $id,
@@ -32,6 +37,27 @@ final class AttemptContext
     public static function campaignStep(int $stepId): self
     {
         return self::for(self::TYPE_CAMPAIGN_STEP, $stepId);
+    }
+
+    public static function friendChallenge(int $challengeId): self
+    {
+        return self::for(self::TYPE_FRIEND_CHALLENGE, $challengeId);
+    }
+
+    public static function competitiveEvent(int $eventId): self
+    {
+        return self::for(self::TYPE_COMPETITIVE_EVENT, $eventId);
+    }
+
+    /** @return list<string> */
+    public static function competitiveTypes(): array
+    {
+        return [self::TYPE_FRIEND_CHALLENGE, self::TYPE_COMPETITIVE_EVENT];
+    }
+
+    public function isCompetitive(): bool
+    {
+        return in_array($this->type, self::competitiveTypes(), true);
     }
 
     public function isPresent(): bool

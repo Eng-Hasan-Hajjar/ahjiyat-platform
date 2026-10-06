@@ -17,6 +17,8 @@ namespace App\Services\Notifications;
  *  - CampaignCompletedForUser (حدث مجال لكل مستخدم، CampaignCompletionService بعد إكمال خطوة حقيقية) → campaign_completed،
  *    أو season_completed إن كانت الحملة مرتبطة بموسم منشور (القرار داخل المستمع: إشعار واحد فقط للإكمال نفسه)
  *  - LifecycleReminderService (مجدول ساعيًا، قراءة فقط) → season_ending_soon / campaign_ending_soon
+ *  - FriendChallenge{Created,Accepted,Completed} (أحداث مجال بعد commit، FriendChallengeService) → friend_challenge_received/accepted/result_ready
+ *  - CompetitiveLifecycleService (مجدول ساعيًا) → competitive_event_started/ending_soon؛ CompetitiveEventFinalized → competitive_event_result_ready
  *  - FriendRequestCreated / FriendshipAccepted (أحداث مجال بعد commit، FriendshipService) → friend_request_received / friend_request_accepted
  */
 enum NotificationType: string
@@ -34,6 +36,12 @@ enum NotificationType: string
     case CampaignEndingSoon = 'campaign_ending_soon';
     case FriendRequestReceived = 'friend_request_received';
     case FriendRequestAccepted = 'friend_request_accepted';
+    case FriendChallengeReceived = 'friend_challenge_received';
+    case FriendChallengeAccepted = 'friend_challenge_accepted';
+    case FriendChallengeResultReady = 'friend_challenge_result_ready';
+    case CompetitiveEventStarted = 'competitive_event_started';
+    case CompetitiveEventEndingSoon = 'competitive_event_ending_soon';
+    case CompetitiveEventResultReady = 'competitive_event_result_ready';
 
     public function category(): NotificationCategory
     {
@@ -48,14 +56,15 @@ enum NotificationType: string
             self::CampaignCompleted => NotificationCategory::Campaign,
             self::SeasonCompleted, self::SeasonEndingSoon => NotificationCategory::Season,
             self::CampaignEndingSoon => NotificationCategory::Campaign,
-            self::FriendRequestReceived, self::FriendRequestAccepted => NotificationCategory::Social,
+            self::FriendRequestReceived, self::FriendRequestAccepted, self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => NotificationCategory::Social,
+            self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady => NotificationCategory::Competitive,
         };
     }
 
     /** تذكير "عودة" (يخضع لميزانية اليوم) - مقابل المعاملاتي (إنجاز) والأمان (لا ميزانية). */
     public function isReEngagement(): bool
     {
-        return in_array($this, [self::StreakAtRisk, self::DailyQuestsAvailable, self::SeasonEndingSoon, self::CampaignEndingSoon], true);
+        return in_array($this, [self::StreakAtRisk, self::DailyQuestsAvailable, self::SeasonEndingSoon, self::CampaignEndingSoon, self::CompetitiveEventEndingSoon], true);
     }
 
     /** أعلى = أهم. اختيار الأولوية يتم بتقسيم الجمهور + الميزانية (راجع ReEngagementService). */
@@ -73,6 +82,12 @@ enum NotificationType: string
             self::SeasonEndingSoon, self::CampaignEndingSoon => 70, // بين تحذير السلسلة (100) وتذكير المهام (50)
             self::FriendRequestReceived => 25,
             self::FriendRequestAccepted => 24,
+            self::FriendChallengeReceived => 26,
+            self::FriendChallengeAccepted => 23,
+            self::FriendChallengeResultReady => 22,
+            self::CompetitiveEventStarted => 21,
+            self::CompetitiveEventEndingSoon => 70, // مع تذكيري النهاية الآخرين: بين تحذير السلسلة وتذكير المهام
+            self::CompetitiveEventResultReady => 20,
             self::AchievementUnlocked => 10,
         };
     }
@@ -92,6 +107,9 @@ enum NotificationType: string
             self::SeasonCompleted => '🏅',
             self::SeasonEndingSoon, self::CampaignEndingSoon => '⏳',
             self::FriendRequestReceived, self::FriendRequestAccepted => '🤝',
+            self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => '⚔️',
+            self::CompetitiveEventStarted, self::CompetitiveEventResultReady => '🏆',
+            self::CompetitiveEventEndingSoon => '⏳',
         };
     }
 
@@ -110,6 +128,8 @@ enum NotificationType: string
             self::SeasonCompleted, self::SeasonEndingSoon => ['seasons.show'],
             self::CampaignEndingSoon => ['campaigns.show'],
             self::FriendRequestReceived, self::FriendRequestAccepted => ['friends.index'],
+            self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => ['friends.challenges.show'],
+            self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady => ['competitions.show'],
         };
     }
 
@@ -134,6 +154,12 @@ enum NotificationType: string
             self::CampaignEndingSoon => 'تنتهي الحملة قريبًا: '.($params['name'] ?? ''),
             self::FriendRequestReceived => 'أرسل لك '.($params['name'] ?? '').' طلب صداقة',
             self::FriendRequestAccepted => 'قبل '.($params['name'] ?? '').' طلب صداقتك',
+            self::FriendChallengeReceived => 'تحدّاك '.($params['name'] ?? '').' في أحجية',
+            self::FriendChallengeAccepted => 'قبل '.($params['name'] ?? '').' تحدّيك',
+            self::FriendChallengeResultReady => 'نتيجة التحدي جاهزة',
+            self::CompetitiveEventStarted => 'بدأت المنافسة: '.($params['title'] ?? ''),
+            self::CompetitiveEventEndingSoon => 'تنتهي المنافسة قريبًا: '.($params['title'] ?? ''),
+            self::CompetitiveEventResultReady => 'نتائج المنافسة جاهزة: '.($params['title'] ?? ''),
         };
     }
 
@@ -153,6 +179,12 @@ enum NotificationType: string
             self::CampaignEndingSoon => 'تنتهي حملة «'.($params['name'] ?? '').'» خلال '.($params['hours'] ?? '').' ساعة أو أقل، وما زال بإمكانك إكمالها.',
             self::FriendRequestReceived => 'يمكنك قبول الطلب أو رفضه من صفحة الأصدقاء.',
             self::FriendRequestAccepted => 'أصبحتما صديقين.',
+            self::FriendChallengeReceived => 'أحجية «'.($params['puzzle'] ?? '').'». يمكنك قبول التحدي أو رفضه من صفحة التحديات.',
+            self::FriendChallengeAccepted => 'تحدّي أحجية «'.($params['puzzle'] ?? '').'» صار نشطًا، ويمكنك اللعب الآن.',
+            self::FriendChallengeResultReady => 'تحدّي «'.($params['puzzle'] ?? '').'» ضد '.($params['name'] ?? '').': '.($params['outcome'] ?? '').'.',
+            self::CompetitiveEventStarted => 'المنافسة التي سجّلت بها بدأت الآن، ويمكنك اللعب حتى انتهائها.',
+            self::CompetitiveEventEndingSoon => 'لم تُرسل نتيجتك بعد. تنتهي المنافسة خلال '.($params['hours'] ?? '').' ساعة أو أقل.',
+            self::CompetitiveEventResultReady => 'ترتيبك النهائي: '.($params['rank'] ?? '').'.',
         };
     }
 

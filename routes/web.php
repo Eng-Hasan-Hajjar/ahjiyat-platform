@@ -36,6 +36,10 @@ Route::get('/store', [StoreController::class, 'index'])->name('store.index');
 Route::get('/store/items/{item:slug}', [StoreController::class, 'show'])->name('store.items.show');
 
 Route::get('/challenges', [ChallengeController::class, 'index'])->name('challenges.index');
+
+// E17: المنافسات العامة (قراءة فقط) - قائمة وصفحة حدث مع الترتيب
+Route::get('/competitions', [\App\Http\Controllers\CompetitionController::class, 'index'])->name('competitions.index');
+Route::get('/competitions/{event:slug}', [\App\Http\Controllers\CompetitionController::class, 'show'])->name('competitions.show');
 Route::get('/challenges/{challenge}', [ChallengeController::class, 'show'])->name('challenges.show');
 
 Route::get('/terms', [PageController::class, 'terms'])->name('pages.terms');
@@ -153,6 +157,32 @@ Route::middleware('auth')->group(function () {
             Route::delete('/blocks/{user:public_id}', [\App\Http\Controllers\FriendBlockController::class, 'destroy'])->middleware('throttle:friend-actions')->name('blocks.destroy');
             Route::post('/blocks/{user:public_id}', [\App\Http\Controllers\FriendBlockController::class, 'store'])->middleware('throttle:friend-actions')->name('blocks.store');
             Route::delete('/{user:public_id}', [\App\Http\Controllers\FriendRequestController::class, 'removeFriend'])->middleware('throttle:friend-actions')->name('remove');
+        });
+
+        // E17-A: تحدّيات الأصدقاء. الخصم بـpublic_id من المسار والتحدي بـpublic_id (ULID)، والمصادَق هو الطرف دائمًا. GET = عرض فقط.
+        Route::prefix('friends/challenges')->name('friends.challenges.')->group(function () {
+            $c = \App\Http\Controllers\FriendChallengeController::class;
+
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::get('/new/{user:public_id}', [$c, 'create'])->name('create');
+            Route::post('/new/{user:public_id}', [$c, 'store'])->middleware('throttle:friend-challenges')->name('store');
+            Route::get('/{challenge:public_id}', [$c, 'show'])->name('show');
+            Route::post('/{challenge:public_id}/accept', [$c, 'accept'])->middleware('throttle:friend-actions')->name('accept');
+            Route::post('/{challenge:public_id}/decline', [$c, 'decline'])->middleware('throttle:friend-actions')->name('decline');
+            Route::delete('/{challenge:public_id}', [$c, 'cancel'])->middleware('throttle:friend-actions')->name('cancel');
+            Route::post('/{challenge:public_id}/start', [$c, 'start'])->middleware('throttle:competitive-play')->name('start');
+            Route::post('/{challenge:public_id}/submit', [$c, 'submit'])->middleware('throttle:competitive-play')->name('submit');
+        });
+
+        // E17-B/C: تسجيل ولعب المنافسات. الحدث بـslug من المسار؛ لا score/winner/rank من العميل.
+        Route::prefix('competitions/{event:slug}')->name('competitions.')->group(function () {
+            $c = \App\Http\Controllers\CompetitionPlayController::class;
+
+            Route::post('/register', [$c, 'register'])->middleware('throttle:competitive-register')->name('register');
+            Route::delete('/register', [$c, 'leave'])->middleware('throttle:competitive-register')->name('leave');
+            Route::post('/start', [$c, 'start'])->middleware('throttle:competitive-play')->name('start');
+            Route::get('/play', [$c, 'play'])->name('play');
+            Route::post('/submit', [$c, 'submit'])->middleware('throttle:competitive-play')->name('submit');
         });
 
 

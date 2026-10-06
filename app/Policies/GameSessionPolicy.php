@@ -9,6 +9,6 @@ class GameSessionPolicy
 {
     public function reveal(User $user, GameSession $session): bool
     {
-        return $user->id === $session->user_id;
+        return $user->id === $session->user_id && ! $session->isCompetitive(); // E17: الجلسات التنافسية لا تُكشَف بمسار الألعاب القياسي
     }
 }

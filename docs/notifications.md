@@ -14,7 +14,7 @@
 - فهرس للصندوق `(notifiable_type, notifiable_id, read_at, created_at)` لعدّ غير المقروء والترتيب.
 - التفضيلات: جدول `notification_preferences` (صف لكل مستخدم، أعمدة صريحة). غياب الصف = الافتراضيات (الكل مفعَّل).
 
-## 3. الأنواع المنفَّذة (13) ومصدر كل منها
+## 3. الأنواع المنفَّذة (19) ومصدر كل منها
 
 | النوع | الفئة | المصدر الحقيقي (Event source → type) | تذكير عودة؟ |
 |---|---|---|---|
@@ -31,6 +31,12 @@
 | `campaign_ending_soon` | campaign | `LifecycleReminderService`، لحملة مستقلة أو موسمها غير منشور (القسم 17) | **نعم** (ميزانية يومية بأولوية 70) |
 | `friend_request_received` | social | حدث `FriendRequestCreated` بعد commit عند طلب صداقة جديد فعلي (E16، `docs/friends.md`) | لا |
 | `friend_request_accepted` | social | حدث `FriendshipAccepted` بعد commit عند قبول الطلب (للمرسِل الأصلي) | لا |
+| `friend_challenge_received` | social | حدث `FriendChallengeCreated` بعد commit (للخصم، E17) | لا |
+| `friend_challenge_accepted` | social | حدث `FriendChallengeAccepted` (للمتحدّي) | لا |
+| `friend_challenge_result_ready` | social | حدث `FriendChallengeCompleted` (لكل طرف، مرة واحدة) | لا |
+| `competitive_event_started` | competitive | `CompetitiveLifecycleService` (ساعي): للمسجَّلين قبل البدء فقط | لا |
+| `competitive_event_ending_soon` | competitive | `CompetitiveLifecycleService` (ساعي): لمن لم يرسل نتيجته | **نعم** (ميزانية يومية بأولوية 70) |
+| `competitive_event_result_ready` | competitive | حدث `CompetitiveEventFinalized` ← وظيفة بدفعات | لا |
 
 ### مؤجَّل صراحةً (لا مصدر حقيقة يدعمه الآن - لا نخترع أحداثًا)
 - **`system_announcement`:** شريط الإعلان الداخلي (`announcement`) موجود ويؤدي الغرض - لا نكرره.
@@ -203,3 +209,5 @@
 ## 18. الإشعارات الاجتماعية (E16)
 فئة `social` بتفضيل واحد `social_enabled` (يظهر بصفحة التفضيلات تلقائيًا)، ونوعان: `friend_request_received` (`friend-request:{friendship}`) و`friend_request_accepted` (`friend-accepted:{friendship}`). الوجهة `friends.index` فقط. لا إشعار عند الرفض أو الإزالة أو الحظر. التفاصيل: `docs/friends.md`.
 
+## 19. إشعارات المنافسات (E17)
+فئة `competitive` بتفضيل `competitive_enabled`؛ وتحدّيات الأصدقاء تحت فئة `social`. ستة أنواع بمفاتيح دلالية مفصَّلة في `docs/competitive.md`. أمر ساعي واحد `competitive:process-lifecycle`. فتح أي إشعار لا يمنح شيئًا، وفشله لا يمسّ النتيجة.

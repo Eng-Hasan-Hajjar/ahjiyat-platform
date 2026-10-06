@@ -41,7 +41,7 @@ test('mutation routes also require a verified email', function () {
 test('no GET mutation: only the two read pages are GET; mutating URLs answer 405 to GET', function () {
     $a = e16User();
     $b = e16User();
-    $friendRoutes = collect(Route::getRoutes()->getRoutes())->filter(fn ($r) => str_starts_with((string) $r->getName(), 'friends.'));
+    $friendRoutes = collect(Route::getRoutes()->getRoutes())->filter(fn ($r) => str_starts_with((string) $r->getName(), 'friends.') && ! str_starts_with((string) $r->getName(), 'friends.challenges.')); // تحدّيات E17 لها اختبار GET-immunity مستقل
 
     $getRoutes = $friendRoutes->filter(fn ($r) => in_array('GET', $r->methods(), true))->map->getName()->sort()->values()->all();
     expect($getRoutes)->toBe(['friends.index', 'friends.search']);

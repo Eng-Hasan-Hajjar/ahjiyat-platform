@@ -10,7 +10,10 @@
                 <h1 class="font-display font-black text-2xl text-white">الأصدقاء</h1>
                 <p class="text-xs text-slate-400 mt-1">قائمة أصدقائك خاصة بك ولا تظهر لغيرك.</p>
             </div>
-            <a href="{{ route('friends.search') }}" class="btn-gem !py-2 !px-4 text-sm">ابحث عن لاعبين</a>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('friends.challenges.index') }}" class="chip">تحدّياتي</a>
+                <a href="{{ route('friends.search') }}" class="btn-gem !py-2 !px-4 text-sm">ابحث عن لاعبين</a>
+            </div>
         </div>
 
         {{-- إعداد الخصوصية: استقبال طلبات جديدة. الأصدقاء الحاليون لا يتأثرون بالتعطيل. --}}

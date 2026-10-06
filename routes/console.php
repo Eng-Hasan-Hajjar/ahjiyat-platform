@@ -37,6 +37,8 @@ Schedule::call(function () {
 Schedule::command('notifications:dispatch-lifecycle-reminders')->hourly()->name('notifications-lifecycle-reminders')->withoutOverlapping();
 
 // E15: تذكيرات العودة (تحذير السلسلة + مهام اليوم) - ساعيًا. غيابه لا يكسر شيئًا: لا تصل التذكيرات فقط.
+Schedule::command('competitive:process-lifecycle')->hourly()->name('competitive-process-lifecycle')->withoutOverlapping();
+
 Schedule::command('notifications:dispatch-reengagement')->hourly()->name('notifications-reengagement')->withoutOverlapping();
 
 // E15: تنظيف المقروء القديم يوميًا - صحة النظام لا تعتمد عليه.

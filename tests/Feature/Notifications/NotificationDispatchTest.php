@@ -37,11 +37,11 @@ test('registry integrity: every type has a category, a real internal route, an i
     }
 
     // التذكيرات الاستعادية بميزانية يومية: السلسلة والمهام وتذكيرا "ينتهي قريبًا" (الأخيران بأولوية بين الاثنين).
-    expect(NotificationType::reEngagementKeys())->toEqualCanonicalizing(['streak_at_risk', 'daily_quests_available', 'season_ending_soon', 'campaign_ending_soon'])
-        ->and(NotificationType::reEngagementKeys(NotificationType::SeasonEndingSoon))->toEqualCanonicalizing(['streak_at_risk', 'season_ending_soon', 'campaign_ending_soon'])
+    expect(NotificationType::reEngagementKeys())->toEqualCanonicalizing(['streak_at_risk', 'daily_quests_available', 'season_ending_soon', 'campaign_ending_soon', 'competitive_event_ending_soon'])
+        ->and(NotificationType::reEngagementKeys(NotificationType::SeasonEndingSoon))->toEqualCanonicalizing(['streak_at_risk', 'season_ending_soon', 'competitive_event_ending_soon', 'campaign_ending_soon'])
         ->and(NotificationType::reEngagementKeys(NotificationType::StreakAtRisk))->toBe(['streak_at_risk'])
         ->and(NotificationCategory::Security->isMandatory())->toBeTrue()
-        ->and(NotificationCategory::optional())->toHaveCount(6);
+        ->and(NotificationCategory::optional())->toHaveCount(7);
 });
 
 test('E15-G/198: the same semantic event dispatched 10 times yields exactly one row', function () {

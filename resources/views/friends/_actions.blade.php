@@ -31,6 +31,7 @@
         </form>
     @elseif ($relation === FriendRelation::Friends)
         <span class="chip !py-1 !px-3 text-xs !text-emerald-400">أصدقاء</span>
+        <a href="{{ route('friends.challenges.create', $other) }}" class="chip !py-1 !px-3 text-xs {{ $btn }}" aria-label="تحدَّ {{ $other->name }}">تحدَّ هذا الصديق</a>
         <form method="POST" action="{{ route('friends.remove', $other) }}">
             @csrf @method('DELETE')
             <button type="submit" class="chip !py-1 !px-3 text-xs {{ $btn }}" aria-label="إزالة {{ $other->name }} من الأصدقاء">إزالة الصديق</button>

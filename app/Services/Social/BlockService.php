@@ -66,6 +66,7 @@ class BlockService
             ]]) === 1;
 
             Friendship::query()->forPair($blocker->getKey(), $target->getKey())->delete(); // صداقة أو طلب، بأي اتجاه
+            \App\Models\FriendChallenge::cancelActiveBetween($blocker->getKey(), $target->getKey()); // E17: تحدٍّ نشط بينهما يُلغى بنفس المعاملة
 
             return $inserted ? FriendActionResult::Blocked : FriendActionResult::AlreadyBlocked;
         });

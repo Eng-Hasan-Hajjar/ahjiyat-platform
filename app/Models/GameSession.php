@@ -48,6 +48,12 @@ class GameSession extends Model
         return $this->belongsTo(Puzzle::class);
     }
 
+    /** جلسة تنافسية (E17): تُدار حصرًا بـCompetitiveRunService؛ لا reveal ولا أي مسار لعب قياسي عليها. */
+    public function isCompetitive(): bool
+    {
+        return in_array($this->context_type, \App\GameEngine\Support\AttemptContext::competitiveTypes(), true);
+    }
+
     public function isExpired(): bool
     {
         return $this->expires_at !== null && $this->expires_at->isPast();

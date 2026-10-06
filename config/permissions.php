@@ -235,6 +235,19 @@ return [
         ],
     ],
 
+    'competitive_events' => [
+        'label' => 'المنافسات (E17)',
+        'permissions' => [
+            'competitive_events.view' => 'عرض المنافسات ونتائجها',
+            'competitive_events.create' => 'إنشاء منافسة (مسوّدة)',
+            'competitive_events.update' => 'تعديل مسوّدة منافسة',
+            'competitive_events.delete' => 'حذف منافسة مسوّدة',
+            'competitive_events.publish' => 'نشر منافسة',
+            'competitive_events.cancel' => 'إلغاء منافسة',
+            'competitive_events.finalize' => 'اعتماد النتائج النهائية يدويًا',
+        ],
+    ],
+
     'notifications' => [
         'label' => 'الإشعارات',
         'permissions' => [

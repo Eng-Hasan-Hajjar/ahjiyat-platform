@@ -256,6 +256,10 @@ class FriendshipService
     {
         $deleted = Friendship::query()->accepted()->forPair($actor->getKey(), $other->getKey())->delete();
 
+        if ($deleted > 0) {
+            \App\Models\FriendChallenge::cancelActiveBetween($actor->getKey(), $other->getKey()); // E17: لم يعودا صديقين: لا تحدٍّ نشط
+        }
+
         return $deleted > 0 ? FriendActionResult::Removed : FriendActionResult::NotFound; // لا إشعار، ولا مساس بأي تقدّم
     }
 
