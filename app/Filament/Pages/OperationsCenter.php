@@ -53,6 +53,14 @@ class OperationsCenter extends Page
             : null;
     }
 
+    /** E18: منح جوائز تنافسية فاشلة (تحتاج إعادة محاولة بالإدارة). */
+    public function getFailedCompetitiveGrantsCount(): ?int
+    {
+        return auth()->user()?->can('competitive_events.rewards.view')
+            ? \App\Models\CompetitiveRewardGrant::query()->where('status', \App\Models\CompetitiveRewardGrant::STATUS_FAILED)->count()
+            : null;
+    }
+
     public function getOpenFraudFlagsCount(): ?int
     {
         return auth()->user()?->can('fraud.view')

@@ -39,6 +39,8 @@ Route::get('/challenges', [ChallengeController::class, 'index'])->name('challeng
 
 // E17: المنافسات العامة (قراءة فقط) - قائمة وصفحة حدث مع الترتيب
 Route::get('/competitions', [\App\Http\Controllers\CompetitionController::class, 'index'])->name('competitions.index');
+// E18: قاعة الأمجاد (حرفية قبل {event:slug} حتى لا يلتقطها المسار الديناميكي)
+Route::get('/competitions/hall-of-fame', [\App\Http\Controllers\CompetitionHallOfFameController::class, 'index'])->name('competitions.hall-of-fame');
 Route::get('/competitions/{event:slug}', [\App\Http\Controllers\CompetitionController::class, 'show'])->name('competitions.show');
 Route::get('/challenges/{challenge}', [ChallengeController::class, 'show'])->name('challenges.show');
 
@@ -52,6 +54,7 @@ Route::get('/seasons', [SeasonController::class, 'index'])->name('seasons.index'
 Route::get('/seasons/{season:slug}', [SeasonController::class, 'show'])->name('seasons.show');
 
 Route::get('/players/{user:public_id}', [PlayerProfileController::class, 'show'])->name('players.show');
+Route::get('/players/{user:public_id}/competitive', [\App\Http\Controllers\PlayerCompetitiveController::class, 'show'])->name('players.competitive');
 
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');

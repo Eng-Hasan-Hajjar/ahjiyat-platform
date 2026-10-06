@@ -34,6 +34,7 @@
                 if (auth()->user()?->can('analytics.campaigns')) $tabs['campaigns'] = 'الحملات والمواسم';
                 if (auth()->user()?->can('analytics.financial')) $tabs['economy'] = 'الجواهر والاستبدال';
                 if (auth()->user()?->can('analytics.security')) $tabs['security'] = 'الأمان';
+                if (auth()->user()?->can('analytics.competitive')) $tabs['competitive'] = 'المنافسات';
                 if (auth()->user()?->can('reports.export')) $tabs['reports'] = 'التقارير';
             @endphp
             @foreach ($tabs as $key => $label)
@@ -236,6 +237,41 @@
                         <div>متوسط وقت المعالجة: <strong>{{ $e['redemptions']['avg_processing_hours'] }} ساعة</strong></div>
                     @endif
                 </div>
+            </x-filament::section>
+        @endif
+
+        {{-- المنافسات (E18) --}}
+        @if ($activeTab === 'competitive' && ($k = $this->competitiveAnalytics()))
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem;">
+                @foreach ([
+                    'منافسات بالفترة' => $k['events'],
+                    'منافسات معتمَدة' => $k['finalized_events'],
+                    'تسجيلات' => $k['participants'],
+                    'نتائج مكتملة' => $k['completed_results'],
+                    'لاعبون فريدون' => $k['unique_players'],
+                    'جوائز ممنوحة' => $k['rewards_granted'],
+                    'جوائز فاشلة (حاليًا)' => $k['rewards_failed_now'],
+                ] as $label => $value)
+                    <x-filament::section><div style="font-size:1.3rem; font-weight:900;">{{ number_format($value) }}</div><div style="color:#94a3b8; font-size:.78rem;">{{ $label }}</div></x-filament::section>
+                @endforeach
+            </div>
+
+            <x-filament::section>
+                <x-slot name="heading">عملات ممنوحة من المنافسات (من الدفتر الاقتصادي)</x-slot>
+                @forelse ($k['currency_granted'] as $row)
+                    <div style="display:flex; justify-content:space-between; padding:.3rem 0; border-bottom:1px solid rgba(148,163,184,.1); font-size:.85rem;"><span>{{ $row['currency'] }}</span><span>{{ number_format($row['total']) }}</span></div>
+                @empty
+                    <div style="color:#94a3b8;">لا عملات ممنوحة بالفترة.</div>
+                @endforelse
+            </x-filament::section>
+
+            <x-filament::section>
+                <x-slot name="heading">أكثر المنافسات مشاركة</x-slot>
+                @forelse ($k['top_events'] as $row)
+                    <div style="display:flex; justify-content:space-between; padding:.3rem 0; border-bottom:1px solid rgba(148,163,184,.1); font-size:.85rem;"><span>{{ $row['title'] }}</span><span>{{ $row['participants'] }} مشارك</span></div>
+                @empty
+                    <div style="color:#94a3b8;">لا منافسات بالفترة.</div>
+                @endforelse
             </x-filament::section>
         @endif
 

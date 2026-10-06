@@ -18,6 +18,7 @@ namespace App\Services\Notifications;
  *    أو season_completed إن كانت الحملة مرتبطة بموسم منشور (القرار داخل المستمع: إشعار واحد فقط للإكمال نفسه)
  *  - LifecycleReminderService (مجدول ساعيًا، قراءة فقط) → season_ending_soon / campaign_ending_soon
  *  - FriendChallenge{Created,Accepted,Completed} (أحداث مجال بعد commit، FriendChallengeService) → friend_challenge_received/accepted/result_ready
+ *  - CompetitiveRewardGranted (بعد منح فعلي ناجح بخدمة التوزيع) → competitive_reward_granted
  *  - CompetitiveLifecycleService (مجدول ساعيًا) → competitive_event_started/ending_soon؛ CompetitiveEventFinalized → competitive_event_result_ready
  *  - FriendRequestCreated / FriendshipAccepted (أحداث مجال بعد commit، FriendshipService) → friend_request_received / friend_request_accepted
  */
@@ -42,6 +43,7 @@ enum NotificationType: string
     case CompetitiveEventStarted = 'competitive_event_started';
     case CompetitiveEventEndingSoon = 'competitive_event_ending_soon';
     case CompetitiveEventResultReady = 'competitive_event_result_ready';
+    case CompetitiveRewardGranted = 'competitive_reward_granted';
 
     public function category(): NotificationCategory
     {
@@ -57,7 +59,7 @@ enum NotificationType: string
             self::SeasonCompleted, self::SeasonEndingSoon => NotificationCategory::Season,
             self::CampaignEndingSoon => NotificationCategory::Campaign,
             self::FriendRequestReceived, self::FriendRequestAccepted, self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => NotificationCategory::Social,
-            self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady => NotificationCategory::Competitive,
+            self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted => NotificationCategory::Competitive,
         };
     }
 
@@ -88,6 +90,7 @@ enum NotificationType: string
             self::CompetitiveEventStarted => 21,
             self::CompetitiveEventEndingSoon => 70, // مع تذكيري النهاية الآخرين: بين تحذير السلسلة وتذكير المهام
             self::CompetitiveEventResultReady => 20,
+            self::CompetitiveRewardGranted => 19,
             self::AchievementUnlocked => 10,
         };
     }
@@ -109,6 +112,7 @@ enum NotificationType: string
             self::FriendRequestReceived, self::FriendRequestAccepted => '🤝',
             self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => '⚔️',
             self::CompetitiveEventStarted, self::CompetitiveEventResultReady => '🏆',
+            self::CompetitiveRewardGranted => '🎁',
             self::CompetitiveEventEndingSoon => '⏳',
         };
     }
@@ -129,7 +133,7 @@ enum NotificationType: string
             self::CampaignEndingSoon => ['campaigns.show'],
             self::FriendRequestReceived, self::FriendRequestAccepted => ['friends.index'],
             self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => ['friends.challenges.show'],
-            self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady => ['competitions.show'],
+            self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted => ['competitions.show'],
         };
     }
 
@@ -160,6 +164,7 @@ enum NotificationType: string
             self::CompetitiveEventStarted => 'بدأت المنافسة: '.($params['title'] ?? ''),
             self::CompetitiveEventEndingSoon => 'تنتهي المنافسة قريبًا: '.($params['title'] ?? ''),
             self::CompetitiveEventResultReady => 'نتائج المنافسة جاهزة: '.($params['title'] ?? ''),
+            self::CompetitiveRewardGranted => 'حصلت على جائزة '.($params['placement'] ?? '').' في '.($params['title'] ?? ''),
         };
     }
 
@@ -185,6 +190,7 @@ enum NotificationType: string
             self::CompetitiveEventStarted => 'المنافسة التي سجّلت بها بدأت الآن، ويمكنك اللعب حتى انتهائها.',
             self::CompetitiveEventEndingSoon => 'لم تُرسل نتيجتك بعد. تنتهي المنافسة خلال '.($params['hours'] ?? '').' ساعة أو أقل.',
             self::CompetitiveEventResultReady => 'ترتيبك النهائي: '.($params['rank'] ?? '').'.',
+            self::CompetitiveRewardGranted => 'مُنحت لك: '.($params['reward'] ?? '').'.',
         };
     }
 

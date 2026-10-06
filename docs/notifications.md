@@ -14,7 +14,7 @@
 - فهرس للصندوق `(notifiable_type, notifiable_id, read_at, created_at)` لعدّ غير المقروء والترتيب.
 - التفضيلات: جدول `notification_preferences` (صف لكل مستخدم، أعمدة صريحة). غياب الصف = الافتراضيات (الكل مفعَّل).
 
-## 3. الأنواع المنفَّذة (19) ومصدر كل منها
+## 3. الأنواع المنفَّذة (20) ومصدر كل منها
 
 | النوع | الفئة | المصدر الحقيقي (Event source → type) | تذكير عودة؟ |
 |---|---|---|---|
@@ -37,6 +37,7 @@
 | `competitive_event_started` | competitive | `CompetitiveLifecycleService` (ساعي): للمسجَّلين قبل البدء فقط | لا |
 | `competitive_event_ending_soon` | competitive | `CompetitiveLifecycleService` (ساعي): لمن لم يرسل نتيجته | **نعم** (ميزانية يومية بأولوية 70) |
 | `competitive_event_result_ready` | competitive | حدث `CompetitiveEventFinalized` ← وظيفة بدفعات | لا |
+| `competitive_reward_granted` | competitive | حدث `CompetitiveRewardGranted` بعد **منح فعلي** ناجح بخدمة التوزيع (E18)؛ لا إشعار لجائزة فاشلة | لا |
 
 ### مؤجَّل صراحةً (لا مصدر حقيقة يدعمه الآن - لا نخترع أحداثًا)
 - **`system_announcement`:** شريط الإعلان الداخلي (`announcement`) موجود ويؤدي الغرض - لا نكرره.
@@ -211,3 +212,7 @@
 
 ## 19. إشعارات المنافسات (E17)
 فئة `competitive` بتفضيل `competitive_enabled`؛ وتحدّيات الأصدقاء تحت فئة `social`. ستة أنواع بمفاتيح دلالية مفصَّلة في `docs/competitive.md`. أمر ساعي واحد `competitive:process-lifecycle`. فتح أي إشعار لا يمنح شيئًا، وفشله لا يمسّ النتيجة.
+
+## 20. إشعار الجوائز التنافسية (E18)
+`competitive_reward_granted` تحت فئة `competitive` (تفضيل `competitive_enabled`). مفتاحه الدلالي `competitive-reward-granted:{grant}`. لا يُرسل إلا بعد منح فعلي ناجح؛ فشل المنح لا يُنتج إشعار نجاح، ونجاح إعادة المحاولة يُنتج إشعارًا واحدًا. المنح نفسه لا يتأثر بإيقاف الإشعارات. التفاصيل: `docs/competitive-rewards.md`.
+

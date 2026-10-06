@@ -125,7 +125,7 @@ test('CSRF and verbs: every mutation is POST/DELETE inside the web group; mutati
         expect($route->gatherMiddleware())->toContain('web')->and($route->methods())->not->toContain('GET');
     }
     $getNames = collect(Route::getRoutes()->getRoutes())->filter(fn ($r) => in_array('GET', $r->methods(), true) && (str_starts_with((string) $r->getName(), 'competitions.') || str_starts_with((string) $r->getName(), 'friends.challenges.')))->map->getName()->sort()->values()->all();
-    expect($getNames)->toBe(['competitions.index', 'competitions.play', 'competitions.show', 'friends.challenges.create', 'friends.challenges.index', 'friends.challenges.show']);
+    expect($getNames)->toBe(['competitions.hall-of-fame', 'competitions.index', 'competitions.play', 'competitions.show', 'friends.challenges.create', 'friends.challenges.index', 'friends.challenges.show']); // + قاعة الأمجاد (E18، قراءة فقط)
 
     [$a, $b] = e17Friends();
     $challenge = e17Challenge($a, $b, null, false);

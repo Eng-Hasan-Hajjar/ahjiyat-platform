@@ -16,4 +16,18 @@ return [
     'history_per_page' => 10,
     'leaderboard_per_page' => 20,
     'events_per_section' => 12,
+
+    // E18: حدود المكافآت التنافسية (حماية من أخطاء الإدخال لا من الغش: القيم يحددها المدير فقط ولا يرسلها لاعب).
+    'rewards' => [
+        'max_rank' => 100,                 // أعلى مركز يقبل قاعدة مركز
+        'max_currency_amount' => 100000,
+        'max_xp_amount' => 10000,
+        'max_item_quantity' => 10,
+        'chunk_size' => 100,               // دفعة التوزيع (لا تُحمَّل آلاف النتائج بالذاكرة)
+        'retry_per_10_minutes' => 5,       // حماية إجراء إعادة المحاولة بالإدارة
+    ],
+
+    'hall_of_fame_per_page' => 12,
+    'trophies_per_page' => 6,
+    'profile_history_per_page' => 10,
 ];

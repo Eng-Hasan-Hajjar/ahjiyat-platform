@@ -7,6 +7,7 @@
         <div class="anim-fade-up">
             <h1 class="font-display font-black text-2xl md:text-3xl text-white">المنافسات</h1>
             <p class="text-sm text-slate-400 mt-1">أحجية واحدة، محاولة واحدة، ونتيجة يحسبها الموقع. لا رسوم دخول ولا أفضلية مدفوعة.</p>
+            <a href="{{ route('competitions.hall-of-fame') }}" class="chip mt-3 inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">🏛️ قاعة الأمجاد</a>
         </div>
 
         @foreach ([['live', 'مباشرة الآن', $live, 'لا توجد منافسات مباشرة حاليًا.'], ['upcoming', 'قادمة', $upcoming, 'لا توجد منافسات قادمة بعد.'], ['ended', 'منتهية', $ended, 'لا توجد منافسات منتهية بعد.']] as [$key, $label, $events, $empty])

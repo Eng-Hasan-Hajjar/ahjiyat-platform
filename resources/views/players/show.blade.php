@@ -57,6 +57,19 @@
             </div>
         </div>
 
+        {{-- E18: ملخص المنافسات (أرقام مجمَّعة من نتائج معتمَدة) + رابط خزانة الجوائز والتاريخ --}}
+        <section class="glass rounded-2xl p-5 mt-4 anim-fade-up" aria-labelledby="competitive-title">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 id="competitive-title" class="font-display font-black text-lg text-white">المنافسات</h2>
+                <a href="{{ route('players.competitive', $player) }}" class="chip text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" aria-label="خزانة الجوائز وسجل منافسات {{ $player->name }}">خزانة الجوائز والسجل ←</a>
+            </div>
+            <dl class="grid grid-cols-3 gap-3 mt-3 text-center">
+                <div><dd class="font-display font-black text-xl text-gold">{{ $competitive['events_won'] }}</dd><dt class="text-xs text-slate-400">فوز</dt></div>
+                <div><dd class="font-display font-black text-xl text-white">{{ $competitive['top3'] }}</dd><dt class="text-xs text-slate-400">ضمن الثلاثة الأوائل</dt></div>
+                <div><dd class="font-display font-black text-xl text-white">{{ $competitive['best_rank'] ?? '—' }}</dd><dt class="text-xs text-slate-400">أفضل مركز</dt></div>
+            </dl>
+        </section>
+
     </div>
 
 @endsection

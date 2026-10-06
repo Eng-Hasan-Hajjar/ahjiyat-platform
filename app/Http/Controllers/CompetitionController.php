@@ -36,7 +36,8 @@ class CompetitionController extends Controller
         $scope = $this->board->scopeFor($viewer, $request->query('scope'));
 
         return view('competitions.show', [
-            'event' => $event->load('puzzle:id,title,difficulty,time_limit_seconds'),
+            'event' => $event->load(['puzzle:id,title,difficulty,time_limit_seconds', 'rewardRules' => fn ($q) => $q->where('is_active', true), 'rewardRules.currency:id,name', 'rewardRules.storeItem:id,name']),
+            'myGrant' => $viewer === null ? null : \App\Models\CompetitiveRewardGrant::query()->where('competitive_event_id', $event->id)->where('user_id', $viewer->id)->where('status', 'granted')->first(['reward_label', 'final_rank']),
             'state' => $this->events->joinState($viewer, $event),
             'board' => $this->board->page($event, $viewer, $scope),
             'scope' => $scope,

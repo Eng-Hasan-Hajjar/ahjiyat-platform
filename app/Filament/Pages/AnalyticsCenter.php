@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Widgets\RegistrationGrowthChartWidget;
 use App\Models\Season;
 use App\Services\Analytics\CampaignAnalyticsService;
+use App\Services\Analytics\CompetitiveAnalyticsService;
 use App\Services\Analytics\EconomyAnalyticsService;
 use App\Services\Analytics\PuzzleAnalyticsService;
 use App\Services\Analytics\SecurityAnalyticsService;
@@ -153,6 +154,15 @@ class AnalyticsCenter extends Page
                 'is_published' => $s->is_published,
             ] + $service->seasonOverview($s))->all(),
         ];
+    }
+
+    public function competitiveAnalytics(): ?array
+    {
+        if (! auth()->user()?->can('analytics.competitive')) {
+            return null;
+        }
+
+        return app(CompetitiveAnalyticsService::class)->overview($this->getPeriod());
     }
 
     public function economyAnalytics(): ?array

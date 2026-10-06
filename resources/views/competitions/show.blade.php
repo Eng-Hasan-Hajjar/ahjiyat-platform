@@ -37,6 +37,23 @@
                 <p>• التعادل يُحسم بالسرعة ثم بوقت الإكمال. الترتيب يحسبه السيرفر ولا يُعتمد أي رقم من المتصفح.</p>
             </div>
 
+            @if ($event->rewardRules->isNotEmpty())
+                <section class="mt-6" aria-labelledby="rewards-title">
+                    <h2 id="rewards-title" class="font-display font-black text-white text-base mb-2">الجوائز</h2>
+                    <ul class="grid gap-2 sm:grid-cols-2">
+                        @foreach ($event->rewardRules as $rule)
+                            <li class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm flex items-center justify-between gap-2">
+                                <span class="text-slate-300">{{ $rule->placementLabel() }}</span>
+                                <span class="font-bold text-gold">🎁 {{ $rule->rewardLabel() }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                    @if ($myGrant)
+                        <p class="text-sm text-emerald-400 mt-3">جائزتك: <strong>{{ $myGrant->reward_label }}</strong> (المركز {{ $myGrant->final_rank }})</p>
+                    @endif
+                </section>
+            @endif
+
             <div class="mt-6">
                 @switch($state)
                     @case('guest')

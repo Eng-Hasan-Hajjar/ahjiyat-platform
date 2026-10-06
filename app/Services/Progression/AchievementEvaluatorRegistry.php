@@ -4,6 +4,7 @@ namespace App\Services\Progression;
 
 use App\Services\Progression\Achievements\AchievementEvaluator;
 use App\Services\Progression\Achievements\CampaignsCompletedTotalEvaluator;
+use App\Services\Progression\Achievements\CompetitiveAchievementEvaluator;
 use App\Services\Progression\Achievements\CampaignStepsCompletedTotalEvaluator;
 use App\Services\Progression\Achievements\PuzzlesSolvedInCategoryEvaluator;
 use App\Services\Progression\Achievements\PuzzlesSolvedTotalEvaluator;
@@ -16,6 +17,9 @@ class AchievementEvaluatorRegistry
     public const QUALIFICATIONS_EARNED_TOTAL = 'qualifications_earned_total';
     public const CAMPAIGN_STEPS_COMPLETED_TOTAL = 'campaign_steps_completed_total';
     public const CAMPAIGNS_COMPLETED_TOTAL = 'campaigns_completed_total';
+    public const COMPETITIVE_EVENTS_WON = 'competitive_events_won';
+    public const COMPETITIVE_TOP3_FINISHES = 'competitive_top3_finishes';
+    public const COMPETITIVE_EVENTS_COMPLETED = 'competitive_events_completed';
 
     public const ALL_TYPES = [
         self::PUZZLES_SOLVED_TOTAL,
@@ -23,6 +27,9 @@ class AchievementEvaluatorRegistry
         self::QUALIFICATIONS_EARNED_TOTAL,
         self::CAMPAIGN_STEPS_COMPLETED_TOTAL,
         self::CAMPAIGNS_COMPLETED_TOTAL,
+        self::COMPETITIVE_EVENTS_WON,
+        self::COMPETITIVE_TOP3_FINISHES,
+        self::COMPETITIVE_EVENTS_COMPLETED,
     ];
 
     public const SCOPED_TYPES = [
@@ -33,6 +40,7 @@ class AchievementEvaluatorRegistry
         'puzzle_solved' => [self::PUZZLES_SOLVED_TOTAL, self::PUZZLES_SOLVED_IN_CATEGORY, self::CAMPAIGN_STEPS_COMPLETED_TOTAL],
         'campaign_step_completed' => [self::CAMPAIGN_STEPS_COMPLETED_TOTAL, self::CAMPAIGNS_COMPLETED_TOTAL],
         'qualification_earned' => [self::QUALIFICATIONS_EARNED_TOTAL],
+        'competitive_event_finalized' => [self::COMPETITIVE_EVENTS_WON, self::COMPETITIVE_TOP3_FINISHES, self::COMPETITIVE_EVENTS_COMPLETED],
     ];
 
     public function options(): array
@@ -43,6 +51,9 @@ class AchievementEvaluatorRegistry
             self::QUALIFICATIONS_EARNED_TOTAL => 'إجمالي التأهلات المُكتسَبة (First-N)',
             self::CAMPAIGN_STEPS_COMPLETED_TOTAL => 'إجمالي خطوات الحملات المكتملة',
             self::CAMPAIGNS_COMPLETED_TOTAL => 'إجمالي الحملات المكتملة بالكامل',
+            self::COMPETITIVE_EVENTS_WON => 'منافسات رسمية فاز بها (المركز الأول)',
+            self::COMPETITIVE_TOP3_FINISHES => 'منافسات رسمية أنهاها ضمن المراكز الثلاثة الأولى',
+            self::COMPETITIVE_EVENTS_COMPLETED => 'منافسات رسمية معتمَدة بنتيجة صحيحة',
         ];
     }
 
@@ -54,6 +65,7 @@ class AchievementEvaluatorRegistry
             self::QUALIFICATIONS_EARNED_TOTAL => app(QualificationsEarnedEvaluator::class),
             self::CAMPAIGN_STEPS_COMPLETED_TOTAL => app(CampaignStepsCompletedTotalEvaluator::class),
             self::CAMPAIGNS_COMPLETED_TOTAL => app(CampaignsCompletedTotalEvaluator::class),
+            self::COMPETITIVE_EVENTS_WON, self::COMPETITIVE_TOP3_FINISHES, self::COMPETITIVE_EVENTS_COMPLETED => app(CompetitiveAchievementEvaluator::class),
             default => null,
         };
     }

@@ -2,7 +2,7 @@
     <div style="display:flex; flex-direction:column; gap:1.5rem;">
 
         {{-- تحتاج إجراء الآن --}}
-        @if ($this->getPendingRedemptionsCount() !== null || $this->getOpenFraudFlagsCount() !== null || $this->getPendingStoreFulfillmentCount() !== null)
+        @if ($this->getPendingRedemptionsCount() !== null || $this->getOpenFraudFlagsCount() !== null || $this->getPendingStoreFulfillmentCount() !== null || $this->getFailedCompetitiveGrantsCount() !== null)
             <x-filament::section>
                 <x-slot name="heading">تحتاج إجراء الآن</x-slot>
                 <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1rem;">
@@ -12,6 +12,14 @@
                             <x-filament::section>
                                 <div style="font-size:2rem; font-weight:900;">{{ $this->getPendingRedemptionsCount() }}</div>
                                 <div style="color:#94a3b8;">طلبات استبدال معلَّقة</div>
+                            </x-filament::section>
+                        </a>
+                    @endif
+                    @if ($this->getFailedCompetitiveGrantsCount() !== null)
+                        <a href="{{ \App\Filament\Resources\CompetitiveEventResource::getUrl() }}" style="text-decoration:none;">
+                            <x-filament::section>
+                                <div style="font-size:2rem; font-weight:900; color:#f59e0b;">{{ $this->getFailedCompetitiveGrantsCount() }}</div>
+                                <div style="color:#94a3b8;">جوائز تنافسية فاشلة</div>
                             </x-filament::section>
                         </a>
                     @endif

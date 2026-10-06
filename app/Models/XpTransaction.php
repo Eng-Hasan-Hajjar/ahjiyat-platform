@@ -15,6 +15,7 @@ class XpTransaction extends Model
     public const TYPE_CAMPAIGN_STEP = 'campaign_step';
     public const TYPE_ACHIEVEMENT_REWARD = 'achievement_reward';
     public const TYPE_QUEST_REWARD = 'quest_reward';
+    public const TYPE_COMPETITIVE_REWARD = 'competitive_reward'; // E18: جائزة حدث تنافسي نهائي
 
     public $timestamps = false;
 

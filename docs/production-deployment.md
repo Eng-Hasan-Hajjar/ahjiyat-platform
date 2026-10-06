@@ -168,3 +168,13 @@ server {
 - محدّدات المعدّل (`AppServiceProvider`): `friend-challenges`، `competitive-register`، `competitive-play`؛ الكاش مشترك بين العمال في الإنتاج.
 - أحجية الحدث: بلا تلميح، إجابة منفردة (نصي/ذاكرة/تسلسل)؛ يُنصح بأحجية مخصّصة (يمكن إبقاؤها غير مفعَّلة في الفهرس العام).
 
+## جوائز المنافسات وقاعة الأمجاد (E18)
+- `php artisan migrate` ينشئ `competitive_reward_rules` و`competitive_reward_grants`. **لا تعبئة رجعية ولا أمر يدوي**، ولا جوائز لأحداث اعتُمدت قبل E18.
+- `php artisan permissions:sync` ثم `php artisan db:seed --class="Database\Seeders\RolesAndPermissionsSeeder"`: **4 صلاحيات جديدة** (`competitive_events.rewards.view|manage|retry` و`analytics.competitive`) وتُمنح لـ`administrator`.
+- **الطابور مطلوب بالإنتاج:** التوزيع وتقييم الإنجازات وإشعارات النتائج وظائف مجزَّأة (`QUEUE_CONNECTION=database` جُرِّب فعليًا بعامل حقيقي). شغّل `php artisan queue:work` (يفضَّل تحت Supervisor). بدون عامل لا توزَّع الجوائز (تبقى الوظائف بجدول `jobs` ولا يضيع شيء) ويمكن تشغيله لاحقًا فتُوزَّع بلا ازدواج.
+- المجدول `competitive:process-lifecycle` (E17) ما زال ساعيًا: يعتمد النتائج فيطلق التوزيع.
+- `npm run build` لتنسيق الصفحات الجديدة (قاعدة الأمجاد، سجل اللاعب).
+- (اختياري) `php artisan db:seed --class=CompetitiveAchievementsSeeder` لإنشاء إنجازات المنافسة الافتراضية بلا مكافآت.
+- العناصر جوائز تجميلية (شارات/ألقاب) يُفضَّل إنشاؤها بالمتجر **بلا سعر وغير مفعَّلة** (مخفية من الكتالوج).
+- مراقبة: بطاقة "جوائز تنافسية فاشلة" بمركز العمليات، وإجراء "إعادة محاولة الجوائز الفاشلة" بقائمة المنافسات.
+

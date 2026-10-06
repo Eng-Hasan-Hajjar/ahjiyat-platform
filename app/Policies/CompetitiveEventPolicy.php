@@ -15,6 +15,21 @@ class CompetitiveEventPolicy extends BasePermissionPolicy
         return parent::delete($user, $model) && $model->status === \App\Models\CompetitiveEvent::STATUS_DRAFT;
     }
 
+    public function viewRewards(User $user, $model): bool
+    {
+        return $user->can("{$this->prefix}.rewards.view");
+    }
+
+    public function manageRewards(User $user, $model): bool
+    {
+        return $user->can("{$this->prefix}.rewards.manage");
+    }
+
+    public function retryRewards(User $user, $model): bool
+    {
+        return $user->can("{$this->prefix}.rewards.retry");
+    }
+
     public function publish(User $user, $model): bool
     {
         return $user->can("{$this->prefix}.publish");

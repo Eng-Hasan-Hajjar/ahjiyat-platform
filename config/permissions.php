@@ -151,6 +151,7 @@ return [
             'analytics.campaigns' => 'عرض تحليلات الحملات والمواسم',
             'analytics.financial' => 'عرض تحليلات الجواهر والاستبدال',
             'analytics.security' => 'عرض تحليلات الأمان والاحتيال',
+            'analytics.competitive' => 'عرض تحليلات المنافسات والجوائز التنافسية',
             'reports.export' => 'تصدير التقارير (CSV)',
         ],
     ],
@@ -245,6 +246,9 @@ return [
             'competitive_events.publish' => 'نشر منافسة',
             'competitive_events.cancel' => 'إلغاء منافسة',
             'competitive_events.finalize' => 'اعتماد النتائج النهائية يدويًا',
+            'competitive_events.rewards.view' => 'عرض قواعد الجوائز وحالة توزيعها',
+            'competitive_events.rewards.manage' => 'إدارة قواعد جوائز المنافسة (قبل بدئها)',
+            'competitive_events.rewards.retry' => 'إعادة محاولة منح الجوائز الفاشلة',
         ],
     ],
 

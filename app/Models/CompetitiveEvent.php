@@ -34,6 +34,9 @@ class CompetitiveEvent extends Model
 
     public const PHASE_COMPLETED = 'completed';  // اعتُمدت النتائج النهائية
 
+    /** معرّفات محجوزة لمسارات حرفية (/competitions/hall-of-fame). */
+    public const RESERVED_SLUGS = ['hall-of-fame'];
+
     /** حقول لا تتغيّر بعد مغادرة حالة draft. */
     protected const LOCKED_AFTER_PUBLISH = ['puzzle_id', 'starts_at', 'ends_at', 'registration_starts_at', 'registration_ends_at', 'max_participants'];
 
@@ -50,6 +53,11 @@ class CompetitiveEvent extends Model
     protected static function booted(): void
     {
         static::saving(function (CompetitiveEvent $event) {
+            // مسارات حرفية تسبق {event:slug}: slug بنفس اسمها يجعل المنافسة غير قابلة للوصول.
+            if (in_array($event->slug, self::RESERVED_SLUGS, true)) {
+                throw new \InvalidArgumentException('هذا المعرّف محجوز لمسار بالموقع. اختر معرّفًا آخر.');
+            }
+
             if ($event->ends_at !== null && $event->starts_at !== null && $event->ends_at->lessThanOrEqualTo($event->starts_at)) {
                 throw new \InvalidArgumentException('نهاية المنافسة يجب أن تكون بعد بدايتها.');
             }
@@ -75,6 +83,28 @@ class CompetitiveEvent extends Model
     public function results(): HasMany
     {
         return $this->hasMany(CompetitiveEventResult::class);
+    }
+
+    public function rewardRules(): HasMany
+    {
+        return $this->hasMany(CompetitiveRewardRule::class)->orderBy('sort_order')->orderBy('min_rank');
+    }
+
+    public function rewardGrants(): HasMany
+    {
+        return $this->hasMany(CompetitiveRewardGrant::class);
+    }
+
+    /**
+     * قواعد الجوائز تُجهَّز قبل البدء فقط (مسوّدة، أو منشورة لم تبدأ بعد). بعد البدء تُقفل: لا يضيف مدير "جائزة كبرى" بعد معرفة الفائز، ولا تتغير جوائز
+     * منافسة جارية أو معتمَدة. المنافسة الملغاة أو المعتمدة مقفلة.
+     */
+    public function rewardsEditable(?Carbon $now = null): bool
+    {
+        $now ??= now();
+
+        return $this->status === self::STATUS_DRAFT
+            || ($this->status === self::STATUS_PUBLISHED && $now->lessThan($this->starts_at));
     }
 
     public function getRouteKeyName(): string

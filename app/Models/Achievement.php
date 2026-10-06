@@ -16,6 +16,7 @@ class Achievement extends Model
     public const CATEGORY_CAMPAIGNS = 'campaigns';
     public const CATEGORY_QUALIFICATIONS = 'qualifications';
     public const CATEGORY_MASTERY = 'mastery';
+    public const CATEGORY_COMPETITIVE = 'competitive';
 
     protected static function booted(): void
     {
