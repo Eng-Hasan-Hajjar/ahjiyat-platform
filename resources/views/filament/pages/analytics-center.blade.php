@@ -295,6 +295,23 @@
                 @empty
                     <div style="color:#94a3b8;">لا ترتيبات فرق معتمَدة بعد.</div>
                 @endforelse
+
+                {{-- تحدّيات الفرق والبطولات (E20): أرقام مجمَّعة --}}
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:1rem; margin:1rem 0;">
+                    @foreach ([
+                        'تحدّيات أُنشئت' => $k['teams']['challenges']['created'], 'تحدّيات قُبلت' => $k['teams']['challenges']['accepted'], 'تحدّيات اكتملت' => $k['teams']['challenges']['completed'],
+                        'تحدّيات منتهية المهلة' => $k['teams']['challenges']['expired'], 'نسبة التعادل %' => $k['teams']['challenges']['draw_rate'],
+                        'بطولات منشورة/معتمَدة' => $k['teams']['championships']['total'], 'بطولات معتمَدة' => $k['teams']['championships']['completed'], 'فرق شاركت ببطولات' => $k['teams']['championships']['participants'],
+                    ] as $label => $value)
+                        <div><div style="font-size:1.1rem; font-weight:900;">{{ $value }}</div><div style="color:#94a3b8; font-size:.75rem;">{{ $label }}</div></div>
+                    @endforeach
+                </div>
+                @foreach ($k['teams']['challenges']['most_active'] as $row)
+                    <div style="display:flex; justify-content:space-between; padding:.3rem 0; border-bottom:1px solid rgba(148,163,184,.1); font-size:.85rem;"><span>{{ $row['name'] }}</span><span>{{ $row['played'] }} مباراة</span></div>
+                @endforeach
+                @foreach ($k['teams']['championships']['champions'] as $row)
+                    <div style="display:flex; justify-content:space-between; padding:.3rem 0; border-bottom:1px solid rgba(148,163,184,.1); font-size:.85rem;"><span>🏆 {{ $row['name'] }}</span><span>{{ $row['titles'] }} بطولة</span></div>
+                @endforeach
             </x-filament::section>
         @endif
 

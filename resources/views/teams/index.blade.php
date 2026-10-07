@@ -11,6 +11,10 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('teams.leaderboard') }}" class="chip focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">🏅 جدول الفرق</a>
+                <a href="{{ route('team-championships.index') }}" class="chip focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">🏆 بطولات الفرق</a>
+                @auth
+                    @if (auth()->user()->hasVerifiedEmail())<a href="{{ route('teams.challenges.index') }}" class="chip focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">⚔️ تحدّياتي</a>@endif
+                @endauth
                 @auth
                     @if (auth()->user()->hasVerifiedEmail())
                         <a href="{{ route('teams.invitations') }}" class="chip focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">✉️ دعواتي</a>

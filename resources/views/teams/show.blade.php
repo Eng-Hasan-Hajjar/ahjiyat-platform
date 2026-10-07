@@ -24,6 +24,9 @@
                 </div>
 
                 <div class="flex flex-wrap gap-2">
+                    @if ($canChallenge)
+                        <a href="{{ route('teams.challenges.create', ['opponent' => $team->slug]) }}" class="chip focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">⚔️ تحدَّ هذا الفريق</a>
+                    @endif
                     @switch($state)
                         @case('guest')
                             <a href="{{ route('login') }}" class="btn-gem !py-2 !px-5 text-sm">سجّل الدخول للانضمام</a>
@@ -93,6 +96,8 @@
                 </ul>
             @endif
         </section>
+
+        @include('teams._glory')
 
         <section class="glass rounded-3xl p-5 anim-fade-up" aria-labelledby="roster-title">
             <h2 id="roster-title" class="font-display font-black text-lg text-white mb-3">الأعضاء</h2>

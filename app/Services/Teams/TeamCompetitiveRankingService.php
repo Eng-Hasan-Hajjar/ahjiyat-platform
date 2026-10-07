@@ -30,9 +30,6 @@ class TeamCompetitiveRankingService
      */
     public function compute(CompetitiveEvent $event): array
     {
-        $topN = max(1, (int) config('teams.ranking_top_n', 3));
-        $teams = [];
-
         // مُتدفَّق (cursor) مرتّب بالفريق ثم الأفضل: الذاكرة O(عدد الفرق) لا O(المشاركين).
         $rows = CompetitiveEventResult::query()
             ->join('competitive_event_participants as p', fn ($j) => $j->on('p.competitive_event_id', '=', 'competitive_event_results.competitive_event_id')->on('p.user_id', '=', 'competitive_event_results.user_id'))
@@ -45,27 +42,10 @@ class TeamCompetitiveRankingService
             ->select('p.team_id_snapshot as team_id', 'competitive_event_results.score as score', 'competitive_event_results.duration_ms as duration')
             ->cursor();
 
-        foreach ($rows as $row) {
-            $t = &$teams[$row->team_id];
-            $t ??= ['team_id' => (int) $row->team_id, 'score' => 0, 'counted' => 0, 'duration' => 0, 'rank' => 0];
+        // الصيغة المشتركة (E19 + E20): TeamScoreCalculator هو المصدر الوحيد لمجموع أفضل N وترتيبه.
+        $calc = app(TeamScoreCalculator::class);
 
-            if ($t['counted'] < $topN) {
-                $t['score'] += (int) $row->score;
-                $t['duration'] += (int) $row->duration;
-                $t['counted']++;
-            }
-
-            unset($t);
-        }
-
-        $list = array_values($teams);
-        usort($list, fn ($a, $b) => [$b['score'], $a['duration'], $b['counted'], $a['team_id']] <=> [$a['score'], $b['duration'], $a['counted'], $b['team_id']]);
-
-        foreach ($list as $i => &$row) {
-            $row['rank'] = $i + 1;
-        }
-
-        return $list;
+        return $calc->ranked($calc->aggregate($rows));
     }
 
     /** يخزّن الترتيب النهائي لحدث معتمَد مرة واحدة (Idempotent، آمن للتوازي). @return int عدد الفرق المخزَّنة (0 إن سبق أو لا فرق) */

@@ -37,9 +37,13 @@ class CompetitionHallOfFameController extends Controller
         // E19: الفريق الفائز (المركز الأول بترتيب الفرق المخزَّن النهائي) لكل حدث بالصفحة: استعلام واحد.
         $teamWinners = \App\Models\CompetitiveEventTeamResult::query()->whereIn('competitive_event_id', $events->pluck('id'))->where('rank', 1)->with('team:id,name,slug')->get()->keyBy('competitive_event_id');
 
+        // E20: أبطال بطولات الفرق المعتمَدة (بالصفحة الأولى فقط: آخر 12)
+        $champions = $events->currentPage() === 1
+            ? \App\Models\TeamChampionship::query()->where('status', \App\Models\TeamChampionship::STATUS_COMPLETED)->with('champion:id,name,slug')->orderByDesc('finalized_at')->orderByDesc('id')->limit(12)->get() : collect();
+
         $range = $finalized()->selectRaw('min(ends_at) as first_end, max(ends_at) as last_end')->first();
         $years = $range?->first_end === null ? [] : range((int) date('Y', strtotime($range->last_end)), (int) date('Y', strtotime($range->first_end)));
 
-        return view('competitions.hall-of-fame', ['events' => $events, 'podium' => $podium, 'teamWinners' => $teamWinners, 'years' => $years, 'year' => $year, 'term' => $term]);
+        return view('competitions.hall-of-fame', ['events' => $events, 'podium' => $podium, 'teamWinners' => $teamWinners, 'champions' => $champions, 'years' => $years, 'year' => $year, 'term' => $term]);
     }
 }

@@ -19,6 +19,7 @@ namespace App\Services\Notifications;
  *  - LifecycleReminderService (مجدول ساعيًا، قراءة فقط) → season_ending_soon / campaign_ending_soon
  *  - FriendChallenge{Created,Accepted,Completed} (أحداث مجال بعد commit، FriendChallengeService) → friend_challenge_received/accepted/result_ready
  *  - CompetitiveRewardGranted (بعد منح فعلي ناجح بخدمة التوزيع) → competitive_reward_granted
+ *  - TeamChallengeCreated/Accepted/Completed, TeamChampionshipStarted (الأمر الدوري)/Finalized (E20) → team_challenge_*, team_championship_* (التحدّيات: social؛ البطولات: competitive)
  *  - TeamInvitationCreated/Accepted, TeamJoinRequestCreated/Accepted, TeamMemberRemoved (أحداث مجال بعد commit بخدمات الفرق، E19) → team_* (فئة social؛ بلا إشعار للرفض)
  *  - CompetitiveLifecycleService (مجدول ساعيًا) → competitive_event_started/ending_soon؛ CompetitiveEventFinalized → competitive_event_result_ready
  *  - FriendRequestCreated / FriendshipAccepted (أحداث مجال بعد commit، FriendshipService) → friend_request_received / friend_request_accepted
@@ -50,6 +51,11 @@ enum NotificationType: string
     case TeamJoinRequestReceived = 'team_join_request_received';
     case TeamJoinRequestAccepted = 'team_join_request_accepted';
     case TeamMemberRemoved = 'team_member_removed';
+    case TeamChallengeReceived = 'team_challenge_received';
+    case TeamChallengeAccepted = 'team_challenge_accepted';
+    case TeamChallengeResultReady = 'team_challenge_result_ready';
+    case TeamChampionshipStarted = 'team_championship_started';
+    case TeamChampionshipResultReady = 'team_championship_result_ready';
 
     public function category(): NotificationCategory
     {
@@ -65,8 +71,10 @@ enum NotificationType: string
             self::SeasonCompleted, self::SeasonEndingSoon => NotificationCategory::Season,
             self::CampaignEndingSoon => NotificationCategory::Campaign,
             self::FriendRequestReceived, self::FriendRequestAccepted, self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady,
-            self::TeamInvitationReceived, self::TeamInvitationAccepted, self::TeamJoinRequestReceived, self::TeamJoinRequestAccepted, self::TeamMemberRemoved => NotificationCategory::Social,
-            self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted => NotificationCategory::Competitive,
+            self::TeamInvitationReceived, self::TeamInvitationAccepted, self::TeamJoinRequestReceived, self::TeamJoinRequestAccepted, self::TeamMemberRemoved,
+            self::TeamChallengeReceived, self::TeamChallengeAccepted, self::TeamChallengeResultReady => NotificationCategory::Social,
+            self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
+            self::TeamChampionshipStarted, self::TeamChampionshipResultReady => NotificationCategory::Competitive,
         };
     }
 
@@ -103,6 +111,11 @@ enum NotificationType: string
             self::TeamInvitationAccepted => 13,
             self::TeamJoinRequestAccepted => 12,
             self::TeamMemberRemoved => 11,
+            self::TeamChallengeReceived => 30,
+            self::TeamChallengeAccepted => 18,
+            self::TeamChallengeResultReady => 9,
+            self::TeamChampionshipStarted => 8,
+            self::TeamChampionshipResultReady => 7,
             self::AchievementUnlocked => 10,
         };
     }
@@ -126,6 +139,8 @@ enum NotificationType: string
             self::CompetitiveEventStarted, self::CompetitiveEventResultReady => '🏆',
             self::CompetitiveRewardGranted => '🎁',
             self::TeamInvitationReceived, self::TeamInvitationAccepted, self::TeamJoinRequestReceived, self::TeamJoinRequestAccepted, self::TeamMemberRemoved => '👥',
+            self::TeamChallengeReceived, self::TeamChallengeAccepted, self::TeamChallengeResultReady => '⚔️',
+            self::TeamChampionshipStarted, self::TeamChampionshipResultReady => '🏆',
             self::CompetitiveEventEndingSoon => '⏳',
         };
     }
@@ -151,6 +166,8 @@ enum NotificationType: string
             self::TeamInvitationAccepted, self::TeamJoinRequestReceived => ['teams.manage', 'teams.show'],
             self::TeamJoinRequestAccepted => ['teams.show'],
             self::TeamMemberRemoved => ['teams.index'],
+            self::TeamChallengeReceived, self::TeamChallengeAccepted, self::TeamChallengeResultReady => ['teams.challenges.show'],
+            self::TeamChampionshipStarted, self::TeamChampionshipResultReady => ['team-championships.show'],
         };
     }
 
@@ -187,6 +204,11 @@ enum NotificationType: string
             self::TeamJoinRequestReceived => 'طلب '.($params['name'] ?? '').' الانضمام إلى فريق «'.($params['team'] ?? '').'»',
             self::TeamJoinRequestAccepted => 'قُبل طلب انضمامك إلى فريق «'.($params['team'] ?? '').'»',
             self::TeamMemberRemoved => 'لم تعد عضوًا في فريق «'.($params['team'] ?? '').'»',
+            self::TeamChallengeReceived => 'تحدّاكم فريق «'.($params['team'] ?? '').'» بمباراة',
+            self::TeamChallengeAccepted => 'قَبِل فريق «'.($params['team'] ?? '').'» تحدّيكم',
+            self::TeamChallengeResultReady => 'نتيجة مباراتكم ضد «'.($params['team'] ?? '').'» جاهزة',
+            self::TeamChampionshipStarted => 'بدأت بطولة الفرق: '.($params['title'] ?? ''),
+            self::TeamChampionshipResultReady => 'اعتُمدت نتائج بطولة الفرق: '.($params['title'] ?? ''),
         };
     }
 
@@ -218,6 +240,11 @@ enum NotificationType: string
             self::TeamJoinRequestReceived => 'راجع الطلب من صفحة إدارة الفريق.',
             self::TeamJoinRequestAccepted => 'أهلًا بك في الفريق.',
             self::TeamMemberRemoved => 'يمكنك الانضمام إلى فريق آخر أو إنشاء فريقك من صفحة الفرق.',
+            self::TeamChallengeReceived => 'اختر روستر فريقكم واقبل التحدّي قبل انتهاء المهلة.',
+            self::TeamChallengeAccepted => 'قُفل الروستران، ويمكن للاعبي الروستر اللعب الآن.',
+            self::TeamChallengeResultReady => ($params['outcome'] ?? 'اعتُمدت النتيجة').'.',
+            self::TeamChampionshipStarted => 'تُحتسب نتائج أحداثها المعتمَدة بنقاط الترتيب.',
+            self::TeamChampionshipResultReady => 'اطّلع على الترتيب النهائي وبطل البطولة.',
         };
     }
 

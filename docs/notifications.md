@@ -14,7 +14,7 @@
 - فهرس للصندوق `(notifiable_type, notifiable_id, read_at, created_at)` لعدّ غير المقروء والترتيب.
 - التفضيلات: جدول `notification_preferences` (صف لكل مستخدم، أعمدة صريحة). غياب الصف = الافتراضيات (الكل مفعَّل).
 
-## 3. الأنواع المنفَّذة (25) ومصدر كل منها
+## 3. الأنواع المنفَّذة (30) ومصدر كل منها
 
 | النوع | الفئة | المصدر الحقيقي (Event source → type) | تذكير عودة؟ |
 |---|---|---|---|
@@ -43,6 +43,11 @@
 | `team_join_request_received` | social | `TeamJoinRequestCreated` → مالك الفريق ومشرفوه (دون محظور مع الطالب)؛ `team-join-request:{id}` | لا |
 | `team_join_request_accepted` | social | `TeamJoinRequestAccepted` → الطالب؛ `team-join-accepted:{id}` | لا |
 | `team_member_removed` | social | `TeamMemberRemoved` → المُزال (معلوماتي محايد)؛ `team-member-removed:{team}:{user}:{membership}` | لا |
+| `team_challenge_received` | social | `TeamChallengeCreated` → مالك/مشرفو الفريق **المستهدف**؛ `team-challenge-received:{challenge}:{user}` | لا |
+| `team_challenge_accepted` | social | `TeamChallengeAccepted` → مالك/مشرفو الفريق **المتحدّي**؛ `team-challenge-accepted:{challenge}:{user}` | لا |
+| `team_challenge_result_ready` | social | `TeamChallengeCompleted` → لاعبو الروستر ومالك/مشرفو الفريقين بلا تكرار؛ `team-challenge-result:{challenge}:{user}` | لا |
+| `team_championship_started` | competitive | الأمر الدوري يدفع وظيفة مجزَّأة → مالك/مشرفو الفرق المفعَّلة مرة واحدة؛ `team-championship-started:{c}:{user}` | لا |
+| `team_championship_result_ready` | competitive | `TeamChampionshipFinalized` → مالك/مشرفو الفرق الظاهرة بالترتيب النهائي؛ `team-championship-result:{c}:{user}` | لا |
 
 ### مؤجَّل صراحةً (لا مصدر حقيقة يدعمه الآن - لا نخترع أحداثًا)
 - **`system_announcement`:** شريط الإعلان الداخلي (`announcement`) موجود ويؤدي الغرض - لا نكرره.
@@ -223,4 +228,7 @@
 
 ## 21. إشعارات الفرق (E19)
 خمسة أنواع تحت فئة `social` وتفضيل `social_enabled` الموجودين (لا فئة ولا تفضيل جديد). تُرسَل بعد commit عبر أحداث مجال من خدمات الفرق، بمفاتيح دلالية، ولا تُرسَل لمن يخص السجل حالة خاطئة (مثلًا إعادة بث "قُبلت" لدعوة معلّقة لا تُنتج إشعارًا). **لا إشعار** للرفض أو الإلغاء أو الانتهاء أو المغادرة. إشعار الإزالة معلوماتي محايد بلا اسم من أزاله. الروابط: `teams.invitations`، `teams.manage`/`teams.show`، `teams.index`. فشل الإشعار لا يتراجع بأي إجراء. التفاصيل: `docs/teams.md`.
+
+## 22. إشعارات تحدّيات الفرق وبطولاتها (E20)
+خمسة أنواع بالفئات القائمة بلا فئة أو تفضيل جديد: التحدّيات تحت `social` (كتحدّيات الأصدقاء)، والبطولات تحت `competitive`. تُرسَل بعد commit لمستلمين معنيّين فقط (قادة الفرق، واللاعبون بالنتيجة) وبمفاتيح دلالية، وتُتحقَّق حالة السجل (لا إشعار "قُبل" لتحدٍّ معلّق ولا نتيجة لغير معتمَد). **لا إشعار** للرفض أو الإلغاء أو الانتهاء. إشعارات البطولات تُوزَّع على دفعات 200 بالطابور (وظيفة `DispatchTeamChampionshipNotificationsChunk`)، وإعادتها آمنة. فشل الإشعار لا يمسّ التحدّي أو البطولة. الروابط: `teams.challenges.show` و`team-championships.show`. التفاصيل: `docs/team-competition.md`.
 

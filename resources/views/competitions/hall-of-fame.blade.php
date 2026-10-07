@@ -27,6 +27,20 @@
             <button type="submit" class="btn-gem !py-2 !px-5 text-sm">تصفية</button>
         </form>
 
+        @if ($champions->isNotEmpty())
+            <section class="glass rounded-3xl p-5 md:p-6 anim-fade-up" aria-labelledby="champions-title">
+                <h2 id="champions-title" class="font-display font-black text-lg text-white mb-3">🏆 أبطال بطولات الفرق</h2>
+                <ul class="grid gap-2 sm:grid-cols-2">
+                    @foreach ($champions as $champ)
+                        <li class="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm flex items-center justify-between gap-2">
+                            <a href="{{ route('teams.show', $champ->champion) }}" class="font-bold text-gold truncate hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst rounded">{{ $champ->champion->name }}</a>
+                            <a href="{{ route('team-championships.show', $champ) }}" class="text-xs text-slate-400 hover:text-white truncate">{{ $champ->title }} · {{ $champ->finalized_at->format('Y-m-d') }}</a>
+                        </li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
+
         @forelse ($events as $event)
             @php $top = $podium->get($event->id, collect()); @endphp
             <article class="glass rounded-3xl p-5 md:p-6 anim-fade-up" aria-labelledby="ev-{{ $event->id }}">

@@ -157,7 +157,8 @@ test('71: GET never mutates - the mutating URLs answer 405 to GET, and every rea
 
     expect(e19State())->toBe($before);
     $getRoutes = collect(Route::getRoutes()->getRoutes())->filter(fn ($r) => str_starts_with((string) $r->getName(), 'teams.') && in_array('GET', $r->methods(), true))->map->getName()->sort()->values()->all();
-    expect($getRoutes)->toBe(['teams.create', 'teams.index', 'teams.invitations', 'teams.leaderboard', 'teams.manage', 'teams.mine', 'teams.show']);
+    // E20 أضافت ثلاثة مسارات قراءة لتحدّيات الفرق (teams.challenges.*): مجموعتها الحصرية مضبوطة باختبارات TeamCompetitionSecurityTest.
+    expect($getRoutes)->toBe(['teams.challenges.create', 'teams.challenges.index', 'teams.challenges.show', 'teams.create', 'teams.index', 'teams.invitations', 'teams.leaderboard', 'teams.manage', 'teams.mine', 'teams.show']);
 });
 
 test('CSRF: every mutating team route sits in the web group, and every POST form on the team pages carries a token', function () {

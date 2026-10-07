@@ -236,6 +236,22 @@ return [
         ],
     ],
 
+    'team_championships' => [
+        'label' => 'بطولات الفرق',
+        'permissions' => [
+            'team_championships.view' => 'عرض بطولات الفرق',
+            'team_championships.manage' => 'إنشاء وتعديل المسودات وربط الأحداث',
+            'team_championships.publish' => 'نشر البطولة وإلغاؤها واعتماد نتائجها',
+        ],
+    ],
+
+    'team_challenges' => [
+        'label' => 'تحدّيات الفرق',
+        'permissions' => [
+            'team_challenges.view' => 'فحص تحدّيات الفرق ونتائجها (عرض فقط)',
+        ],
+    ],
+
     'teams' => [
         'label' => 'الفرق',
         'permissions' => [

@@ -9,6 +9,7 @@ use App\Models\TeamJoinRequest;
 use App\Models\TeamMembership;
 use App\Services\Social\PlayerCardLoader;
 use App\Services\Teams\TeamCompetitiveRankingService;
+use App\Services\Teams\TeamGloryService;
 use App\Services\Teams\TeamException;
 use App\Services\Teams\TeamMembershipService;
 use App\Services\Teams\TeamService;
@@ -29,7 +30,7 @@ class TeamController extends Controller
         return view('teams.index', ['teams' => $teams, 'term' => $term]);
     }
 
-    public function show(Request $request, Team $team, TeamMembershipService $members, TeamCompetitiveRankingService $ranking, PlayerCardLoader $cards)
+    public function show(Request $request, Team $team, TeamMembershipService $members, TeamCompetitiveRankingService $ranking, PlayerCardLoader $cards, TeamGloryService $glory)
     {
         $viewer = $request->user();
         $showRoster = $viewer ? $viewer->can('viewRoster', $team) : $team->isPublic();
@@ -52,6 +53,9 @@ class TeamController extends Controller
             'state' => $this->joinState($viewer, $team, $members, $myRole),
             'stats' => $ranking->stats($team),
             'recent' => $ranking->recent($team),
+            // E20: مجد الفريق (مشتق) وزر التحدّي (مالك/مشرف فريق مفعَّل آخر، تجاه فريق مفعَّل آخر).
+            'glory' => $glory->stats($team), 'trophies' => $glory->trophies($team), 'matches' => $glory->recentMatches($team),
+            'canChallenge' => $viewer !== null && $team->is_active && ($m = $members->membershipOf($viewer)) !== null && $m->isManager() && $m->team_id !== $team->id && $m->team->is_active,
         ]);
     }
 

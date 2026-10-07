@@ -53,6 +53,19 @@ class OperationsCenter extends Page
             : null;
     }
 
+    /** E20: مباريات فرق مقبولة تجاوزت مهلتها بلا اعتماد، وبطولات انتهت بلا اعتماد (يعالجها الأمر الدوري؛ ظهورها هنا يعني تأخره). */
+    public function getOverdueTeamCompetitionCount(): ?int
+    {
+        $user = auth()->user();
+
+        if (! ($user?->can('team_challenges.view') || $user?->can('team_championships.view'))) {
+            return null;
+        }
+
+        return \App\Models\TeamChallenge::query()->where('status', 'accepted')->where('play_ends_at', '<=', now()->subHour())->count()
+            + \App\Models\TeamChampionship::query()->where('status', 'published')->where('ends_at', '<=', now()->subHour())->count();
+    }
+
     /** E18: منح جوائز تنافسية فاشلة (تحتاج إعادة محاولة بالإدارة). */
     public function getFailedCompetitiveGrantsCount(): ?int
     {

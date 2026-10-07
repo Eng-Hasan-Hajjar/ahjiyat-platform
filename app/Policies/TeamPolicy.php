@@ -59,6 +59,12 @@ class TeamPolicy extends BasePermissionPolicy
         return $team->is_active && $this->viewManagement($user, $team);
     }
 
+    /** تحدّيات الفرق (إنشاء/قبول/رفض/إلغاء/روستر): مالك أو مشرف بفريق مفعَّل. */
+    public function manageChallenges(User $user, Team $team): bool
+    {
+        return $team->is_active && $this->viewManagement($user, $team);
+    }
+
     /** الإعدادات الحساسة: المالك وحده بفريق مفعَّل. */
     public function manageSettings(User $user, Team $team): bool
     {

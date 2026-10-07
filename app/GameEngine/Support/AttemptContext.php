@@ -19,6 +19,8 @@ final class AttemptContext
 
     public const TYPE_COMPETITIVE_EVENT = 'competitive_event';
 
+    public const TYPE_TEAM_CHALLENGE = 'team_challenge';
+
     private function __construct(
         public readonly ?string $type,
         public readonly ?int $id,
@@ -50,9 +52,14 @@ final class AttemptContext
     }
 
     /** @return list<string> */
+    public static function teamChallenge(int $challengeId): self
+    {
+        return self::for(self::TYPE_TEAM_CHALLENGE, $challengeId);
+    }
+
     public static function competitiveTypes(): array
     {
-        return [self::TYPE_FRIEND_CHALLENGE, self::TYPE_COMPETITIVE_EVENT];
+        return [self::TYPE_FRIEND_CHALLENGE, self::TYPE_COMPETITIVE_EVENT, self::TYPE_TEAM_CHALLENGE];
     }
 
     public function isCompetitive(): bool
