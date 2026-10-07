@@ -51,7 +51,7 @@ test('smoke: a real login with the shared password works, and every main and dyn
     $this->assertAuthenticatedAs($yousef);
 
     foreach (['home', 'friends.index', 'friends.challenges.index', 'teams.index', 'teams.challenges.index', 'teams.invitations', 'teams.leaderboard', 'competitions.index', 'competitions.hall-of-fame',
-        'team-championships.index', 'notifications.index', 'notifications.preferences', 'wallet.index', 'store.index', 'inventory.index', 'profile.edit', 'profile.customize', 'quests.show', 'campaigns.index',
+        'team-championships.index', 'messages.index', 'community.chat', 'notifications.index', 'notifications.preferences', 'wallet.index', 'store.index', 'inventory.index', 'profile.edit', 'profile.customize', 'quests.show', 'campaigns.index',
         'seasons.index', 'leaderboard.index', 'puzzles.index'] as $name) {
         demoSmoke($this, route($name));
     }
@@ -81,6 +81,16 @@ test('smoke: a real login with the shared password works, and every main and dyn
     foreach (TeamChallenge::query()->get() as $challenge) {
         demoSmoke($this, route('teams.challenges.show', $challenge));
     }
+
+    // الدردشة (E21): مباشرتان ليوسف + فريقه + العامة. الرسائل تُمرَّر مهرَّبة بـJs::from فنقرأ الإعداد من الخادم لا نص الصفحة.
+    foreach (['sara' => 8, 'layan' => 4] as $friend => $count) {
+        $config = demoSmoke($this, route('messages.direct', demoQaUser($friend)))->viewData('config');
+        expect($config['messages'])->toHaveCount($count)->and($config['caps']['send'])->toBeTrue();
+    }
+
+    expect(demoSmoke($this, route('teams.chat', $knights))->viewData('config')['messages'])->toHaveCount(10)
+        ->and(demoSmoke($this, route('community.chat'))->viewData('config')['messages'])->toHaveCount(16);
+    demoSmoke($this, route('messages.index'))->assertSee('سارة القيسي')->assertSee('رسائل غير مقروءة');
 
     $pending = TeamChallenge::query()->where('status', 'pending')->firstOrFail();
     $active = TeamChallenge::query()->where('status', 'accepted')->firstOrFail();

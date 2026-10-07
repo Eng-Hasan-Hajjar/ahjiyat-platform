@@ -9,6 +9,7 @@ use App\Models\TeamChampionship;
 use App\Models\User;
 use Carbon\Carbon;
 use Database\Seeders\Demo\DemoCampaignSeeder;
+use Database\Seeders\Demo\DemoChatSeeder;
 use Database\Seeders\Demo\DemoCompetitionSeeder;
 use Database\Seeders\Demo\DemoNotificationSeeder;
 use Database\Seeders\Demo\DemoProgressionSeeder;
@@ -55,7 +56,7 @@ class DemoQaSeeder extends Seeder
             // سيناريوهات الديمو (الترتيب مهم: الفرق قبل المنافسات لتُؤخذ لقطات الفريق وقت التسجيل صحيحة).
             $this->call([
                 DemoSocialSeeder::class, DemoTeamSeeder::class, DemoProgressionSeeder::class, DemoCampaignSeeder::class,
-                DemoCompetitionSeeder::class, DemoTeamCompetitionSeeder::class, DemoNotificationSeeder::class,
+                DemoCompetitionSeeder::class, DemoTeamCompetitionSeeder::class, DemoNotificationSeeder::class, DemoChatSeeder::class,
             ]);
         } finally {
             Carbon::setTestNow($previousNow);
@@ -87,11 +88,12 @@ class DemoQaSeeder extends Seeder
         $this->command->line(str_repeat('=', 66));
 
         foreach ([
-            ['MAIN PLAYER', 'yousef', 'الحساب الرئيسي: مالك «فرسان الشام»، 5 أصدقاء، طلب وارد (ريم) وصادر (خالد)، حظر لمى، سلسلة 7 أيام، مهام اليوم، حملة جارية، منافسات (5/7/2/1)، 4 تحدّيات أصدقاء، تحدّي فريق جارٍ وآخر وارد، متجر (إطار مجهَّز)، إشعارات'],
+            ['MAIN PLAYER', 'yousef', 'الحساب الرئيسي: مالك «فرسان الشام»، 5 أصدقاء، طلب وارد (ريم) وصادر (خالد)، حظر لمى، سلسلة 7 أيام، مهام اليوم، حملة جارية، منافسات (5/7/2/1)، 4 تحدّيات أصدقاء، تحدّي فريق جارٍ وآخر وارد، متجر (إطار مجهَّز)، إشعارات، **دردشة: مباشرتان (سارة وليان) + فريقه + العامة**'],
             ['SOCIAL / RIVAL OWNER', 'sara', 'صديقة يوسف مقبولة، مالكة «صقور المعرفة» (مفتوح 5/6)، أكملت الحملة، بطلة «كأس الربيع»، تحدّتا يوسف'],
             ['HIGH LEVEL', 'reem', 'مستوى 12، مالكة «عباقرة الشرق» (بدعوة فقط)، طلب صداقة صادر إلى يوسف، فازت بجولتين'],
             ['TEAM ADMIN', 'omar', 'مشرف «فرسان الشام» (بلا علاقة صداقة بيوسف)، ينفّذ إدارة الأعضاء والطلبات'],
             ['TEAM MEMBER', 'layan', 'عضو «فرسان الشام» (صديقة ليوسف)، انضمت بطلب مقبول'],
+            ['CHAT MUTED', 'wisam', 'مكتوم 7 أيام بالدردشة العامة (يقرأ ولا يرسل)؛ على رسالة خالد الإعلانية بلاغ معلّق بمركز البلاغات'],
             ['PENDING JOIN REQUEST', 'khaled', 'لديه طلب انضمام معلّق لفريق يوسف، ووارد إليه طلب صداقة من يوسف'],
             ['NEW PLAYER', 'kenan', 'لاعب جديد بلا تقدّم، لديه دعوة معلّقة من «فرسان الشام»'],
             ['PRIVATE TEAM OWNER', 'noureddine', 'مالك «نجوم الأحجيات» (فريق خاص)، صديق ليوسف'],

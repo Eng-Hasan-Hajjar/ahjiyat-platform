@@ -200,7 +200,7 @@ function demoQaSeederFiles(): array
 }
 
 test('determinism: no randomness anywhere in the demo seeders - same users, teams, results and ranks every run', function () {
-    expect(count(demoQaSeederFiles()))->toBe(11);
+    expect(count(demoQaSeederFiles()))->toBe(12);
 
     foreach (demoQaSeederFiles() as $file) {
         $code = demoQaCode($file);
@@ -230,4 +230,48 @@ test('28/27b: the demo seeders never mutate economy, XP or derived progress dire
 
     // لا ترحيلات ولا ملفات منتج جديدة: الحزمة بيانات فقط.
     expect(glob(database_path('migrations/*qa*')))->toBe([])->and(glob(database_path('migrations/*demo*')))->toBe([]);
+});
+
+
+test('59/E21-M: the chat demo is idempotent - the chat tables keep exactly the same rows after the second and third run - and it created no notification, economy or queue residue', function () {
+    $f = demoQaFacts($this);
+
+    foreach (['chat_threads', 'chat_messages', 'chat_read_states', 'chat_message_reports', 'chat_mutes'] as $table) {
+        expect($f['counts_third'][$table])->toBe($f['counts_first'][$table])->and($f['counts_first'][$table])->toBeGreaterThan(0);
+    }
+    expect($f['chat']['chat_tables'])->toMatchArray(['chat_threads' => 4, 'chat_messages' => 40, 'chat_message_reports' => 1, 'chat_mutes' => 1])->and($f['chat']['chat_notifications'])->toBe(0)
+        ->and($f['counts']['failed_jobs'])->toBe(0)->and($f['counts']['jobs'])->toBe(0);
+});
+
+test('60/M1/M2/M7: Yousef has two direct chats at once - with Sara (eight messages) and with Layan (four) - from his main persona', function () {
+    $f = demoQaFacts($this);
+
+    expect(array_keys($f['chat']['direct']))->toBe(['سارة القيسي', 'ليان سلطان'])->and($f['chat']['direct']['سارة القيسي']['messages'])->toBe(8)->and($f['chat']['direct']['ليان سلطان']['messages'])->toBe(4)
+        ->and($f['chat']['threads'])->toMatchArray(['direct' => 2, 'team' => 1, 'global' => 1])->and($f['chat']['yousef_send'])->toBeNull();      // يوسف يستطيع الإرسال فورًا بالعامة (ليس مكتومًا)
+});
+
+test('61/M3: the team chat demo has ten short messages from five different members and one edited message', function () {
+    $team = demoQaFacts($this)['chat']['team'];
+
+    expect($team['team_name'])->toBe('فرسان الشام')->and($team['messages'])->toBe(10)->and($team['senders'])->toBe(['jana', 'layan', 'omar', 'yaser', 'yousef'])->and($team['edited'])->toBe(1);
+});
+
+test('62/M4: the global chat demo has eighteen messages from eighteen different users, one tombstone, and the messages of the two users Yousef is blocked with are filtered from his view only', function () {
+    $global = demoQaFacts($this)['chat']['global'];
+
+    expect($global['messages'])->toBe(18)->and($global['senders'])->toBe(18)->and($global['deleted'])->toBe(1)->and($global['visible_to_yousef'])->toHaveCount(16)
+        ->and($global['visible_to_yousef'])->not->toContain('lama')->not->toContain('firas')->and($global['visible_to_yousef'])->toContain('yousef');
+});
+
+test('63/M1: the chat demo has both read and unread - one unread direct message from Sara, none from Layan, unread team and global messages - and the total feeds the badge', function () {
+    $chat = demoQaFacts($this)['chat'];
+
+    expect($chat['direct']['سارة القيسي']['unread'])->toBe(1)->and($chat['direct']['ليان سلطان']['unread'])->toBe(0)->and($chat['team']['unread'])->toBe(4)->and($chat['global']['unread'])->toBeGreaterThan(0)
+        ->and($chat['unread_total'])->toBe(1 + 4 + $chat['global']['unread']);
+});
+
+test('64/M5/M6: one pending report sits on the advertising global message by Khaled, Wisam is temporarily muted and Yousef is not', function () {
+    $chat = demoQaFacts($this)['chat'];
+
+    expect($chat['reports'])->toBe([['pending', 'spam', 'khaled', 'sara', 'global']])->and($chat['mutes'])->toBe(['wisam'])->and($chat['mutes'])->not->toContain('yousef');
 });

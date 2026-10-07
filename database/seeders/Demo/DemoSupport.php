@@ -61,6 +61,19 @@ trait DemoSupport
         }
     }
 
+    /** البثّ اللحظي صامت أثناء بذر الدردشة (لا محاولات بثّ ولا تحذيرات سجل إن كان Reverb متوقفًا): السائق `null` مؤقتًا ثم يُعاد. */
+    protected function silentBroadcast(\Closure $work): mixed
+    {
+        $previous = config('broadcasting.default');
+        config(['broadcasting.default' => 'null']);
+
+        try {
+            return $work();
+        } finally {
+            config(['broadcasting.default' => $previous]);
+        }
+    }
+
     protected function say(string $message): void
     {
         if (property_exists($this, 'command') && $this->command !== null) {

@@ -144,6 +144,7 @@
                     <a href="{{ route('inventory.index') }}" class="hover:text-gold transition">مقتنياتي</a>
                     @if (auth()->user()->email_verified_at)
                         <a href="{{ route('friends.index') }}" class="hover:text-white transition">الأصدقاء</a>
+                        <a href="{{ route('messages.index') }}" class="hover:text-white transition">الرسائل<x-chat-badge /></a>
                     @endif
                 @endauth
 
@@ -241,6 +242,8 @@
                             class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">الإشعارات</a>
                         <a href="{{ route('friends.index') }}" @click="mobileOpen = false"
                             class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">الأصدقاء</a>
+                        <a href="{{ route('messages.index') }}" @click="mobileOpen = false"
+                            class="rounded-xl px-4 py-3 hover:bg-white/5 hover:text-white transition">الرسائل<x-chat-badge /></a>
                     @endif
                         @can('admin.access')
     <a href="{{ url('/admin') }}" @click="mobileOpen = false"

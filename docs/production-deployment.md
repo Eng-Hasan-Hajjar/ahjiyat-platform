@@ -197,3 +197,80 @@ server {
 - **تشغيل البطولة:** من لوحة الإدارة: أنشئ مسودة ← اربط أحداثًا **متوافقة** (منشورة، أو معتمَدة بترتيب فرق) ← انشر (يقفل المواعيد ولقطة النقاط) ← بعد النهاية واعتماد كل أحداثها يُعتمد الترتيب تلقائيًا (أو يدويًا بإجراء «اعتماد النتائج»).
 - مراقبة: قسم الفرق بتحليلات تبويب المنافسات (تحدّيات وبطولات)، وموردا «تحدّيات الفرق» (عرض فقط) و«بطولات الفرق».
 
+## الدردشة اللحظية (E21)
+الدردشة (مباشرة/فريق/عامة) تعمل بـHTTP كاملًا؛ **اللحظية** تتطلب عملية **Reverb** دائمة (WebSocket). لا خدمات SaaS خارجية (لا Pusher Cloud ولا Ably). التفاصيل المعمارية بـ`docs/chat.md`.
+
+- **الترحيلات:** `php artisan migrate`: خمسة جداول جديدة (`chat_threads`، `chat_messages`، `chat_read_states`، `chat_message_reports`، `chat_mutes`). لا ترحيل قديم عُدِّل.
+- **الصلاحيات:** `php artisan permissions:sync` ثم `php artisan db:seed --class="Database\Seeders\RolesAndPermissionsSeeder"`: صلاحيتان جديدتان `chat.reports.view` و`chat.moderate` (للمدير تلقائيًا؛ امنحهما لدور المشرف يدويًا).
+- **الحزم:** `composer install` (يتضمن `laravel/reverb` بعد التزام `composer.lock`) و`npm ci`. `laravel-echo` و`pusher-js` بـ`package.json`.
+- **المتغيرات (`.env`، بلا أسرار بالمستودع):**
+  ```
+  BROADCAST_CONNECTION=reverb
+  REVERB_APP_ID=
+  REVERB_APP_KEY=
+  REVERB_APP_SECRET=
+  REVERB_HOST=ws.example.com        # اسم المضيف الذي يصل إليه المتصفح
+  REVERB_PORT=443
+  REVERB_SCHEME=https
+  REVERB_SERVER_HOST=127.0.0.1      # عنوان استماع العملية نفسها
+  REVERB_SERVER_PORT=8080
+  VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
+  VITE_REVERB_HOST="${REVERB_HOST}"
+  VITE_REVERB_PORT="${REVERB_PORT}"
+  VITE_REVERB_SCHEME="${REVERB_SCHEME}"
+  ```
+  القيم العشوائية: `php -r "echo bin2hex(random_bytes(16));"`. **متغيرات `VITE_REVERB_*` تُقرأ وقت البناء**: اضبطها **قبل** `npm run build`، وأعد البناء إن تغيّرت. ضيّق `allowed_origins` بـ`config/reverb.php` إلى نطاق موقعك.
+- **عملية Reverb تحت Supervisor** (دون افتراض مضيف محدد؛ عدّل المسارات والمستخدم):
+  ```
+  [program:ahjiyat-reverb]
+  command=php /path/to/project/artisan reverb:start --host=127.0.0.1 --port=8080
+  autostart=true
+  autorestart=true
+  numprocs=1
+  user=your-deploy-user
+  redirect_stderr=true
+  stdout_logfile=/var/log/ahjiyat-reverb.log
+  stopwaitsecs=30
+  minfds=10000
+  ```
+  أو **systemd** (`/etc/systemd/system/ahjiyat-reverb.service`):
+  ```
+  [Unit]
+  Description=Ahjiyat Reverb WebSocket server
+  After=network.target
+
+  [Service]
+  User=your-deploy-user
+  WorkingDirectory=/path/to/project
+  ExecStart=/usr/bin/php artisan reverb:start --host=127.0.0.1 --port=8080
+  Restart=always
+  LimitNOFILE=10000
+
+  [Install]
+  WantedBy=multi-user.target
+  ```
+  بعد كل نشر شغّل `php artisan reverb:restart` ليحمّل الكود الجديد.
+- **بروكسي عكسي يدعم WebSocket (مثال Nginx):** المتصفح يتصل بـ`wss://REVERB_HOST:REVERB_PORT/app/{key}` والخادم يستقبل نداءات البثّ على `/apps/...`؛ مرّر الاثنين لعملية Reverb مع ترقية الاتصال:
+  ```
+  server {
+      listen 443 ssl http2;
+      server_name ws.example.com;
+      # ssl_certificate ...; ssl_certificate_key ...;
+
+      location / {
+          proxy_http_version 1.1;
+          proxy_set_header Host $http_host;
+          proxy_set_header Scheme $scheme;
+          proxy_set_header SERVER_PORT $server_port;
+          proxy_set_header REMOTE_ADDR $remote_addr;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "Upgrade";
+          proxy_read_timeout 120s;
+          proxy_pass http://127.0.0.1:8080;
+      }
+  }
+  ```
+  يلزم `Upgrade`/`Connection` وإلا فشلت الاتصالات اللحظية. استضافة بلا عمليات دائمة (مشتركة بلا SSH/Supervisor) **لا تصلح للّحظية**: تبقى الدردشة بـHTTP بدونها.
+- **الطابور:** الدردشة **لا تحتاج عامل طابور** (البثّ فوري `ShouldBroadcastNow` بعد commit). عامل الطابور (`php artisan queue:work`) ما زال لازمًا لبقية المنصة (إشعارات الأحداث والبطولات). فشل Reverb لا يفقد رسالة ولا يملأ `failed_jobs`.
+- `npm run build` **ضروري** (صفحات وأصناف جديدة + Echo).
+- **مراقبة:** لوحة الإدارة: «بلاغات الدردشة» و«كتم الدردشة». لا يوجد (عمدًا) عرض لكل الرسائل الخاصة.

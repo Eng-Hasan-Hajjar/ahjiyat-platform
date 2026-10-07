@@ -160,6 +160,27 @@ function demoQaCompute(): array
     $steps = \App\Models\CampaignStep::query()->get();
     $f['campaign'] = collect(['sara', 'yousef', 'reem', 'kenan'])->mapWithKeys(fn ($k) => [$k => ['done' => $steps->filter(fn ($s) => $progress->isStepCompleted(demoQaUser($k), $s))->count(), 'completed' => $progress->isCampaignCompleted(demoQaUser($k), $campaign)]])->all();
     $f['fraud_flags'] = DB::table('fraud_flags')->count();
+
+    // ---- دردشة E21
+    $unread = app(\App\Services\Chat\ChatUnreadService::class);
+    $threads = app(\App\Services\Chat\ChatThreadService::class);
+    $teamThread = \App\Models\ChatThread::query()->where('type', 'team')->first();
+    $global = $threads->global();
+    $emails = fn ($q) => $q->pluck('sender_id')->unique()->map(fn ($id) => explode('@', User::query()->whereKey($id)->value('email'))[0])->sort()->values()->all();
+    $f['chat'] = [
+        'threads' => \App\Models\ChatThread::query()->selectRaw('type, count(*) c')->groupBy('type')->pluck('c', 'type')->all(),
+        'direct' => $unread->directList($yousef)->mapWithKeys(fn ($c) => [$c['other']->name => ['messages' => \App\Models\ChatMessage::where('chat_thread_id', $c['thread']->id)->count(), 'unread' => $c['unread']]])->all(),
+        'team' => ['messages' => \App\Models\ChatMessage::where('chat_thread_id', $teamThread->id)->count(), 'senders' => $emails(\App\Models\ChatMessage::where('chat_thread_id', $teamThread->id)), 'edited' => \App\Models\ChatMessage::where('chat_thread_id', $teamThread->id)->whereNotNull('edited_at')->count(),
+            'unread' => $unread->forThread($yousef, $teamThread), 'team_name' => $teamThread->team->name],
+        'global' => ['messages' => \App\Models\ChatMessage::where('chat_thread_id', $global->id)->count(), 'senders' => count($emails(\App\Models\ChatMessage::where('chat_thread_id', $global->id))), 'deleted' => \App\Models\ChatMessage::where('chat_thread_id', $global->id)->whereNotNull('deleted_at')->count(),
+            'visible_to_yousef' => app(\App\Services\Chat\ChatMessageService::class)->page($global, $yousef)['messages']->pluck('sender_id')->map(fn ($id) => explode('@', User::query()->whereKey($id)->value('email'))[0])->all(), 'unread' => $unread->forThread($yousef, $global)],
+        'unread_total' => $unread->total($yousef),
+        'reports' => \App\Models\ChatMessageReport::query()->with('message.sender:id,email', 'message.thread:id,type', 'reporter:id,email')->get()->map(fn ($r) => [$r->status, $r->category, $emailKey($r->message->sender), $emailKey($r->reporter), $r->message->thread->type])->all(),
+        'mutes' => \App\Models\ChatMute::active()->with('user:id,email')->get()->map(fn ($m) => $emailKey($m->user))->all(),
+        'yousef_send' => app(\App\Services\Chat\ChatAccess::class)->sendBlocker($yousef, $global),
+        'chat_notifications' => DB::table('notifications')->where('idempotency_key', 'like', '%chat%')->count(),
+        'chat_tables' => collect(['chat_threads', 'chat_messages', 'chat_read_states', 'chat_message_reports', 'chat_mutes'])->mapWithKeys(fn ($t) => [$t => DB::table($t)->count()])->all(),
+    ];
     // التحليلات تُحسب وقت البذر (القاعدة تتراجع بعد أول اختبار فلا تصلح للاستعلام لاحقًا).
     $f['analytics'] = collect([\App\Services\Analytics\UserAnalyticsService::class, \App\Services\Analytics\PuzzleAnalyticsService::class, \App\Services\Analytics\ProgressionAnalyticsService::class,
         \App\Services\Analytics\EngagementAnalyticsService::class, \App\Services\Analytics\StoreAnalyticsService::class, \App\Services\Analytics\SecurityAnalyticsService::class,

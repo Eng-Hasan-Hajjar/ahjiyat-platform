@@ -62,6 +62,7 @@
             <div class="glass rounded-2xl divide-y divide-white/5">
                 @forelse ($friends as $friend)
                     <x-friend-row :user="$friend">
+                        <a href="{{ route('messages.direct', $friend) }}" class="chip text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">💬 راسل</a>
                         @include('friends._actions', ['other' => $friend, 'relation' => \App\Services\Social\FriendRelation::Friends])
                     </x-friend-row>
                 @empty

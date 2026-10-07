@@ -1,4 +1,6 @@
 import Alpine from 'alpinejs';
+import './echo.js';
+import chatRoom from './chat.js';
 import sequenceGame from './games/renderers/sequence.js';
 import memoryGame from './games/renderers/memory.js';
 import spotDifferenceGame from './games/renderers/spot-difference.js';
@@ -8,6 +10,7 @@ window.Alpine = Alpine;
 Alpine.data('sequenceGame', sequenceGame);
 Alpine.data('memoryGame', memoryGame);
 Alpine.data('spotDifferenceGame', spotDifferenceGame);
+Alpine.data('chatRoom', chatRoom);
 
 /**
  * مبدّل الثيم (E4) - data-theme على <html> هو مصدر الحقيقة الوحيد للعرض؛

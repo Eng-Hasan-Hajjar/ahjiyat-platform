@@ -55,6 +55,24 @@ Route::middleware(['auth', 'verified', 'account.active'])->group(function () {
 Route::get('/teams/challenges/{challenge:public_id}', [\App\Http\Controllers\TeamChallengeController::class, 'show'])->name('teams.challenges.show');
 Route::get('/team-championships', [\App\Http\Controllers\TeamChampionshipController::class, 'index'])->name('team-championships.index');
 Route::get('/team-championships/{championship:slug}', [\App\Http\Controllers\TeamChampionshipController::class, 'show'])->name('team-championships.show');
+// E21: الدردشة (مباشرة/فريق/عامة) + عمليات الرسائل. كلها لموثَّق غير مجمَّد؛ التعديلات POST/PATCH/DELETE فقط (لا GET يغيّر حالة). /teams/{team}/chat لا يتعارض مع /teams/{team}.
+Route::middleware(['auth', 'verified', 'account.active'])->group(function () {
+    Route::get('/messages', [\App\Http\Controllers\Chat\DirectMessageController::class, 'index'])->name('messages.index');
+    Route::get('/messages/{user:public_id}', [\App\Http\Controllers\Chat\DirectMessageController::class, 'show'])->name('messages.direct');
+    Route::post('/messages/{user:public_id}', [\App\Http\Controllers\Chat\DirectMessageController::class, 'send'])->middleware('throttle:chat-dm-send')->name('messages.direct.send');
+    Route::get('/teams/{team:slug}/chat', [\App\Http\Controllers\Chat\TeamChatController::class, 'show'])->name('teams.chat');
+    Route::post('/teams/{team:slug}/chat', [\App\Http\Controllers\Chat\TeamChatController::class, 'send'])->middleware('throttle:chat-team-send')->name('teams.chat.send');
+    Route::get('/community/chat', [\App\Http\Controllers\Chat\CommunityChatController::class, 'show'])->name('community.chat');
+    Route::post('/community/chat', [\App\Http\Controllers\Chat\CommunityChatController::class, 'send'])->middleware('throttle:chat-global-send')->name('community.chat.send');
+
+    Route::get('/chat/threads/{thread:public_id}/messages', [\App\Http\Controllers\Chat\ChatMessageController::class, 'older'])->name('chat.messages');
+    Route::post('/chat/threads/{thread:public_id}/read', [\App\Http\Controllers\Chat\ChatMessageController::class, 'read'])->middleware('throttle:chat-read')->name('chat.read');
+    Route::patch('/chat/messages/{message}', [\App\Http\Controllers\Chat\ChatMessageController::class, 'update'])->middleware('throttle:chat-edit')->name('chat.messages.update');
+    Route::delete('/chat/messages/{message}', [\App\Http\Controllers\Chat\ChatMessageController::class, 'destroy'])->middleware('throttle:chat-edit')->name('chat.messages.destroy');
+    Route::post('/chat/messages/{message}/report', [\App\Http\Controllers\Chat\ChatMessageController::class, 'report'])->middleware('throttle:chat-report')->name('chat.messages.report');
+    Route::post('/chat/messages/{message}/hide', [\App\Http\Controllers\Chat\ChatMessageController::class, 'hide'])->middleware('throttle:chat-moderate')->name('chat.messages.hide');
+    Route::post('/chat/messages/{message}/restore', [\App\Http\Controllers\Chat\ChatMessageController::class, 'restore'])->middleware('throttle:chat-moderate')->name('chat.messages.restore');
+});
 Route::get('/teams/{team:slug}', [\App\Http\Controllers\TeamController::class, 'show'])->name('teams.show');
 
 // E18: قاعة الأمجاد (حرفية قبل {event:slug} حتى لا يلتقطها المسار الديناميكي)
