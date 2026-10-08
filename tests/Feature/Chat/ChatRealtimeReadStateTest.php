@@ -16,25 +16,6 @@ use Illuminate\Support\Facades\Log;
 beforeEach(fn () => $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class));
 afterEach(fn () => Carbon::setTestNow());
 
-/** ناشر يفشل دائمًا (Reverb متوقف). */
-class ChatFailingBroadcaster extends \Illuminate\Broadcasting\Broadcasters\Broadcaster
-{
-    public function auth($request)
-    {
-        return null;
-    }
-
-    public function validAuthenticationResponse($request, $result)
-    {
-        return null;
-    }
-
-    public function broadcast(array $channels, $event, array $payload = [])
-    {
-        throw new \RuntimeException('Reverb unreachable');
-    }
-}
-
 test('38: the broadcast happens only after the message is saved - the listener already finds the row - and denied sends and failed validation broadcast nothing', function () {
     [$a, $b] = chatFriends();
     $existedAtBroadcast = null;
@@ -127,7 +108,7 @@ test('43: the broadcast payload is public-safe - exact fields only - no email, p
 });
 
 test('44/F11: the persisted message does not depend on the broadcast succeeding - a dead Reverb loses nothing and logs no message text', function () {
-    Broadcast::extend('failing', fn () => new ChatFailingBroadcaster);
+    Broadcast::extend('failing', fn () => new \Tests\Support\ChatFailingBroadcaster);
     config(['broadcasting.default' => 'failing', 'broadcasting.connections.failing' => ['driver' => 'failing']]);
     Log::spy();
     $u = e16User();

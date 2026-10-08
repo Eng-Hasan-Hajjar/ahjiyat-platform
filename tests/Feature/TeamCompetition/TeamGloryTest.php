@@ -51,7 +51,9 @@ test('64/E3: the team profile shows the glory section - titles, recognition, cha
     $page = $this->get(route('teams.show', $a))->assertOk();
 
     $page->assertSee('مجد الفريق')->assertSee('بطل «بطولة الذهب»')->assertSee('ضد فريق الخصم')->assertSee('فوز')->assertSee(route('team-championships.show', $champ), false);
-    expect($page->getContent())->not->toMatch('/جوهر|عملة|XP|مكافأة اقتصادية/u');
+    // النص المرئي فقط: روابط الصفحة تحمل معرّفات لاعبين ULID عشوائية قد تحوي "XP" صدفة (≈2% لكل تصيير)، فلا تُفحص السمات ولا السكربتات.
+    $visible = strip_tags(preg_replace('#<(script|style)\b.*?</\1>#is', '', $page->getContent()));
+    expect($visible)->not->toMatch('/جوهر|عملة|XP|مكافأة اقتصادية/u');
 });
 
 test('65/D24: the hall of fame lists the team championship champions with the championship and its date', function () {

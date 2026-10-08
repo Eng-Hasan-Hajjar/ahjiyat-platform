@@ -64,7 +64,7 @@
 ### التشغيل محليًا
 ```
 composer require laravel/reverb          # مرة واحدة: يحدّث composer.json و composer.lock (فعلْه ثم أضف الملفين للالتزام)
-npm install                              # laravel-echo و pusher-js مثبَّتان بـpackage.json
+npm install                              # laravel-echo و pusher-js بـpackage.json؛ يحدّث package-lock.json (يُلتزم أيضًا)
 php artisan migrate
 php artisan permissions:sync
 php artisan db:seed --class="Database\Seeders\RolesAndPermissionsSeeder"
