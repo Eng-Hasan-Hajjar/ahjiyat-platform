@@ -23,7 +23,7 @@ class TeamChampionshipResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-trophy';
 
-    protected static ?string $navigationGroup = 'الأحجيات';
+    protected static ?string $navigationGroup = 'الفرق';
 
     protected static ?string $navigationLabel = 'بطولات الفرق';
 

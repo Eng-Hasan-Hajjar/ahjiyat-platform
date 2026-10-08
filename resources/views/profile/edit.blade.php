@@ -1,9 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'الملف الشخصي')
+@section('title', 'إعدادات الحساب')
+@section('content_width', 'max-w-2xl')
 
 @section('content')
-    <div class="max-w-md mx-auto space-y-5">
+    <div class="space-y-5">
+        {{-- E22: تنقل الإعدادات (الحساب | الهوية | الخصوصية) - تمييز واضح بين تعديل الحساب وتخصيص الهوية. --}}
+        @include('profile.partials.settings-tabs', ['active' => 'account'])
+
 
         <div class="puzzle-card !p-6 md:!p-8 anim-fade-up">
             <div class="flex items-center gap-4 mb-6">
@@ -11,7 +15,8 @@
                     {{ mb_substr($user->name, 0, 1) }}
                 </span>
                 <div class="min-w-0">
-                    <h1 class="font-display font-black text-xl text-white truncate">{{ $user->name }}</h1>
+                    <h1 class="font-display font-black text-xl text-white truncate">إعدادات الحساب</h1>
+                    <span class="text-xs text-slate-400 font-semibold block truncate">{{ $user->name }}</span>
                     <span class="text-xs text-slate-500 font-semibold">عضو منذ {{ $user->created_at->format('Y-m-d') }}</span>
                 </div>
             </div>
@@ -27,16 +32,16 @@
                 @method('PATCH')
 
                 <div>
-                    <label class="block text-sm font-bold text-slate-300 mb-2">الاسم</label>
-                    <input type="text" name="name" value="{{ old('name', $user->name) }}" required
+                    <label for="name" class="block text-sm font-bold text-slate-300 mb-2">الاسم</label>
+                    <input id="name" type="text" name="name" value="{{ old('name', $user->name) }}" required
                            class="input-gem">
                     @error('name')
                         <span class="text-xs text-rose font-semibold mt-1.5 block">{{ $message }}</span>
                     @enderror
                 </div>
                 <div>
-                    <label class="block text-sm font-bold text-slate-300 mb-2">البريد الإلكتروني</label>
-                    <input type="email" name="email" value="{{ old('email', $user->email) }}" required
+                    <label for="email" class="block text-sm font-bold text-slate-300 mb-2">البريد الإلكتروني</label>
+                    <input id="email" type="email" name="email" value="{{ old('email', $user->email) }}" required
                            class="input-gem">
                     @error('email')
                         <span class="text-xs text-rose font-semibold mt-1.5 block">{{ $message }}</span>
@@ -55,8 +60,8 @@
         </div>
 
         <div class="puzzle-card !p-6 md:!p-8 anim-fade-up d-1">
-            <h2 class="font-display font-black text-lg text-white mb-1">الهوية والتخصيص</h2>
-            <p class="text-xs text-slate-500 mb-4">جهِّز الصورة الرمزية والإطار واللقب التي تملكها.</p>
+            <h2 class="font-display font-black text-lg text-white mb-1">تخصيص الهوية</h2>
+            <p class="text-xs text-slate-500 mb-4">الصورة الرمزية والإطار والشارة واللقب والغلاف: كل ما يظهر به ملفك للآخرين.</p>
             <a href="{{ route('profile.customize') }}" class="btn-gem w-full justify-center !py-2.5 text-sm inline-flex">
                 تخصيص الهوية ←
             </a>
@@ -68,7 +73,7 @@
             <a href="{{ route('notifications.preferences') }}" class="chip inline-flex">تفضيلات الإشعارات</a>
         </div>
 
-        <div class="puzzle-card !p-6 md:!p-8 anim-fade-up d-2">
+        <div id="privacy" class="puzzle-card !p-6 md:!p-8 anim-fade-up d-2 scroll-mt-24">
             <h2 class="font-display font-black text-lg text-white mb-1">خصوصية الملف الشخصي</h2>
             <p class="text-xs text-slate-500 mb-4">تحدِّد من يستطيع رؤية ملفك العام (الهوية والإحصاءات الآمنة فقط - لا بريدك أو رصيدك أبدًا).</p>
 

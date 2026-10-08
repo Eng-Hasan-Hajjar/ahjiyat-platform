@@ -22,9 +22,9 @@ test('E12 req 133/278: a public profile never leaks any XP transaction reason or
 
     $response = $this->get(route('players.show', $player));
 
-    $response->assertOk()
-        ->assertDontSee('سبب-سري-للاختبار')
-        ->assertDontSee('77');
+    // E22: بيانات مسارات أيقونات SVG في الهيكل (d="...") قد تحوي أي رقم؛ نستثنيها ونُبقي الفحص صارمًا على بقية الصفحة.
+    $response->assertOk()->assertDontSee('سبب-سري-للاختبار');
+    expect(preg_replace('/\sd="[^"]*"/u', '', $response->getContent()))->not->toContain('77');
 });
 
 test('a public profile shows the count of unlocked achievements, not any internal keys', function () {

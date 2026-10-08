@@ -2,14 +2,14 @@
     <div x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false" class="relative shrink-0">
         <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="true"
             aria-label="الإشعارات{{ $unread > 0 ? ' - '.$unread.' غير مقروء' : '' }}"
-            class="relative grid place-items-center w-9 h-9 rounded-xl border border-white/10 bg-white/5 text-white hover:border-amethyst/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            class="relative grid place-items-center w-10 h-10 rounded-xl border border-white/10 bg-white/5 text-white hover:border-amethyst/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round"
                     d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0" />
             </svg>
             @if ($unread > 0)
                 <span data-bell-badge
-                    class="absolute -top-1 -end-1 min-w-[1.1rem] h-[1.1rem] px-1 grid place-items-center rounded-full bg-rose text-[10px] font-black text-white leading-none">{{ $unread > 99 ? '99+' : $unread }}</span>
+                    class="absolute -top-1 -end-1 min-w-[1.1rem] h-[1.1rem] px-1 grid place-items-center rounded-full bg-rose text-[10px] font-black text-slate-900 leading-none">{{ $unread > 99 ? '99+' : $unread }}</span>
             @endif
         </button>
 

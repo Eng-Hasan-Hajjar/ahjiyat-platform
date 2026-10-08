@@ -45,6 +45,8 @@
     --color-text-strong: #ffffff;
     --color-muted: #94a3b8;
     --ui-radius: 1rem;
+    /* E22: لون نص مميَّز مشتق من --color-primary (يتبع لوحة الإدارة) وبتباين مقروء على السطح؛ بديل أي hex ثابت لنصوص لقب/هوية بلا لون مخصَّص. */
+    --color-accent-text: color-mix(in srgb, var(--color-primary) 80%, white);
 }
 
 :root[data-theme="light"] {
@@ -53,7 +55,8 @@
     --color-surface-border: rgba(15, 23, 42, .08);
     --color-text: #1e1b2e;
     --color-text-strong: #0f0b1f;
-    --color-muted: #64748b;
+    --color-muted: #526077; /* E22: أغمق قليلًا من #64748b لبلوغ تباين AA على أسطح الثيم الفاتح */
+    --color-accent-text: color-mix(in srgb, var(--color-primary) 72%, black);
 }
 
 html { scroll-behavior: smooth; }
@@ -275,6 +278,26 @@ body {
 :root[data-theme="light"] .text-slate-500,
 :root[data-theme="light"] .text-slate-600 { color: var(--color-muted) !important; }
 
+/* E22: ألوان التمييز (ذهبي/زمردي/وردي) صُمّمت للخلفية الداكنة وتضعف تباينها على الفاتحة (أرقام الجواهر والسلسلة). نغمات أغمق بالفاتح فقط. */
+:root[data-theme="light"] .text-gold { color: #854d0e !important; }
+:root[data-theme="light"] .text-emerald { color: #047857 !important; }
+:root[data-theme="light"] .text-rose { color: #be123c !important; }
+:root[data-theme="light"] .text-amethyst { color: color-mix(in srgb, var(--color-primary) 72%, #000) !important; }
+:root:not([data-theme="light"]) .text-amethyst { color: color-mix(in srgb, var(--color-primary) 80%, #fff) !important; }
+/* E22: متغيّرات الأولوية (!text-*) تُولَّد داخل @layer utilities؛ و!important بالطبقات تعكس الترتيب (الطبقي يغلب غير الطبقي)، فنضع تجاوزاتها بالطبقة نفسها كي يعمل الاختيار بالخصوصية. */
+@layer utilities {
+    :root[data-theme="light"] .\!text-gold { color: #854d0e !important; }
+    :root[data-theme="light"] .\!text-white { color: var(--color-text-strong) !important; }
+    :root[data-theme="light"] .\!text-emerald { color: #047857 !important; }
+    :root[data-theme="light"] .\!text-rose { color: #be123c !important; }
+    :root[data-theme="light"] .\!text-amethyst { color: color-mix(in srgb, var(--color-primary) 72%, #000) !important; }
+    :root:not([data-theme="light"]) .\!text-amethyst { color: color-mix(in srgb, var(--color-primary) 80%, #fff) !important; }
+}
+/* E22: الشعار النصّي المتدرّج (text-gradient-gem) كان شاحبًا على الخلفية الفاتحة (تباين ضعيف)؛ نغمّق التدرّج بالثيم الفاتح فقط ونُبقي لون العلامة الأساسي. */
+:root[data-theme="light"] .text-gradient-gem {
+    background-image: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 72%, #000) 0%, #a21caf 50%, #a16207 100%);
+}
+
 :root[data-theme="light"] .bg-night-950,
 :root[data-theme="light"] .bg-night-900,
 :root[data-theme="light"] .bg-night-800 { background-color: var(--color-bg) !important; }
@@ -289,3 +312,8 @@ body {
 
 :root[data-theme="light"] .hover\:bg-white\/5:hover,
 :root[data-theme="light"] .hover\:bg-white\/10:hover { background-color: color-mix(in srgb, var(--color-primary) 8%, transparent) !important; }
+
+/* E22: «تقليل الحركة» يشمل انتقالات Alpine (x-transition) بالقوائم والأوراق والتنبيهات، لا الأصناف فقط. */
+@media (prefers-reduced-motion: reduce) {
+    header *, [role="menu"], [role="dialog"], [role="tooltip"] { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

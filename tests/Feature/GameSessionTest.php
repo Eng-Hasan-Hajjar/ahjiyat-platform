@@ -108,10 +108,9 @@ test('a correct full playthrough via HTTP awards gems exactly once and never lea
     $user = User::factory()->create();
     $puzzle = makeHttpSpotDifferencePuzzle();
 
-    $this->actingAs($user)
-        ->get(route('puzzles.show', $puzzle))
-                ->assertDontSee('0.25', false)
-        ->assertDontSee('radius":', false);
+    // E22: بيانات مسارات أيقونات SVG في الهيكل (d="...") أرقام عشرية عادية (مثل 20.25) فلا تُحسب تسريبًا؛ نستثنيها ونُبقي الفحص صارمًا على بقية الصفحة.
+    $html = preg_replace('/\sd="[^"]*"/u', '', $this->actingAs($user)->get(route('puzzles.show', $puzzle))->getContent());
+    expect($html)->not->toContain('0.25')->not->toContain('radius":');
 
     $start = $this->actingAs($user)->postJson(route('game-sessions.start', $puzzle));
     $sessionId = $start->json('session_id');

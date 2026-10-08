@@ -5,16 +5,12 @@
 @section('content')
     <div class="max-w-3xl mx-auto space-y-6">
 
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <div>
-                <h1 class="font-display font-black text-2xl text-white">الأصدقاء</h1>
-                <p class="text-xs text-slate-400 mt-1">قائمة أصدقائك خاصة بك ولا تظهر لغيرك.</p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="{{ route('friends.challenges.index') }}" class="chip">تحدّياتي</a>
+        <x-page-header title="الأصدقاء" subtitle="قائمة أصدقائك خاصة بك ولا تظهر لغيرك." icon="friends" class="!mb-0 anim-fade-up">
+            <x-slot:actions>
+                <a href="{{ route('friends.challenges.index') }}" class="chip inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="bolt" class="w-4 h-4" />تحدّياتي</a>
                 <a href="{{ route('friends.search') }}" class="btn-gem !py-2 !px-4 text-sm">ابحث عن لاعبين</a>
-            </div>
-        </div>
+            </x-slot:actions>
+        </x-page-header>
 
         {{-- إعداد الخصوصية: استقبال طلبات جديدة. الأصدقاء الحاليون لا يتأثرون بالتعطيل. --}}
         <form method="POST" action="{{ route('friends.settings') }}" class="glass rounded-3xl p-5 flex items-center justify-between gap-4 anim-fade-up">
@@ -62,7 +58,7 @@
             <div class="glass rounded-2xl divide-y divide-white/5">
                 @forelse ($friends as $friend)
                     <x-friend-row :user="$friend">
-                        <a href="{{ route('messages.direct', $friend) }}" class="chip text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">💬 راسل</a>
+                        <a href="{{ route('messages.direct', $friend) }}" class="chip text-xs inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="chat" class="w-3.5 h-3.5" /> راسل</a>
                         @include('friends._actions', ['other' => $friend, 'relation' => \App\Services\Social\FriendRelation::Friends])
                     </x-friend-row>
                 @empty

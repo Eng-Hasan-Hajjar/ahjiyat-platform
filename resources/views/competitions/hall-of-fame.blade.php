@@ -5,13 +5,7 @@
 @section('content')
     @php $medals = [1 => '🥇', 2 => '🥈', 3 => '🥉']; @endphp
     <div class="max-w-5xl mx-auto space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <div>
-                <h1 class="font-display font-black text-2xl md:text-3xl text-white">قاعة الأمجاد</h1>
-                <p class="text-sm text-slate-400 mt-1">أبطال المنافسات الرسمية المعتمَدة نتائجها.</p>
-            </div>
-            <a href="{{ route('competitions.index') }}" class="chip">← كل المنافسات</a>
-        </div>
+        <x-page-header title="قاعة الأمجاد" subtitle="أبطال المنافسات الرسمية المعتمَدة نتائجها." icon="trophy" :back="route('competitions.index')" backLabel="كل المنافسات" class="!mb-0 anim-fade-up" />
 
         <form method="GET" action="{{ route('competitions.hall-of-fame') }}" role="search" class="glass rounded-3xl p-5 flex flex-wrap items-center gap-3 anim-fade-up">
             <label for="q" class="sr-only">عنوان المنافسة</label>

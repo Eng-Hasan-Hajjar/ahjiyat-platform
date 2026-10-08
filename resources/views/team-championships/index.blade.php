@@ -4,13 +4,7 @@
 
 @section('content')
     <div class="max-w-4xl mx-auto space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <div>
-                <h1 class="font-display font-black text-2xl md:text-3xl text-white">بطولات الفرق</h1>
-                <p class="text-sm text-slate-400 mt-1">نقاط البطولة بحسب <strong>مركز</strong> الفريق في كل حدث معتمَد، لا بجمع درجات أحجيات مختلفة. المجد وحده: بلا جوائز اقتصادية.</p>
-            </div>
-            <a href="{{ route('teams.index') }}" class="chip focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">← الفرق</a>
-        </div>
+        <x-page-header title="بطولات الفرق" subtitle="نقاط البطولة بحسب مركز الفريق في كل حدث معتمَد، لا بجمع درجات أحجيات مختلفة. المجد وحده: بلا جوائز اقتصادية." icon="trophy" :back="route('teams.index')" backLabel="الفرق" class="!mb-0 anim-fade-up" />
 
         <section class="space-y-3" aria-labelledby="live-title">
             <h2 id="live-title" class="font-display font-black text-lg text-white">الجارية والقادمة</h2>
@@ -20,7 +14,7 @@
                     <span class="chip !py-0.5 !px-2 text-xs">{{ ['upcoming' => 'قادمة', 'live' => 'جارية', 'ended' => 'بانتظار الاعتماد'][$c->phase()] }}</span>
                 </a>
             @empty
-                <p class="glass rounded-2xl px-4 py-8 text-center text-slate-500 text-sm">لا بطولات جارية الآن.</p>
+                <x-empty-state icon="trophy" title="لا بطولات جارية الآن" message="ستظهر البطولات القادمة هنا فور الإعلان عنها." class="!py-8" />
             @endforelse
         </section>
 
@@ -32,7 +26,7 @@
                     <span class="text-sm text-gold">🏆 {{ $c->champion?->name }}</span>
                 </a>
             @empty
-                <p class="glass rounded-2xl px-4 py-8 text-center text-slate-500 text-sm">لا بطولات منتهية بعد.</p>
+                <x-empty-state icon="trophy" title="لا بطولات منتهية بعد" message="سيُسجَّل أبطال البطولات هنا بعد اعتماد النتائج." class="!py-8" />
             @endforelse
             <div>{{ $completed->links() }}</div>
         </section>

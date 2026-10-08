@@ -4,10 +4,7 @@
 
 @section('content')
     <div class="max-w-2xl mx-auto space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <h1 class="font-display font-black text-2xl text-white">دعوات الفرق</h1>
-            <a href="{{ route('teams.index') }}" class="chip">← الفرق</a>
-        </div>
+        <x-page-header title="دعوات الفرق" icon="mail" :back="route('teams.index')" backLabel="الفرق" class="!mb-0 anim-fade-up" />
 
         <div class="space-y-3">
             @forelse ($invitations as $invitation)

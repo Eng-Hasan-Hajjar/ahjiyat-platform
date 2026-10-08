@@ -4,17 +4,19 @@
 
 @section('content')
 
-    <h1 class="font-display font-black text-2xl md:text-3xl text-white mb-2 anim-fade-up">المتجر</h1>
-    <p class="text-slate-400 text-sm mb-8 anim-fade-up d-1">
-        الرصيد الافتراضي داخل المنصة وليس حساباً مصرفياً.
-    </p>
+    <x-page-header title="المتجر" subtitle="الرصيد الافتراضي داخل المنصة وليس حساباً مصرفياً." icon="store" class="anim-fade-up">
+        <x-slot:actions>
+            @auth
+                <a href="{{ route('inventory.index') }}" class="chip inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="inventory" class="w-4 h-4" />مقتنياتي</a>
+                <a href="{{ route('wallet.index') }}" class="chip inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="wallet" class="w-4 h-4" />محفظتي</a>
+            @endauth
+        </x-slot:actions>
+    </x-page-header>
 
-    <h2 class="font-display font-black text-lg md:text-xl text-white mb-4 anim-fade-up d-1">العناصر والمكافآت</h2>
+    <x-section-header title="العناصر والمكافآت" class="anim-fade-up d-1" />
 
     @if ($items->isEmpty())
-        <div class="glass rounded-2xl px-6 py-10 text-center anim-fade-up mb-10">
-            <p class="text-slate-400">لا توجد عناصر متاحة حالياً.</p>
-        </div>
+        <x-empty-state icon="store" title="لا توجد عناصر متاحة حالياً" message="تابعنا قريبًا؛ تُضاف عناصر ومكافآت جديدة باستمرار." class="anim-fade-up mb-10" />
     @else
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
             @foreach ($items as $item)

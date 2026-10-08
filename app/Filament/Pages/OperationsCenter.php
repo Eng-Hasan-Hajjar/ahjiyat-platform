@@ -16,7 +16,7 @@ class OperationsCenter extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-command-line';
 
-    protected static ?string $navigationGroup = 'إدارة الوصول';
+    protected static ?string $navigationGroup = 'التحليلات والنظام';
 
     protected static ?string $navigationLabel = 'مركز العمليات';
 

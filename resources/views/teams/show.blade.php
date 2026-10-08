@@ -25,7 +25,7 @@
 
                 <div class="flex flex-wrap gap-2">
                     @if ($state === 'member')
-                        <a href="{{ route('teams.chat', $team) }}" class="chip focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">💬 دردشة الفريق</a>
+                        <a href="{{ route('teams.chat', $team) }}" class="chip inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="chat" class="w-4 h-4" /> دردشة الفريق</a>
                     @endif
                     @if ($canChallenge)
                         <a href="{{ route('teams.challenges.create', ['opponent' => $team->slug]) }}" class="chip focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">⚔️ تحدَّ هذا الفريق</a>

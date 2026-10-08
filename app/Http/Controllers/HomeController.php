@@ -8,6 +8,7 @@ use App\Models\QuestDefinition;
 use App\Models\Season;
 use App\Models\UserQuestProgress;
 use App\Services\CampaignProgressService;
+use App\Services\Dashboard\PlayerDashboardService;
 use App\Services\Engagement\QuestPeriodService;
 use App\Services\Engagement\StreakService;
 use App\Services\PlatformSettingsService;
@@ -21,6 +22,7 @@ class HomeController extends Controller
         protected LevelService $levels,
         protected QuestPeriodService $periods,
         protected StreakService $streaks,
+        protected PlayerDashboardService $dashboardService,
     ) {}
 
     public function index()
@@ -87,10 +89,13 @@ class HomeController extends Controller
             }
         }
 
+        // E22: لوحة اللاعب (عرض فقط) للمصادَقين فقط؛ الضيف بلا أي استعلام إضافي.
+        $dashboard = auth()->check() ? $this->dashboardService->forUser(auth()->user()) : null;
+
         return view('home', compact(
             'dailyPuzzle', 'categories', 'featuredSeason', 'featuredSeasonCurrentStep', 'featuredSeasonPercentage', 'home',
             'myProgression', 'myCurrentLevel', 'myNextLevel', 'myProgressPercent',
-            'myQuestsCompletedToday', 'myQuestsTotalToday', 'myStreak',
+            'myQuestsCompletedToday', 'myQuestsTotalToday', 'myStreak', 'dashboard',
         ));
     }
 }

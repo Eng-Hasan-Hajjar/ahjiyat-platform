@@ -1,18 +1,16 @@
-@props([
-    'icon'    => '📭',
-    'title'   => 'لا توجد بيانات',
-    'message' => '',
-    'action'  => null,
-    'actionLabel' => 'إضافة جديد',
-])
+@props(['icon' => 'info', 'title' => 'لا توجد بيانات', 'message' => '', 'action' => null, 'actionLabel' => 'ابدأ'])
 
-<div class="card text-center py-5 px-3">
-    <div style="font-size:3.5rem;margin-bottom:16px;line-height:1;">{{ $icon }}</div>
-    <h5 style="font-weight:700;color:var(--text-dark);margin-bottom:8px;">{{ $title }}</h5>
-    @if($message)
-        <p style="color:var(--text-mid);font-size:.92rem;max-width:400px;margin:0 auto 20px;">{{ $message }}</p>
+{{--
+    E22: حالة فارغة موحَّدة (أيقونة SVG + عنوان + شرح + إجراء واحد واضح). استبدلت مكوّنًا قديمًا بأنماط مضمَّنة ومتغيرات غير معرّفة (كان يُستعمل بموضع واحد فقط).
+    الألوان من رموز الثيم فتصح بالفاتح والداكن. الأيقونة اسم من ui-icon (لا Emoji).
+--}}
+<div {{ $attributes->class('glass rounded-2xl px-6 py-10 text-center') }}>
+    <span class="mx-auto mb-4 grid place-items-center w-14 h-14 rounded-2xl bg-amethyst/15 text-amethyst"><x-ui-icon :name="$icon" class="w-7 h-7" /></span>
+    <h3 class="font-display font-black text-lg text-white">{{ $title }}</h3>
+    @if ($message)
+        <p class="text-sm text-slate-400 mt-1.5 max-w-md mx-auto">{{ $message }}</p>
     @endif
-    @if($action)
-        <a href="{{ $action }}" class="btn btn-primary btn-sm px-4">{{ $actionLabel }}</a>
+    @if ($action)
+        <a href="{{ $action }}" class="btn-gem !py-2.5 !px-6 text-sm mt-5 inline-flex focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">{{ $actionLabel }}</a>
     @endif
 </div>

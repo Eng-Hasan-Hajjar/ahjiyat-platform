@@ -4,13 +4,7 @@
 
 @section('content')
     <div class="max-w-3xl mx-auto space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <div>
-                <h1 class="font-display font-black text-2xl text-white">جدول الفرق</h1>
-                <p class="text-sm text-slate-400 mt-1">ترتيب بعدد الانتصارات ثم المراكز الثلاثة الأولى ثم المشاركات، من المنافسات المعتمَدة فقط.</p>
-            </div>
-            <a href="{{ route('teams.index') }}" class="chip">← الفرق</a>
-        </div>
+        <x-page-header title="جدول الفرق" subtitle="ترتيب بعدد الانتصارات ثم المراكز الثلاثة الأولى ثم المشاركات، من المنافسات المعتمَدة فقط." icon="chart" :back="route('teams.index')" backLabel="الفرق" class="!mb-0 anim-fade-up" />
 
         <div class="glass rounded-3xl overflow-x-auto anim-fade-up">
             <table class="w-full text-sm">

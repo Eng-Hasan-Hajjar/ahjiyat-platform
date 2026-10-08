@@ -26,7 +26,7 @@ class ChatMessageReportResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-flag';
 
-    protected static ?string $navigationGroup = 'الأحجيات';
+    protected static ?string $navigationGroup = 'الإشراف';
 
     protected static ?string $navigationLabel = 'بلاغات الدردشة';
 

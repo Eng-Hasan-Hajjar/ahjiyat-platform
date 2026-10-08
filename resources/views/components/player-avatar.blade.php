@@ -4,6 +4,7 @@
     $dimensions = match ($size) {
         'sm' => 'w-8 h-8 text-xs',
         'lg' => 'w-16 h-16 text-2xl',
+        'xl' => 'w-24 h-24 md:w-28 md:h-28 text-3xl',
         default => 'w-10 h-10 text-sm',
     };
 @endphp

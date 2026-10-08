@@ -4,16 +4,11 @@
 
 @section('content')
     <div class="max-w-4xl mx-auto space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <div>
-                <h1 class="font-display font-black text-2xl text-white">تحدّيات فريق {{ $team->name }}</h1>
-                <p class="text-sm text-slate-400 mt-1">مباريات غير متزامنة: يُقفل الروستران عند القبول، ويحسب الموقع النتيجة. لا جوائز اقتصادية؛ المجد وحده.</p>
-            </div>
-            <div class="flex gap-2">
-                <a href="{{ route('team-championships.index') }}" class="chip focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">🏆 بطولات الفرق</a>
-                <a href="{{ route('teams.index') }}" class="chip focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">← الفرق</a>
-            </div>
-        </div>
+        <x-page-header :title="'تحدّيات فريق '.$team->name" subtitle="مباريات غير متزامنة: يُقفل الروستران عند القبول، ويحسب الموقع النتيجة. لا جوائز اقتصادية؛ المجد وحده." icon="bolt" :back="route('teams.index')" backLabel="الفرق" class="!mb-0 anim-fade-up">
+            <x-slot:actions>
+                <a href="{{ route('team-championships.index') }}" class="chip inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="trophy" class="w-4 h-4" />بطولات الفرق</a>
+            </x-slot:actions>
+        </x-page-header>
         @if ($canManage)
             <p class="text-xs text-slate-500">لتحدّي فريق: افتح صفحته واضغط «تحدَّ هذا الفريق».</p>
         @endif

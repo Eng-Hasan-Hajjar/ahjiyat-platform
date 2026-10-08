@@ -19,7 +19,7 @@ class AnalyticsCenter extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar-square';
 
-    protected static ?string $navigationGroup = 'إدارة الوصول';
+    protected static ?string $navigationGroup = 'التحليلات والنظام';
 
     protected static ?string $navigationLabel = 'التحليلات والتقارير';
 

@@ -28,7 +28,7 @@ class CompetitiveEventResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-flag';
 
-    protected static ?string $navigationGroup = 'الأحجيات';
+    protected static ?string $navigationGroup = 'المنافسات';
 
     protected static ?string $navigationLabel = 'المنافسات';
 

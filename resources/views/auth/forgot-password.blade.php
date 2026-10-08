@@ -11,8 +11,8 @@
     <form method="POST" action="{{ route('password.email') }}" class="space-y-4">
         @csrf
         <div>
-            <label class="block text-sm font-bold text-slate-300 mb-2">البريد الإلكتروني</label>
-            <input type="email" name="email" value="{{ old('email') }}" required autofocus
+            <label for="email" class="block text-sm font-bold text-slate-300 mb-2">البريد الإلكتروني</label>
+            <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus
                    class="input-gem">
             @error('email')
                 <span class="text-xs text-rose font-semibold mt-1.5 block">{{ $message }}</span>

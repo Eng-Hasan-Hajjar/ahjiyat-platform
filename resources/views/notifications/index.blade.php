@@ -5,23 +5,17 @@
 @section('content')
     <div class="max-w-3xl mx-auto space-y-5">
 
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <div>
-                <h1 class="font-display font-black text-2xl text-white">الإشعارات</h1>
-                <p class="text-xs text-slate-400 mt-1">
-                    @if ($unreadCount > 0) لديك {{ $unreadCount }} إشعار غير مقروء. @else كل إشعاراتك مقروءة. @endif
-                </p>
-            </div>
-            <div class="flex items-center gap-2">
-                <a href="{{ route('notifications.preferences') }}" class="chip">التفضيلات</a>
+        <x-page-header title="الإشعارات" :subtitle="$unreadCount > 0 ? 'لديك '.$unreadCount.' إشعار غير مقروء.' : 'كل إشعاراتك مقروءة.'" icon="bell" class="!mb-0 anim-fade-up">
+            <x-slot:actions>
+                <a href="{{ route('notifications.preferences') }}" class="chip inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="settings" class="w-4 h-4" />التفضيلات</a>
                 @if ($unreadCount > 0)
                     <form method="POST" action="{{ route('notifications.read-all') }}">
                         @csrf
-                        <button type="submit" class="chip !text-amethyst">تعليم الكل كمقروء</button>
+                        <button type="submit" class="chip !text-amethyst inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="check" class="w-4 h-4" />تعليم الكل كمقروء</button>
                     </form>
                 @endif
-            </div>
-        </div>
+            </x-slot:actions>
+        </x-page-header>
 
         @if (session('success'))
             <div class="rounded-xl bg-emerald/10 border border-emerald/30 text-emerald text-sm font-bold px-4 py-3">{{ session('success') }}</div>

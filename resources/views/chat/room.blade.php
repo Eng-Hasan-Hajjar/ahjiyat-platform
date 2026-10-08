@@ -4,22 +4,39 @@
 
 @section('content')
     {{-- E21: غرفة دردشة نصية. كل نص يُعرض بـx-text (مهرَّب) فلا HTML من المستخدمين؛ الإعداد يُمرَّر بـJs::from (JSON مهرَّب للسمات والوسوم). --}}
-    <div class="max-w-3xl mx-auto space-y-3" x-data="chatRoom({{ \Illuminate\Support\Js::from($config) }})">
-        <div class="flex flex-wrap items-center justify-between gap-2">
+    {{-- E22: سطح المكتب: قائمة المحادثات جانبًا + الغرفة؛ الجوال: الغرفة وحدها مع سهم رجوع للقائمة. منطق الرسائل (Alpine) كما هو. --}}
+    <div class="lg:grid lg:grid-cols-[19rem_minmax(0,1fr)] lg:gap-5 lg:items-start">
+        <aside class="hidden lg:block lg:sticky lg:top-20" aria-label="قائمة المحادثات">
+            @include('messages._sidebar', $sidebar)
+        </aside>
+
+    <div class="min-w-0 space-y-3" x-data="chatRoom({{ \Illuminate\Support\Js::from($config) }})">
+        <header class="glass rounded-2xl px-3 sm:px-4 py-3 flex items-center gap-3">
+            <a href="{{ route('messages.index') }}" aria-label="كل المحادثات" class="lg:hidden grid place-items-center w-9 h-9 shrink-0 rounded-xl bg-white/5 text-slate-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">
+                <x-ui-icon name="chevron-right" class="w-5 h-5" />
+            </a>
+            <span aria-hidden="true" class="grid place-items-center w-10 h-10 shrink-0 rounded-full {{ $config['type'] === 'global' ? 'bg-emerald/15 text-emerald' : 'bg-amethyst/20 text-white' }} font-bold">
+                @if ($config['type'] === 'global')
+                    <x-ui-icon name="globe" class="w-5 h-5" />
+                @elseif ($config['type'] === 'team')
+                    <x-ui-icon name="team" class="w-5 h-5" />
+                @else
+                    {{ mb_substr($config['title'], 0, 1) }}
+                @endif
+            </span>
             <div class="min-w-0">
-                <h1 class="font-display font-black text-xl text-white truncate">{{ $config['title'] }}</h1>
+                <h1 class="font-display font-black text-lg text-white truncate">{{ $config['title'] }}</h1>
                 @if ($config['subtitle'])
-                    <p class="text-xs text-slate-400 mt-0.5">{{ $config['subtitle'] }}</p>
+                    <p class="text-xs text-slate-400 truncate">{{ $config['subtitle'] }}</p>
                 @endif
             </div>
-            <a href="{{ route('messages.index') }}" class="chip text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">← الرسائل</a>
-        </div>
+        </header>
 
         <p x-show="error" x-cloak x-text="error" role="alert" class="rounded-xl bg-rose/10 border border-rose/30 px-3 py-2 text-xs text-rose"></p>
         <p x-show="notice" x-cloak x-text="notice" role="status" class="rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-xs text-emerald-400"></p>
 
         <section class="glass rounded-3xl p-3 sm:p-4" aria-label="الرسائل">
-            <div x-ref="scroller" role="log" aria-live="polite" class="h-[58vh] min-h-[18rem] overflow-y-auto space-y-3 pe-1">
+            <div x-ref="scroller" role="log" aria-live="polite" class="h-[56vh] min-h-[18rem] lg:h-[calc(100vh-18rem)] lg:max-h-[46rem] overflow-y-auto space-y-3 pe-1">
                 <div class="text-center">
                     <button type="button" x-show="hasMore" x-cloak @click="loadOlder()" :disabled="loadingOlder" class="chip text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">
                         <span x-text="loadingOlder ? 'جارٍ التحميل…' : 'تحميل رسائل أقدم'"></span>
@@ -86,5 +103,6 @@
                 <p x-show="!cfg.caps.send" x-cloak x-text="cfg.caps.blocker_message" role="status" class="text-center text-xs text-amber-400"></p>
             </div>
         </section>
+    </div>
     </div>
 @endsection

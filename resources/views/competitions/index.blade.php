@@ -3,20 +3,21 @@
 @section('title', 'المنافسات')
 
 @section('content')
-    <div class="max-w-5xl mx-auto space-y-8">
-        <div class="anim-fade-up">
-            <h1 class="font-display font-black text-2xl md:text-3xl text-white">المنافسات</h1>
-            <p class="text-sm text-slate-400 mt-1">أحجية واحدة، محاولة واحدة، ونتيجة يحسبها الموقع. لا رسوم دخول ولا أفضلية مدفوعة.</p>
-            <a href="{{ route('competitions.hall-of-fame') }}" class="chip mt-3 inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">🏛️ قاعة الأمجاد</a>
-        </div>
+    <div class="space-y-8">
+        <x-page-header title="المنافسات" icon="trophy" subtitle="أحجية واحدة، محاولة واحدة، ونتيجة يحسبها الموقع. لا رسوم دخول ولا أفضلية مدفوعة." class="anim-fade-up !mb-0">
+            <x-slot:actions>
+                <a href="{{ route('competitions.hall-of-fame') }}" class="chip inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="sparkles" class="w-4 h-4" /> قاعة الأمجاد</a>
+                <a href="{{ route('team-championships.index') }}" class="chip inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="flag" class="w-4 h-4" /> بطولات الفرق</a>
+            </x-slot:actions>
+        </x-page-header>
 
-        @foreach ([['live', 'مباشرة الآن', $live, 'لا توجد منافسات مباشرة حاليًا.'], ['upcoming', 'قادمة', $upcoming, 'لا توجد منافسات قادمة بعد.'], ['ended', 'منتهية', $ended, 'لا توجد منافسات منتهية بعد.']] as [$key, $label, $events, $empty])
+        @foreach ([['live', 'مباشرة الآن', $live, 'لا توجد منافسات مباشرة حاليًا.', 'lg:grid-cols-2'], ['upcoming', 'قادمة', $upcoming, 'لا توجد منافسات قادمة بعد.', 'lg:grid-cols-2'], ['ended', 'منتهية', $ended, 'لا توجد منافسات منتهية بعد.', 'lg:grid-cols-3']] as [$key, $label, $events, $empty, $cols])
             <section class="anim-fade-up" aria-labelledby="sec-{{ $key }}">
-                <h2 id="sec-{{ $key }}" class="font-display font-black text-lg text-white mb-3">{{ $label }}</h2>
+                <x-section-header :title="$label" id="sec-{{ $key }}" />
                 @if ($events->isEmpty())
-                    <p class="glass rounded-2xl px-4 py-8 text-center text-slate-500 text-sm">{{ $empty }}</p>
+                    <x-empty-state icon="trophy" :title="$empty" />
                 @else
-                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="grid gap-4 sm:grid-cols-2 {{ $cols }}">
                         @foreach ($events as $event)
                             @include('competitions._card', ['event' => $event])
                         @endforeach

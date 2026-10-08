@@ -11,8 +11,8 @@
     <form method="POST" action="{{ route('password.confirm') }}" class="space-y-4">
         @csrf
         <div>
-            <label class="block text-sm font-bold text-slate-300 mb-2">كلمة المرور</label>
-            <input type="password" name="password" required autocomplete="current-password" class="input-gem">
+            <label for="password" class="block text-sm font-bold text-slate-300 mb-2">كلمة المرور</label>
+            <input id="password" type="password" name="password" required autocomplete="current-password" class="input-gem">
             @error('password')
                 <span class="text-xs text-rose font-semibold mt-1.5 block">{{ $message }}</span>
             @enderror

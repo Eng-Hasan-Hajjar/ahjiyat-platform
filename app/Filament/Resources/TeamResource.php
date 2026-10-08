@@ -27,7 +27,7 @@ class TeamResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
-    protected static ?string $navigationGroup = 'الأحجيات';
+    protected static ?string $navigationGroup = 'الفرق';
 
     protected static ?string $navigationLabel = 'الفرق';
 
