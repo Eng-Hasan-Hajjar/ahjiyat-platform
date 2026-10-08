@@ -207,7 +207,9 @@ test('L: the conversations list is free of N+1 - the number of queries does not 
         DB::flushQueryLog();
         DB::enableQueryLog();
         $this->actingAs($me)->get(route('messages.index'))->assertOk();
-        $n = collect(DB::getQueryLog())->reject(fn ($q) => str_contains($q['query'], 'fraud_flags'))->count();          // كشف الإساءة القائم (غير الدردشة) قد يسجّل علامة
+        // نعدّ استعلامات **مصادر الصفحة** فقط (الدردشة والمستخدمون والفرق والصداقات): تتبّع الجهاز/الجلسة وكشف الإساءة يكتبان بنوافذ زمنية متقطعة
+        // (مثل update device_sightings) ولا تنمو بعدد المحادثات، فعدّها يجعل الاختبار يتأرجح بحدود الثواني.
+        $n = collect(DB::getQueryLog())->filter(fn ($q) => preg_match('/chat_|"users"|"teams"|team_memberships|friendships/', $q['query']) === 1)->count();
         DB::disableQueryLog();
 
         return $n;
