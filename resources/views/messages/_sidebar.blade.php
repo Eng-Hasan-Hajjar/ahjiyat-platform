@@ -13,14 +13,14 @@
     <a href="{{ route('community.chat') }}" @if (request()->routeIs('community.chat')) aria-current="page" @endif class="{{ $item }} {{ request()->routeIs('community.chat') ? $on : $off }}">
         <span class="grid place-items-center w-10 h-10 shrink-0 rounded-full bg-emerald/15 text-emerald"><x-ui-icon name="globe" class="w-5 h-5" /></span>
         <span class="min-w-0 flex-1 font-bold text-white text-sm truncate">الدردشة العامة</span>
-        @if ($globalUnread > 0)<span class="chip !py-0.5 !px-2 text-xs !text-gold" aria-label="غير مقروء">{{ $badge($globalUnread) }}</span>@endif
+        @if ($globalUnread > 0)<x-status-badge tone="warning" small>{{ $badge($globalUnread) }}<span class="sr-only"> رسائل غير مقروءة</span></x-status-badge>@endif
     </a>
 
     @if ($team)
         <a href="{{ route('teams.chat', $team) }}" @if (request()->routeIs('teams.chat')) aria-current="page" @endif class="{{ $item }} {{ request()->routeIs('teams.chat') ? $on : $off }}">
             <span class="grid place-items-center w-10 h-10 shrink-0 rounded-full bg-amethyst/15 text-amethyst"><x-ui-icon name="team" class="w-5 h-5" /></span>
             <span class="min-w-0 flex-1 font-bold text-white text-sm truncate">دردشة {{ $team->name }}</span>
-            @if ($teamUnread > 0)<span class="chip !py-0.5 !px-2 text-xs !text-gold" aria-label="غير مقروء">{{ $badge($teamUnread) }}</span>@endif
+            @if ($teamUnread > 0)<x-status-badge tone="warning" small>{{ $badge($teamUnread) }}<span class="sr-only"> رسائل غير مقروءة</span></x-status-badge>@endif
         </a>
     @endif
 
@@ -41,7 +41,7 @@
                 </span>
                 <span class="shrink-0 text-end">
                     <span class="block text-[11px] text-slate-500">{{ $c['thread']->last_message_at?->locale('ar')->diffForHumans(short: true) }}</span>
-                    @if ($c['unread'] > 0)<span class="chip !py-0.5 !px-2 text-xs !text-gold" aria-label="غير مقروء">{{ $badge($c['unread']) }}</span>@endif
+                    @if ($c['unread'] > 0)<x-status-badge tone="warning" small>{{ $badge($c['unread']) }}<span class="sr-only"> رسائل غير مقروءة</span></x-status-badge>@endif
                 </span>
             </a>
         @endif

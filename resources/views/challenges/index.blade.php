@@ -4,10 +4,7 @@
 
 @section('content')
 
-    <div class="anim-fade-up mb-8">
-        <h1 class="font-display font-black text-3xl md:text-4xl text-gradient-gem">التحديات والبطولات</h1>
-        <p class="text-slate-400 mt-2">انضم لتحدٍ، نافس بقية اللاعبين، واكسب جواهر إضافية من مجموعة المكافآت 🏆</p>
-    </div>
+    <x-page-header title="التحديات والبطولات" icon="flag" subtitle="انضم لتحدٍ، نافس بقية اللاعبين، واكسب جواهر إضافية من مجموعة المكافآت." class="anim-fade-up" />
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         @forelse ($challenges as $index => $challenge)
@@ -42,11 +39,7 @@
                 </div>
             </a>
         @empty
-            <div class="glass rounded-2xl p-10 text-center text-slate-400 col-span-full">
-                <span class="text-5xl block mb-4">🏆</span>
-                <p class="font-bold">لا توجد تحديات متاحة حالياً</p>
-                <p class="text-sm mt-2">تابعنا، تحدي جديد قادم قريباً!</p>
-            </div>
+            <x-empty-state class="col-span-full" icon="trophy" title="لا توجد تحديات متاحة حالياً" message="تابعنا، تحدٍّ جديد قادم قريباً!" />
         @endforelse
     </div>
 

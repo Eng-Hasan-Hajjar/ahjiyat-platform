@@ -5,10 +5,7 @@
 @section('content')
     @php $medals = [1 => '🥇', 2 => '🥈', 3 => '🥉']; @endphp
     <div class="max-w-3xl mx-auto space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <h1 class="font-display font-black text-2xl text-white">سجل منافسات {{ $player->name }}</h1>
-            <a href="{{ route('players.show', $player) }}" class="chip">← الملف</a>
-        </div>
+        <x-page-header :title="'سجل منافسات '.$player->name" icon="trophy" :back="route('players.show', $player)" backLabel="الملف الشخصي" class="anim-fade-up !mb-0" />
 
         <section class="glass rounded-3xl p-5 anim-fade-up" aria-labelledby="stats-title">
             <h2 id="stats-title" class="sr-only">الإحصاءات</h2>

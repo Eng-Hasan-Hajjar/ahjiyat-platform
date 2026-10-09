@@ -44,6 +44,9 @@ function e111CountLeaderboardQueries($test): int
 }
 
 test('the leaderboard runs a constant number of queries no matter how many players it lists - no N+1', function () {
+    // E23: الزمن مجمَّد. تتبّع البصمة (device_sightings) يصدر UPDATE واحدًا فقط حين تتغيّر الثانية بين طلبين، فكان العدّ يختلف بواحد صدفةً (~5%) دون أي N+1.
+    $this->freezeTime();
+
     e111SeedLeaderboardPlayers(3);
     $this->get(route('leaderboard.index'))->assertOk(); // تسخين إعدادات المنصة المُخزَّنة
     $small = e111CountLeaderboardQueries($this);

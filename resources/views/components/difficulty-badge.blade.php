@@ -2,18 +2,13 @@
     شارة مستوى الصعوبة (سهل/متوسط/صعب) - نسخة موحّدة تحل محل نفس المنطق
     المكرّر سابقاً بـ puzzles/index وpuzzles/show وchallenges/show.
     الاستخدام: <x-difficulty-badge :difficulty="$puzzle->difficulty" />
+    E23: تُرسم عبر status-badge الموحَّدة (المتوسط كان amber بلا بديل للثيم الفاتح فصار نبرة warning القابلة للقراءة بالثيمين).
 --}}
 @props(['difficulty'])
 
 @php
     $label = ['easy' => 'سهل', 'medium' => 'متوسط', 'hard' => 'صعب'][$difficulty] ?? $difficulty;
-    $style = [
-        'easy' => 'bg-emerald/10 text-emerald border-emerald/30',
-        'medium' => 'bg-amber-400/10 text-amber-300 border-amber-400/30',
-        'hard' => 'bg-rose/10 text-rose border-rose/30',
-    ][$difficulty] ?? 'bg-white/10 text-slate-300 border-white/20';
+    $tone = ['easy' => 'success', 'medium' => 'warning', 'hard' => 'danger'][$difficulty] ?? 'neutral';
 @endphp
 
-<span {{ $attributes->merge(['class' => "rounded-full border px-3 py-1 text-xs font-black shrink-0 $style"]) }}>
-    {{ $label }}
-</span>
+<x-status-badge :tone="$tone" {{ $attributes }}>{{ $label }}</x-status-badge>

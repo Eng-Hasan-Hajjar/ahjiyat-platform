@@ -4,10 +4,7 @@
 
 @section('content')
     <div class="max-w-xl mx-auto space-y-6">
-        <div class="anim-fade-up">
-            <h1 class="font-display font-black text-2xl text-white">إنشاء فريق</h1>
-            <p class="text-sm text-slate-400 mt-1">ستكون مالك الفريق. يمكن لكل مستخدم أن يكون عضوًا في فريق واحد فقط.</p>
-        </div>
+        <x-page-header title="إنشاء فريق" icon="team" subtitle="ستكون مالك الفريق. يمكن لكل مستخدم أن يكون عضوًا في فريق واحد فقط." :back="route('teams.index')" backLabel="الفرق" class="anim-fade-up !mb-0" />
 
         <form method="POST" action="{{ route('teams.store') }}" class="glass rounded-3xl p-6 space-y-5 anim-fade-up">
             @csrf

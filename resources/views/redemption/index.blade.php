@@ -44,13 +44,7 @@
                         {{ $request->created_at->format('Y-m-d') }} · {{ number_format($request->gems_amount) }} جوهرة
                     </span>
                 </div>
-                <span class="shrink-0 text-xs font-black px-3 py-1.5 rounded-full border
-                    {{ $color === 'gold' ? 'bg-gold/10 text-gold border-gold/30' : '' }}
-                    {{ $color === 'emerald' ? 'bg-emerald/10 text-emerald border-emerald/30' : '' }}
-                    {{ $color === 'rose' ? 'bg-rose/10 text-rose border-rose/30' : '' }}
-                    {{ $color === 'slate-400' ? 'bg-white/5 text-slate-400 border-white/10' : '' }}">
-                    {{ $label }}
-                </span>
+                <x-status-badge :tone="['gold' => 'warning', 'emerald' => 'success', 'rose' => 'danger'][$color] ?? 'neutral'">{{ $label }}</x-status-badge>
             </div>
         @endforeach
     </div>

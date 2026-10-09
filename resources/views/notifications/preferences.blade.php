@@ -4,10 +4,7 @@
 
 @section('content')
     <div class="max-w-xl mx-auto space-y-5">
-        <div class="flex items-center justify-between anim-fade-up">
-            <h1 class="font-display font-black text-2xl text-white">تفضيلات الإشعارات</h1>
-            <a href="{{ route('notifications.index') }}" class="chip">← الإشعارات</a>
-        </div>
+        <x-page-header title="تفضيلات الإشعارات" icon="settings" :back="route('notifications.index')" backLabel="الإشعارات" class="anim-fade-up !mb-0" />
 
         @if (session('success'))
             <div class="rounded-xl bg-emerald/10 border border-emerald/30 text-emerald text-sm font-bold px-4 py-3">{{ session('success') }}</div>

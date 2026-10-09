@@ -52,7 +52,7 @@
                                 @endif
                             </span>
                             @if ($item->is_featured)
-                                <span class="chip !py-0.5 !px-2 text-[10px] !text-gold">مميَّز</span>
+                                <x-status-badge tone="warning" icon="sparkles" small>مميَّز</x-status-badge>
                             @endif
                         </div>
 

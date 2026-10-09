@@ -4,8 +4,9 @@
 
 @section('content')
 
-    <div class="max-w-md mx-auto puzzle-card !p-6 md:!p-8 anim-fade-up">
-        <h1 class="font-display font-black text-xl md:text-2xl text-white mb-6">طلب استبدال جديد</h1>
+    <div class="max-w-md mx-auto">
+    <x-page-header title="طلب استبدال جديد" icon="gift" :back="route('redemption.index')" backLabel="طلبات الاستبدال" class="anim-fade-up" />
+    <div class="puzzle-card !p-6 md:!p-8 anim-fade-up">
 
         @if (! $eligibility['eligible'])
             <div class="rounded-xl border border-rose/30 bg-rose/10 text-rose px-4 py-4 text-sm">
@@ -37,6 +38,7 @@
                 </button>
             </form>
         @endif
+    </div>
     </div>
 
 @endsection

@@ -9,10 +9,7 @@
         $input = 'w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst';
     @endphp
     <div class="max-w-4xl mx-auto space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <h1 class="font-display font-black text-2xl text-white">إدارة فريق {{ $team->name }}</h1>
-            <a href="{{ route('teams.show', $team) }}" class="chip">← صفحة الفريق</a>
-        </div>
+        <x-page-header :title="'إدارة فريق '.$team->name" icon="settings" :back="route('teams.show', $team)" backLabel="صفحة الفريق" class="anim-fade-up !mb-0" />
 
         @unless ($team->is_active)
             <p class="rounded-xl border border-rose/30 bg-rose/10 text-rose px-4 py-3 text-sm font-bold" role="status">هذا الفريق غير مفعَّل: الصفحة للقراءة فقط.</p>

@@ -4,11 +4,7 @@
 
 @section('content')
     <div class="max-w-3xl mx-auto space-y-5">
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <h1 class="font-display font-black text-2xl text-white">تحدَّ {{ $opponent->name }}</h1>
-            <a href="{{ route('friends.index') }}" class="chip">← الأصدقاء</a>
-        </div>
-        <p class="text-xs text-slate-400">اختر أحجية واحدة. لكل طرف محاولة واحدة، والنقاط تُحسب من صحة الإجابة وسرعتها بالسيرفر. الأحجيات ذات التلميح غير متاحة.</p>
+        <x-page-header :title="'تحدَّ '.$opponent->name" icon="bolt" subtitle="اختر أحجية واحدة. لكل طرف محاولة واحدة، والنقاط تُحسب من صحة الإجابة وسرعتها بالسيرفر. الأحجيات ذات التلميح غير متاحة." :back="route('friends.index')" backLabel="الأصدقاء" class="anim-fade-up !mb-0" />
 
         <form method="GET" action="{{ route('friends.challenges.create', $opponent) }}" role="search" class="glass rounded-3xl p-5 flex flex-wrap items-center gap-3">
             <label for="q" class="sr-only">ابحث عن أحجية</label>

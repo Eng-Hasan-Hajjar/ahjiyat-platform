@@ -11,7 +11,7 @@
             @forelse ($live as $c)
                 <a href="{{ route('team-championships.show', $c) }}" class="glass rounded-2xl p-4 flex flex-wrap items-center justify-between gap-2 hover:border-amethyst/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst transition">
                     <div><div class="font-bold text-white">{{ $c->is_featured ? '⭐ ' : '' }}{{ $c->title }}</div><div class="text-xs text-slate-400">{{ $c->starts_at->format('Y-m-d') }} → {{ $c->ends_at->format('Y-m-d') }} · {{ $c->events_count }} أحداث</div></div>
-                    <span class="chip !py-0.5 !px-2 text-xs">{{ ['upcoming' => 'قادمة', 'live' => 'جارية', 'ended' => 'بانتظار الاعتماد'][$c->phase()] }}</span>
+                    <x-status-badge :tone="['upcoming' => 'warning', 'live' => 'success', 'ended' => 'neutral'][$c->phase()] ?? 'neutral'" small>{{ ['upcoming' => 'قادمة', 'live' => 'جارية', 'ended' => 'بانتظار الاعتماد'][$c->phase()] }}</x-status-badge>
                 </a>
             @empty
                 <x-empty-state icon="trophy" title="لا بطولات جارية الآن" message="ستظهر البطولات القادمة هنا فور الإعلان عنها." class="!py-8" />

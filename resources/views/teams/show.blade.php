@@ -18,7 +18,7 @@
                             <span class="chip">{{ $team->isPublic() ? 'فريق عام' : 'فريق خاص' }}</span>
                             <span class="chip">{{ $joinLabels[$team->join_policy] ?? '' }}</span>
                             <span class="chip">{{ $team->members_count }} / {{ $team->capacity() }} عضو</span>
-                            @unless ($team->is_active) <span class="chip !text-rose">غير مفعَّل</span> @endunless
+                            @unless ($team->is_active) <x-status-badge tone="danger" icon="no-symbol">غير مفعَّل</x-status-badge> @endunless
                         </div>
                     </div>
                 </div>
@@ -28,7 +28,7 @@
                         <a href="{{ route('teams.chat', $team) }}" class="chip inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="chat" class="w-4 h-4" /> دردشة الفريق</a>
                     @endif
                     @if ($canChallenge)
-                        <a href="{{ route('teams.challenges.create', ['opponent' => $team->slug]) }}" class="chip focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">⚔️ تحدَّ هذا الفريق</a>
+                        <a href="{{ route('teams.challenges.create', ['opponent' => $team->slug]) }}" class="chip inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"><x-ui-icon name="bolt" class="w-4 h-4" /> تحدَّ هذا الفريق</a>
                     @endif
                     @switch($state)
                         @case('guest')

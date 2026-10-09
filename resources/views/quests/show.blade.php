@@ -6,9 +6,8 @@
 
     <div class="max-w-3xl mx-auto">
 
-        <div class="rounded-xl bg-emerald/10 border border-emerald/30 text-emerald text-sm font-bold px-4 py-3 mb-6 text-center anim-fade-up">
-            استمر باللعب وحقق أهدافك اليومية والأسبوعية - كلها مجانية بالكامل.
-        </div>
+        {{-- E23: كانت الصفحة بلا H1 (عنوان واحد للصفحة شرط وصول). الرسالة التحفيزية صارت وصف الترويسة. --}}
+        <x-page-header title="المهام" icon="quests" subtitle="استمر باللعب وحقق أهدافك اليومية والأسبوعية - كلها مجانية بالكامل." class="anim-fade-up" />
 
         {{-- بند 360: الملخَّص --}}
         <div class="puzzle-card !p-6 mb-8 anim-fade-up d-1">

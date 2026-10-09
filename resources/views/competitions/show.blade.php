@@ -66,9 +66,9 @@
                         @break
                     @case('registered')
                         <div class="flex flex-wrap items-center gap-3">
-                            <span class="chip !text-emerald-400">أنت مسجَّل — تبدأ في {{ $event->starts_at->format('Y-m-d H:i') }}</span>
+                            <x-status-badge tone="success" icon="check-circle">أنت مسجَّل — تبدأ في {{ $event->starts_at->format('Y-m-d H:i') }}</x-status-badge>
                             <form method="POST" action="{{ route('competitions.leave', $event) }}">@csrf @method('DELETE')
-                                <button type="submit" class="chip text-xs" aria-label="الانسحاب من المنافسة">انسحاب</button>
+                                <button type="submit" class="btn-secondary !min-h-9 !px-4 !py-1.5 !text-xs" aria-label="الانسحاب من المنافسة">انسحاب</button>
                             </form>
                         </div>
                         @break
@@ -81,19 +81,19 @@
                         <a href="{{ route('competitions.play', $event) }}" class="btn-gem !py-2.5 !px-5 text-sm">تابع محاولتك الجارية</a>
                         @break
                     @case('completed')
-                        <span class="chip !text-emerald-400">سُجّلت نتيجتك</span>
+                        <x-status-badge tone="success" icon="check-circle">سُجّلت نتيجتك</x-status-badge>
                         @break
                     @case('full')
-                        <span class="chip !text-rose-400">اكتمل عدد المشاركين</span>
+                        <x-status-badge tone="danger" icon="no-symbol">اكتمل عدد المشاركين</x-status-badge>
                         @break
                     @case('registration_closed')
-                        <span class="chip">التسجيل غير متاح الآن</span>
+                        <x-status-badge tone="neutral" icon="lock">التسجيل غير متاح الآن</x-status-badge>
                         @break
                     @case('cancelled')
-                        <span class="chip !text-rose-400">أُلغيت هذه المنافسة</span>
+                        <x-status-badge tone="danger" icon="no-symbol">أُلغيت هذه المنافسة</x-status-badge>
                         @break
                     @default
-                        <span class="chip">انتهت المنافسة</span>
+                        <x-status-badge tone="neutral">انتهت المنافسة</x-status-badge>
                 @endswitch
             </div>
         </div>

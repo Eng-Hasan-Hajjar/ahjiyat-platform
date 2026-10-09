@@ -16,9 +16,9 @@
 <a href="{{ route('competitions.show', $event) }}"
    class="glass rounded-2xl p-5 flex flex-col h-full hover:border-amethyst/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst transition motion-reduce:transition-none {{ $phase === 'live' ? '!border-emerald/40' : '' }}">
     <div class="flex items-center justify-between gap-2 mb-2">
-        <span class="chip !py-0.5 !px-3 text-xs inline-flex items-center gap-1.5 {{ $phase === 'live' ? '!text-emerald' : '' }}">
+        <x-status-badge :tone="$phase === 'live' ? 'success' : ($phase === 'upcoming' ? 'warning' : 'neutral')">
             @if ($phase === 'live')<span aria-hidden="true" class="w-1.5 h-1.5 rounded-full bg-emerald"></span>@endif{{ $phaseLabel }}
-        </span>
+        </x-status-badge>
         @if ($event->is_featured)
             <span class="inline-flex items-center gap-1 text-xs font-black text-gold"><x-ui-icon name="sparkles" class="w-3.5 h-3.5" /> مميزة</span>
         @endif

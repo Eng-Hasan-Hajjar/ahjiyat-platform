@@ -3,6 +3,7 @@
     locked/in_progress/available/not_qualified) قادمة من CampaignProgressService
     مباشرة. technical_pending/content_pending حالتان إداريتان فقط (لا تُمرَّران
     أبداً لغير Admin من الـController).
+    E23: تُرسم عبر status-badge الموحَّدة (نبرة + أيقونة للمقفل/المكتمل) دون تغيير أي حالة أو نص.
 --}}
 @props(['state', 'small' => false])
 
@@ -17,19 +18,17 @@
         'content_pending' => 'محتوى مؤقت',
     ][$state] ?? $state;
 
-    $style = [
-        'completed' => 'bg-emerald/10 text-emerald border-emerald/30',
-        'locked' => 'bg-white/5 text-slate-500 border-white/10',
-        'in_progress' => 'bg-gold/10 text-gold border-gold/30',
-        'available' => 'bg-amethyst/10 text-amethyst border-amethyst/30',
-        'not_qualified' => 'bg-rose/10 text-rose border-rose/30',
-        'technical_pending' => 'bg-gold/10 text-gold border-gold/30 border-dashed',
-        'content_pending' => 'bg-cyan-400/10 text-cyan-300 border-cyan-400/30 border-dashed',
-    ][$state] ?? 'bg-white/10 text-slate-300 border-white/20';
+    $tone = [
+        'completed' => 'success',
+        'locked' => 'neutral',
+        'in_progress' => 'warning',
+        'available' => 'primary',
+        'not_qualified' => 'danger',
+        'technical_pending' => 'warning',
+        'content_pending' => 'primary',
+    ][$state] ?? 'neutral';
 
-    $size = $small ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1 text-xs';
+    $icon = ['completed' => 'check-circle', 'locked' => 'lock'][$state] ?? null;
 @endphp
 
-<span {{ $attributes->merge(['class' => "rounded-full border font-black shrink-0 $style $size"]) }}>
-    {{ $label }}
-</span>
+<x-status-badge :tone="$tone" :icon="$icon" :small="$small" :dashed="in_array($state, ['technical_pending', 'content_pending'], true)" {{ $attributes }}>{{ $label }}</x-status-badge>

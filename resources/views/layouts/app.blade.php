@@ -103,7 +103,7 @@
     @stack('head')
 </head>
 
-<body class="min-h-screen flex flex-col antialiased @auth pb-[4.5rem] md:pb-0 @endauth">
+<body class="min-h-screen flex flex-col antialiased @auth has-bottom-nav @endauth">
 
     {{-- E22: رابط تخطّي للوحة المفاتيح وقارئات الشاشة: أول عنصر قابل للتركيز، يظهر عند التركيز فقط. --}}
     <a href="#main-content" data-skip-link class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-[100] focus:rounded-xl focus:bg-night-900 focus:px-4 focus:py-2.5 focus:text-sm focus:font-bold focus:text-white focus:outline-none focus:ring-2 focus:ring-amethyst">تخطَّ إلى المحتوى</a>
@@ -125,7 +125,7 @@
         </div>
     </main>
 
-    <footer class="glass border-x-0 border-b-0 mt-10">
+    <footer class="app-footer mt-10">
         <div class="max-w-6xl mx-auto px-4 py-8">
             @if ($footer['description'])
                 <p class="text-sm text-slate-400 mb-4 max-w-xl">{{ $footer['description'] }}</p>

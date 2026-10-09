@@ -58,6 +58,7 @@
             <x-season-hero
                 :season="$featuredSeason"
                 :campaign="$featuredSeason->campaign"
+                heading="h2"
                 :availability-label="'مباشر الآن'"
                 :current-step="$featuredSeasonCurrentStep"
                 :percentage="$featuredSeasonPercentage"

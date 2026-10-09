@@ -4,7 +4,7 @@
 
 @section('content')
 
-    <h1 class="font-display font-black text-2xl md:text-3xl text-white mb-4 anim-fade-up">لوحة الصدارة</h1>
+    <x-page-header title="لوحة الصدارة" icon="chart" subtitle="أكثر اللاعبين حلًّا للأحجيات." class="anim-fade-up !mb-4" />
 
     @auth
         <div class="flex gap-2 mb-5 anim-fade-up" role="group" aria-label="نطاق لوحة الصدارة">
@@ -47,7 +47,10 @@
                 </span>
             </div>
         @empty
-            <p class="px-4 py-10 text-center text-slate-500 text-sm">{{ $scope === 'friends' ? 'لا أحد منكم (أنت وأصدقاؤك) لديه محاولات صحيحة بعد.' : 'لا توجد بيانات كافية بعد.' }}</p>
+            <div class="px-4 py-10 text-center">
+                <span class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-amethyst/15 text-amethyst"><x-ui-icon name="chart" class="h-6 w-6" /></span>
+                <p class="text-sm text-slate-400">{{ $scope === 'friends' ? 'لا أحد منكم (أنت وأصدقاؤك) لديه محاولات صحيحة بعد.' : 'لا توجد بيانات كافية بعد.' }}</p>
+            </div>
         @endforelse
     </div>
 

@@ -1,16 +1,52 @@
+@php
+    // E23: صفحات الدخول تتبع الثيم واللون المعتمدين بلوحة الإدارة كبقية الموقع (كانت داكنة دائمًا بألوان افتراضية). قراءة واحدة من كاش الإعدادات المشترك، بلا استعلام جديد.
+    $settings = app(\App\Services\PlatformSettingsService::class);
+    $appearance = $settings->getGroup('appearance');
+    $fontMap = ['cairo' => 'Cairo', 'tajawal' => 'Tajawal', 'noto_kufi' => 'Noto Kufi Arabic'];
+    $googleFontFamily = $fontMap[$appearance['font_family']] ?? 'Cairo';
+@endphp
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="utf-8">
+    <script>
+        (function () {
+            try {
+                var allowSwitch = {{ $appearance['allow_theme_switch'] ? 'true' : 'false' }};
+                var serverDefault = @js($appearance['default_theme']);
+                var stored = allowSwitch ? localStorage.getItem('ahjiyat-theme') : null;
+                var mode = stored || serverDefault;
+                if (mode === 'system') {
+                    mode = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+                }
+                document.documentElement.setAttribute('data-theme', mode === 'light' ? 'light' : 'dark');
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#060a17">
     <title>{{ config('app.name') }} - @yield('title')</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family={{ str_replace(' ', '+', $googleFontFamily) }}:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    <style>
+        :root {
+            --color-primary: {{ $appearance['color_primary'] }};
+            --color-secondary: {{ $appearance['color_secondary'] }};
+            --color-accent: {{ $appearance['color_accent'] }};
+            --color-success: {{ $appearance['color_success'] }};
+            --color-warning: {{ $appearance['color_warning'] }};
+            --color-danger: {{ $appearance['color_danger'] }};
+            --font-body: "{{ $googleFontFamily }}", ui-sans-serif, system-ui, sans-serif;
+            --font-display: "{{ $googleFontFamily }}", ui-sans-serif, system-ui, sans-serif;
+        }
+    </style>
 </head>
 <body class="min-h-screen flex items-center justify-center px-4 py-10 antialiased">
 
@@ -38,7 +74,7 @@
 
         @if (session('success'))
             <div class="mb-5 rounded-xl border border-emerald/30 bg-emerald/10 text-emerald px-4 py-3 text-sm font-bold">
-                🎉 {{ session('success') }}
+                {{ session('success') }}
             </div>
         @endif
 

@@ -4,15 +4,11 @@
 
 @section('content')
 
-    <div class="anim-fade-up mb-8">
-        <h1 class="font-display font-black text-3xl md:text-4xl text-gradient-gem">
-            {{ $category?->name ?? 'كل الأحجيات' }}
-        </h1>
-        <p class="text-slate-400 mt-2">اختر تحديك، فكّر بعمق، واجمع الجواهر الثمينة 💎</p>
-    </div>
+    {{-- E23: ترويسة موحَّدة (بدل H1 متدرّج بحجم مختلف). --}}
+    <x-page-header :title="$category?->name ?? 'كل الأحجيات'" icon="puzzle" subtitle="اختر تحديك، فكّر بعمق، واجمع الجواهر الثمينة." class="anim-fade-up" />
 
     {{-- ===== فلتر التصنيفات ===== --}}
-    <div class="anim-fade-up d-1 flex flex-wrap gap-2 mb-8">
+    <div class="anim-fade-up d-1 flex flex-wrap gap-2 mb-6">
         <a href="{{ route('puzzles.index') }}"
            class="chip {{ ! $category ? 'chip-active' : '' }}">
             الكل
@@ -52,11 +48,7 @@
                 </div>
             </a>
         @empty
-            <div class="glass rounded-2xl p-10 text-center text-slate-400 col-span-full">
-                <span class="text-5xl block mb-4">🔮</span>
-                <p class="font-bold">لا توجد أحجيات بهذا التصنيف حالياً</p>
-                <p class="text-sm mt-2">عد قريباً لتجد تحديات جديدة!</p>
-            </div>
+            <x-empty-state class="col-span-full" icon="puzzle" title="لا توجد أحجيات بهذا التصنيف حالياً" message="عد قريباً لتجد تحديات جديدة!" />
         @endforelse
     </div>
 

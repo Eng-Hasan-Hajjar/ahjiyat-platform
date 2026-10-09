@@ -20,19 +20,16 @@
         $gems = config('gems');
     @endphp
 
-    <div class="anim-fade-up mb-8">
-        <span class="chip !py-1 !px-3 mb-4 inline-block">آخر تحديث: {{ now()->format('Y-m-d') }}</span>
-        <h1 class="font-display font-black text-3xl md:text-4xl text-gradient-gem mb-3">شروط الاستخدام</h1>
-        <p class="text-slate-400 max-w-2xl">
-            هذه الشروط تنظّم استخدامك لمنصة أحجيات. بإنشائك حسابًا أو استخدامك للمنصة، فإنك توافق على ما يلي.
-        </p>
-    </div>
+    {{-- E23: ترويسة موحَّدة + تاريخ التحديث كشارة؛ النص بعرض قراءة مريح (بطاقات هادئة بلا حركة تحويم) والفهرس يلتصق تحت الرأس الفعلي. --}}
+    <x-page-header title="شروط الاستخدام" icon="quests" subtitle="هذه الشروط تنظّم استخدامك لمنصة أحجيات. بإنشائك حسابًا أو استخدامك للمنصة، فإنك توافق على ما يلي." class="anim-fade-up">
+        <x-slot:actions><x-status-badge tone="neutral">آخر تحديث: {{ now()->format('Y-m-d') }}</x-status-badge></x-slot:actions>
+    </x-page-header>
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
 
         {{-- ===== فهرس جانبي (سطح المكتب) ===== --}}
-        <nav class="hidden lg:block lg:col-span-1">
-            <div class="glass rounded-2xl p-5 sticky top-24">
+        <nav aria-label="محتويات الصفحة" class="hidden lg:block lg:col-span-1">
+            <div class="glass rounded-2xl p-5 sticky-under-header">
                 <span class="text-xs font-black text-slate-500 uppercase tracking-widest block mb-3">المحتويات</span>
                 <ul class="space-y-1 text-sm font-bold text-slate-400">
                     @foreach ($sections as $id => $label)
@@ -43,11 +40,11 @@
         </nav>
 
         {{-- ===== المحتوى ===== --}}
-        <div class="lg:col-span-3 space-y-6">
+        <div class="lg:col-span-3 max-w-3xl space-y-5">
 
-            <section id="account" class="puzzle-card anim-fade-up d-1">
+            <section id="account" class="legal-card">
                 <h2 class="font-display font-black text-xl text-white mb-3">1. الحساب والتسجيل</h2>
-                <ul class="list-disc pr-5 space-y-2 text-slate-300 text-sm leading-relaxed">
+                <ul class="list-disc pr-5 space-y-2 text-slate-300 text-[0.9375rem] leading-7">
                     <li>يجب أن تقدّم بيانات صحيحة عند إنشاء الحساب (الاسم والبريد الإلكتروني).</li>
                     <li>بعض ميزات المنصة (حل الأحجيات، طلب الاستبدال) تتطلب توثيق بريدك الإلكتروني أولاً.</li>
                     <li>أنت مسؤول عن سرّية بيانات الدخول لحسابك، وعن أي نشاط يتم من خلاله.</li>
@@ -55,9 +52,9 @@
                 </ul>
             </section>
 
-            <section id="gems" class="puzzle-card anim-fade-up d-2">
+            <section id="gems" class="legal-card">
                 <h2 class="font-display font-black text-xl text-white mb-3">2. نظام الجواهر</h2>
-                <p class="text-slate-300 text-sm leading-relaxed mb-3">
+                <p class="text-slate-300 text-[0.9375rem] leading-7 mb-3">
                     "الجواهر" 💎 هي نقاط مكافآت داخلية تمنحها المنصة مقابل حل الأحجيات والمشاركة، وهي
                     <strong class="text-white">ليست عملة نقدية أو أداة دفع</strong>، وليس لها قيمة نقدية مباشرة خارج المنصة.
                     تُستخدم فقط وفق سياسة الاستبدال الموضحة أدناه، وتحتفظ المنصة بحق تعديل قيمتها أو آلية الحصول عليها في أي وقت.
@@ -67,9 +64,9 @@
                 </div>
             </section>
 
-            <section id="earning" class="puzzle-card anim-fade-up d-3">
+            <section id="earning" class="legal-card">
                 <h2 class="font-display font-black text-xl text-white mb-3">3. كسب الجواهر</h2>
-                <ul class="list-disc pr-5 space-y-2 text-slate-300 text-sm leading-relaxed">
+                <ul class="list-disc pr-5 space-y-2 text-slate-300 text-[0.9375rem] leading-7">
                     <li>تُمنح الجواهر عند حل أحجية بشكل صحيح، ضمن عدد المحاولات المسموح به لكل أحجية.</li>
                     <li>يوجد سقف يومي للجواهر المكتسبة ({{ $gems['daily_earn_cap'] }} جوهرة/يوم) لحماية المنصة من الاستغلال الآلي.</li>
                     <li>الجواهر المكتسبة حديثًا تكون <strong class="text-white">"معلّقة"</strong> لمدة {{ $gems['pending_hold_days'] }} أيام قبل أن تصبح متاحة للاستبدال.</li>
@@ -78,25 +75,25 @@
                 </ul>
             </section>
 
-            <section id="redemption" class="puzzle-card anim-fade-up d-4">
+            <section id="redemption" class="legal-card">
                 <h2 class="font-display font-black text-xl text-white mb-3">4. الاستبدال والأهلية</h2>
-                <p class="text-slate-300 text-sm leading-relaxed mb-3">للتقدّم بطلب استبدال، يجب أن تتوفر الشروط التالية:</p>
-                <ul class="list-disc pr-5 space-y-2 text-slate-300 text-sm leading-relaxed">
+                <p class="text-slate-300 text-[0.9375rem] leading-7 mb-3">للتقدّم بطلب استبدال، يجب أن تتوفر الشروط التالية:</p>
+                <ul class="list-disc pr-5 space-y-2 text-slate-300 text-[0.9375rem] leading-7">
                     <li>توثيق البريد الإلكتروني.</li>
                     <li>مرور {{ $gems['eligibility']['min_account_age_days'] }} أيام على الأقل على إنشاء الحساب.</li>
                     <li>حل {{ $gems['eligibility']['min_puzzles_solved'] }} أحجيات على الأقل بنجاح.</li>
                     <li>عدم وجود علامات احتيال قائمة على الحساب.</li>
                     <li>الوصول لرصيد متاح لا يقل عن {{ number_format($gems['min_redemption']) }} جوهرة.</li>
                 </ul>
-                <p class="text-slate-400 text-sm leading-relaxed mt-3">
+                <p class="text-slate-400 text-[0.9375rem] leading-7 mt-3">
                     تتم مراجعة طلبات الاستبدال يدويًا من فريق المنصة، وقد تُقبل أو تُرفض حسب الضوابط المعمول بها،
                     وفي حال الرفض تُعاد الجواهر المحجوزة إلى رصيدك المتاح تلقائيًا.
                 </p>
             </section>
 
-            <section id="conduct" class="puzzle-card anim-fade-up d-1">
+            <section id="conduct" class="legal-card">
                 <h2 class="font-display font-black text-xl text-white mb-3">5. الاستخدام المقبول</h2>
-                <ul class="list-disc pr-5 space-y-2 text-slate-300 text-sm leading-relaxed">
+                <ul class="list-disc pr-5 space-y-2 text-slate-300 text-[0.9375rem] leading-7">
                     <li>يُمنع استخدام أي أدوات آلية (بوتات) لحل الأحجيات أو جمع الجواهر.</li>
                     <li>يُمنع محاولة الوصول غير المصرّح به لحسابات أو بيانات مستخدمين آخرين.</li>
                     <li>يُمنع نشر محتوى مسيء أو مخالف للأنظمة عبر أي ميزة تفاعلية بالمنصة.</li>
@@ -104,41 +101,41 @@
                 </ul>
             </section>
 
-            <section id="fraud" class="puzzle-card anim-fade-up d-2">
+            <section id="fraud" class="legal-card">
                 <h2 class="font-display font-black text-xl text-white mb-3">6. مكافحة الاحتيال وتجميد الحسابات</h2>
-                <p class="text-slate-300 text-sm leading-relaxed">
+                <p class="text-slate-300 text-[0.9375rem] leading-7">
                     تراقب المنصة أنماط الاستخدام غير الطبيعية (مثل تعدد الحسابات من نفس الجهاز، أو معدلات كسب غير منطقية)
                     لحماية نظام المكافآت لجميع المستخدمين. عند رصد نشاط مشبوه، يجوز للمنصة تعليق الرصيد المرتبط، أو تجميد
                     الحساب مؤقتًا لحين المراجعة، أو رفض طلب استبدال قائم، دون الحاجة لإشعار مسبق في الحالات الواضحة.
                 </p>
             </section>
 
-            <section id="content" class="puzzle-card anim-fade-up d-3">
+            <section id="content" class="legal-card">
                 <h2 class="font-display font-black text-xl text-white mb-3">7. الملكية والمحتوى</h2>
-                <p class="text-slate-300 text-sm leading-relaxed">
+                <p class="text-slate-300 text-[0.9375rem] leading-7">
                     جميع الأحجيات والتصاميم والعلامة "أحجيات" مملوكة للمنصة، ولا يجوز نسخها أو إعادة نشرها تجاريًا دون إذن كتابي.
                 </p>
             </section>
 
-            <section id="liability" class="puzzle-card anim-fade-up d-4">
+            <section id="liability" class="legal-card">
                 <h2 class="font-display font-black text-xl text-white mb-3">8. حدود المسؤولية</h2>
-                <p class="text-slate-300 text-sm leading-relaxed">
+                <p class="text-slate-300 text-[0.9375rem] leading-7">
                     تُقدَّم المنصة "كما هي"، وتُبذل جهود معقولة لضمان استقرارها ودقتها، لكن لا تضمن المنصة عدم انقطاع الخدمة
                     أو خلوّها التام من الأخطاء. الجواهر ومكافآتها تخضع لسياسة المنصة القابلة للتعديل، ولا تشكّل التزامًا ماليًا ثابتًا.
                 </p>
             </section>
 
-            <section id="changes" class="puzzle-card anim-fade-up d-1">
+            <section id="changes" class="legal-card">
                 <h2 class="font-display font-black text-xl text-white mb-3">9. تعديل الشروط</h2>
-                <p class="text-slate-300 text-sm leading-relaxed">
+                <p class="text-slate-300 text-[0.9375rem] leading-7">
                     يجوز تحديث هذه الشروط من وقت لآخر، وسيتم نشر أي تعديل جوهري على هذه الصفحة مع تاريخ التحديث.
                     استمرارك في استخدام المنصة بعد التعديل يُعد موافقة عليه.
                 </p>
             </section>
 
-            <section id="contact" class="puzzle-card anim-fade-up d-2">
+            <section id="contact" class="legal-card">
                 <h2 class="font-display font-black text-xl text-white mb-3">10. التواصل معنا</h2>
-                <p class="text-slate-300 text-sm leading-relaxed">
+                <p class="text-slate-300 text-[0.9375rem] leading-7">
                     لأي استفسار متعلق بهذه الشروط أو حسابك، يمكنك التواصل معنا عبر البريد الإلكتروني الموضّح في صفحة الدعم بالمنصة.
                 </p>
             </section>

@@ -4,21 +4,16 @@
 
 @section('content')
     <div class="max-w-5xl mx-auto">
-        <h1 class="font-display font-black text-2xl md:text-4xl text-white mb-8 anim-fade-up">
-            المواسم الرسمية ✦
-        </h1>
+        <x-page-header title="المواسم الرسمية" icon="sparkles" subtitle="مواسم بقصص وجوائز كبرى، تتغير بين مباشر وقريب ومنتهٍ." class="anim-fade-up" />
 
         @if ($seasons->isEmpty())
-            <div class="puzzle-card !p-8 text-center text-slate-400 anim-fade-up">
-                لا توجد مواسم رسمية متاحة حالياً - ترقّبونا قريباً.
-            </div>
+            <x-empty-state icon="sparkles" title="لا توجد مواسم رسمية متاحة حالياً" message="ترقّبونا قريباً." class="anim-fade-up" />
         @else
             <div class="grid gap-6 md:grid-cols-2">
                 @foreach ($seasons as $item)
                     @php
                         $season = $item->model;
                         $stateLabel = ['live' => 'مباشر الآن', 'upcoming' => 'قريباً', 'finished' => 'انتهى', 'inactive' => 'غير متاحة'][$item->state] ?? $item->state;
-                        $stateColor = $item->state === 'live' ? '!text-emerald' : ($item->state === 'finished' ? '!text-slate-500' : '!text-gold');
                     @endphp
                     <a href="{{ route('seasons.show', $season) }}"
                        class="puzzle-card !p-0 overflow-hidden anim-fade-up hover:border-amethyst/40 transition block {{ $season->is_featured ? 'season-card--featured' : '' }}">
@@ -47,7 +42,7 @@
                         <div class="p-5 {{ $season->logo_image ? 'pt-8' : '' }}">
                             <div class="flex items-center gap-2 mb-2">
                                 <h2 class="font-display font-black text-xl text-white">{{ $season->campaign->title }}</h2>
-                                <span class="chip !py-0.5 !px-2 text-[10px] {{ $stateColor }}">{{ $stateLabel }}</span>
+                                <x-status-badge :tone="$item->state === 'live' ? 'success' : ($item->state === 'finished' ? 'neutral' : 'warning')" small>{{ $stateLabel }}</x-status-badge>
                             </div>
 
                             @if ($tagline = $season->heroTagline())

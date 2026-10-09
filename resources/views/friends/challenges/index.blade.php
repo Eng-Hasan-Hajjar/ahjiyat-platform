@@ -4,13 +4,7 @@
 
 @section('content')
     <div class="max-w-3xl mx-auto space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <div>
-                <h1 class="font-display font-black text-2xl text-white">تحدّيات الأصدقاء</h1>
-                <p class="text-xs text-slate-400 mt-1">تحدٍّ على أحجية واحدة، محاولة واحدة لكل طرف، والنتيجة يحسبها الموقع. بلا جوائز ولا رهان.</p>
-            </div>
-            <a href="{{ route('friends.index') }}" class="chip">← الأصدقاء</a>
-        </div>
+        <x-page-header title="تحدّيات الأصدقاء" icon="bolt" subtitle="تحدٍّ على أحجية واحدة، محاولة واحدة لكل طرف، والنتيجة يحسبها الموقع. بلا جوائز ولا رهان." :back="route('friends.index')" backLabel="الأصدقاء" class="anim-fade-up !mb-0" />
 
         @foreach ([['pending', 'قيد الانتظار', $pending, 'pending_page', 'لا تحدّيات بانتظار القبول.'], ['active', 'نشطة', $active, 'active_page', 'لا تحدّيات نشطة. اختر صديقًا من صفحة الأصدقاء لتتحدّاه.'], ['history', 'السجل', $history, 'history_page', 'لا تحدّيات سابقة بعد.']] as [$key, $label, $paginator, $pageName, $empty])
             <section class="anim-fade-up" aria-labelledby="ch-{{ $key }}">

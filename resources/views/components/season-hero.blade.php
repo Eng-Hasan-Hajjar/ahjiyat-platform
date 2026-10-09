@@ -3,7 +3,9 @@
     Countdown/Progress بالـJS). صورة الغلاف والشعار يمرّان عبر فحص وجود
     فعلي (لا Broken Image إن لم تُرفَع بعد).
 --}}
-@props(['season', 'campaign', 'availabilityLabel', 'currentStep', 'percentage', 'campaignAvailable' => true])
+{{-- E23: $heading = h1 (صفحة الموسم) أو h2 حين يُدرَج داخل صفحة لها h1 أصلًا (الرئيسية للضيف) كي لا يتكرر h1 بالصفحة. --}}
+@props(['season', 'campaign', 'availabilityLabel', 'currentStep', 'percentage', 'campaignAvailable' => true, 'heading' => 'h1'])
+@php $headingTag = $heading === 'h2' ? 'h2' : 'h1'; @endphp
 
 <section class="season-hero {{ $season->themePreset() === 'aseel' ? 'theme-aseel' : '' }} anim-fade-up">
     @if ($season->banner_image && \Illuminate\Support\Facades\Storage::disk('public')->exists($season->banner_image))
@@ -24,9 +26,9 @@
             <span class="season-badge">موسم {{ $season->code }}</span>
         </div>
 
-        <h1 class="font-display font-black text-3xl md:text-5xl text-white mb-3 leading-tight">
+        <{{ $headingTag }} class="font-display font-black text-3xl md:text-5xl text-white mb-3 leading-tight">
             {{ $campaign->title }}
-        </h1>
+        </{{ $headingTag }}>
 
         @if ($tagline = $season->heroTagline())
             <p class="text-lg text-slate-300 mb-4">{{ $tagline }}</p>

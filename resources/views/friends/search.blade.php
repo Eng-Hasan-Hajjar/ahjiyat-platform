@@ -5,10 +5,7 @@
 @section('content')
     <div class="max-w-3xl mx-auto space-y-5">
 
-        <div class="flex flex-wrap items-center justify-between gap-3 anim-fade-up">
-            <h1 class="font-display font-black text-2xl text-white">البحث عن لاعبين</h1>
-            <a href="{{ route('friends.index') }}" class="chip">← الأصدقاء</a>
-        </div>
+        <x-page-header title="البحث عن لاعبين" icon="friends" :back="route('friends.index')" backLabel="الأصدقاء" class="anim-fade-up !mb-0" />
 
         <form method="GET" action="{{ route('friends.search') }}" role="search" class="glass rounded-3xl p-5 flex flex-wrap items-center gap-3 anim-fade-up">
             <label for="q" class="sr-only">اسم اللاعب</label>

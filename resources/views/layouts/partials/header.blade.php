@@ -4,9 +4,17 @@
     - ضيف: شعار + روابط نصية قليلة + دخول/تسجيل (أبسط بكثير، بلا غلاف لاعب).
     - أقل من md: الأيقونات الرئيسية تنتقل للتنقل السفلي (layouts.partials.bottom-nav)، وتبقى الرسائل والإشعارات والحساب ظاهرة.
     لا عناصر بعرض ثابت ولا nowrap تتجاوز العرض: الأيقونات 40px بفواصل صغيرة (≈ 700px أقصى عرض مطلوب عند 1100px).
+
+    E23: الرأس واعٍ بالتمرير (عرض فقط، بلا منطق نطاق). حالتان بصنف .app-header (انظر app.css): القمة شبه شفافة؛ وبعد عتبة 12px من التمرير تصير شبه معتمة
+    (.app-header--scrolled) فلا يظهر محتوى الصفحة (مثل عنوان الدردشة) من تحت الرأس. المستمع passive وخفيف (مقارنة رقم واحد)، ولا يُخفى الرأس بالتمرير أبدًا.
+    (ترتيب السمات: العادية أولًا ثم Alpine، فتبقى قابلة للقراءة بأي محلّل DOM قديم لا يحتمل @ في أسماء السمات.)
+    الارتفاع مصدره --app-header-h (يستعمله sticky والدردشة)، وورقة قائمة الضيف مطلقة تحت الرأس فلا تغيّر ارتفاعه.
 --}}
-<header x-data="{ guestOpen: false }" @keydown.escape.window="guestOpen = false" class="sticky top-0 z-40 glass border-x-0 border-t-0">
-    <div class="flex items-center gap-2 sm:gap-3 h-14 sm:h-16 w-full px-4 lg:px-6">
+<header class="app-header sticky top-0 z-40" data-app-header data-scrolled="false"
+    x-data="{ guestOpen: false, scrolled: false, threshold: 12 }" x-init="scrolled = window.scrollY > threshold"
+    :data-scrolled="scrolled ? 'true' : 'false'" :class="{ 'app-header--scrolled': scrolled }"
+    @scroll.window.passive="scrolled = window.scrollY > threshold" @keydown.escape.window="guestOpen = false">
+    <div class="flex items-center gap-2 sm:gap-3 h-full w-full px-4 lg:px-6">
         <a href="{{ route('home') }}" aria-label="{{ $general['site_name'] }} - الرئيسية" class="flex items-center gap-2.5 shrink-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">
             @if ($logoUrl)
                 <img src="{{ $logoUrl }}" alt="" class="h-8 sm:h-9 w-auto">
@@ -103,8 +111,9 @@
                     <a href="{{ route('register') }}" class="hidden md:inline-flex btn-gem !py-2 !px-4 text-sm">إنشاء حساب</a>
                 @endif
 
-                <button type="button" @click="guestOpen = !guestOpen" :aria-expanded="guestOpen.toString()" aria-label="فتح القائمة" title="القائمة"
-                    class="md:hidden grid place-items-center w-10 h-10 rounded-xl border border-white/10 bg-white/5 text-white shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">
+                <button type="button" aria-label="فتح القائمة" title="القائمة" aria-controls="guest-menu" aria-expanded="false"
+                    class="md:hidden grid place-items-center w-10 h-10 rounded-xl border border-white/10 bg-white/5 text-white shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"
+                    @click="guestOpen = !guestOpen" :aria-expanded="guestOpen.toString()">
                     <x-ui-icon name="menu" x-show="!guestOpen" class="w-5 h-5" />
                     <x-ui-icon name="x" x-show="guestOpen" x-cloak class="w-5 h-5" />
                 </button>
@@ -113,7 +122,7 @@
     </div>
 
     @guest
-        <div x-show="guestOpen" x-cloak x-transition.opacity.duration.150ms @click.outside="guestOpen = false" class="md:hidden border-t border-white/10 bg-night-900">
+        <div id="guest-menu" class="md:hidden absolute inset-x-0 top-full border-y border-white/10 bg-night-900 shadow-xl shadow-black/30" x-show="guestOpen" x-cloak x-transition.opacity.duration.150ms @click.outside="guestOpen = false">
             <nav aria-label="القائمة" class="px-4 py-3 flex flex-col gap-1 text-sm font-bold text-slate-300">
                 @foreach ($menu['guest'] as $item)
                     <a href="{{ $item['url'] }}" @click="guestOpen = false" class="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-white/5 hover:text-white transition motion-reduce:transition-none">

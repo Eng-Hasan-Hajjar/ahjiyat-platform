@@ -12,7 +12,7 @@
         <div class="text-xs text-slate-400">{{ $challenge->puzzle->title }}</div>
     </div>
     <div class="text-xs text-slate-300 text-end">
-        <span class="chip !py-0.5 !px-2">{{ $labels[$status] ?? $status }}</span>
+        <x-status-badge :tone="['pending' => 'warning', 'accepted' => 'success', 'declined' => 'danger'][$status] ?? 'neutral'" small>{{ $labels[$status] ?? $status }}</x-status-badge>
         @if ($status === 'completed')
             <div class="mt-1">{{ $challenge->is_draw ? 'تعادل' : ($challenge->winner_team_id === $teamId ? 'فوز' : 'خسارة') }} · {{ $mine?->score }} - {{ $challenge->results->firstWhere('team_id', '!=', $teamId)?->score }}</div>
         @endif

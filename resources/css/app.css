@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./games/games.css";
 @import "./seasons.css";
+@import "./chat.css";
 
 @theme {
     --color-night-950: #060a17;
@@ -47,6 +48,29 @@
     --ui-radius: 1rem;
     /* E22: لون نص مميَّز مشتق من --color-primary (يتبع لوحة الإدارة) وبتباين مقروء على السطح؛ بديل أي hex ثابت لنصوص لقب/هوية بلا لون مخصَّص. */
     --color-accent-text: color-mix(in srgb, var(--color-primary) 80%, white);
+
+    /*
+     * E23: هندسة الإطار (مصدر واحد لكل إزاحات sticky/ارتفاعات الدردشة) + أسطح الرأس المشتقة من رموز E4 (لا ألوان ثابتة جديدة).
+     * --app-header-h الارتفاع الكلي الفعلي للرأس (يشمل حدّه السفلي: box-sizing:border-box). --app-bottom-nav-h للتنقل السفلي بالجوال فقط (يشمل safe-area).
+     */
+    --app-header-h: 3.5rem;
+    --app-bottom-nav-h: calc(4rem + env(safe-area-inset-bottom, 0px));
+    --app-announcement-h: 0px; /* يضبطها شريط التنبيه نفسه بالقياس إن عُرض (يمرّر مع الصفحة)؛ تُطرح من ارتفاع غلاف الدردشة فلا يُقصّ المؤلِّف */
+    --header-bg-top: color-mix(in srgb, var(--color-bg) 62%, transparent);
+    --header-bg-scrolled: color-mix(in srgb, var(--color-bg) 97%, transparent);
+    --header-border-top: var(--color-surface-border);
+    --header-border-scrolled: color-mix(in srgb, var(--color-text-strong) 14%, transparent);
+    --header-shadow-scrolled: 0 10px 24px -18px rgb(0 0 0 / .65);
+    --header-blur-top: 12px;
+    --header-blur-scrolled: 20px;
+}
+
+@media (min-width: 640px) {
+    :root { --app-header-h: 4rem; }
+}
+
+@media (min-width: 768px) {
+    :root { --app-bottom-nav-h: 0px; }
 }
 
 :root[data-theme="light"] {
@@ -57,9 +81,14 @@
     --color-text-strong: #0f0b1f;
     --color-muted: #526077; /* E22: أغمق قليلًا من #64748b لبلوغ تباين AA على أسطح الثيم الفاتح */
     --color-accent-text: color-mix(in srgb, var(--color-primary) 72%, black);
+    --header-shadow-scrolled: 0 10px 24px -18px rgb(15 23 42 / .28);
 }
 
-html { scroll-behavior: smooth; }
+html {
+    scroll-behavior: smooth;
+    /* E23: الرأس لاصق؛ بلا هذا الهامش تُغطّي الروابط الداخلية (#privacy وتخطّي المحتوى وغيرها) عنوانَ الهدف تحت الرأس. */
+    scroll-padding-top: calc(var(--app-header-h) + 1rem);
+}
 
 [x-cloak] { display: none !important; }
 
@@ -317,3 +346,130 @@ body {
 @media (prefers-reduced-motion: reduce) {
     header *, [role="menu"], [role="dialog"], [role="tooltip"] { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/*
+ * ===== E23: الرأس الواعي بالتمرير + عقد الطبقات (z-index) =====
+ * لا نمسّ .glass عالميًا (يخدم عشرات البطاقات). للرأس صنفه الخاص:
+ *  - حالة القمة (.app-header): شبه شفاف مع طمس خفيف ليظهر الخلفية الجمالية.
+ *  - حالة التمرير (.app-header--scrolled، بعد ~12px): شبه معتم (97% من --color-bg؛ كان 94% فتسرّبت بطاقة داكنة بخفوت في الثيم الفاتح) + طمس أقوى + حدّ أوضح + ظلّ دقيق. لا وهج ولا زجاج مزدوج.
+ * مهم: نكتب backdrop-filter **غير مسبوق فقط** ونترك Lightning CSS يضيف -webkit-؛ كتابة النسختين بهذا الترتيب في .glass كانت تُسقط غير المسبوق عند البناء
+ * فيفقد Chrome/Edge الطمس كليًا. الطمس يبقى مفعَّلًا بالحالتين لأن العنصر ذو backdrop-filter يصير حاضنًا لأبنائه fixed (قائمة الإشعارات) ويجب ألا يتبدّل بين الحالتين.
+ *
+ * عقد الطبقات (من الأدنى): 0 المحتوى | حتى 10 تراكب محلي داخل مكوّن (مؤلِّف الدردشة، فقاعة الإجراءات) | 20 عناصر sticky بالصفحة (فهارس الصفحات القانونية؛ قائمة محادثات الدردشة لم تعد sticky لأن الغلاف يطابق ارتفاع الشاشة) |
+ * 40 الرأس (قوائمه وتلميحاته أبناء داخل سياقه) وغطاء ورقة الجوال | 50 شريط التنقل السفلي وورقته | 100 رابط تخطّي المحتوى. لا قيم بين هذه الدرجات.
+ */
+.app-header {
+    box-sizing: border-box;
+    height: var(--app-header-h);
+    background-color: var(--header-bg-top);
+    border-bottom: 1px solid var(--header-border-top);
+    box-shadow: 0 0 0 0 transparent;
+    backdrop-filter: blur(var(--header-blur-top));
+    transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease, backdrop-filter .2s ease;
+}
+
+.app-header--scrolled {
+    background-color: var(--header-bg-scrolled);
+    border-bottom-color: var(--header-border-scrolled);
+    box-shadow: var(--header-shadow-scrolled);
+    backdrop-filter: blur(var(--header-blur-scrolled));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-header { transition: none; }
+}
+
+/* عناصر sticky أسفل الرأس: إزاحة واحدة مشتقة من ارتفاعه الفعلي (لا أرقام تخمينية مثل top-20). */
+.sticky-under-header {
+    position: sticky;
+    top: calc(var(--app-header-h) + 1rem);
+    z-index: 20;
+}
+
+/* مساحة التنقل السفلي بالجوال فقط (تشمل safe-area) كي لا يغطي آخر المحتوى. */
+@media (max-width: 767.98px) {
+    .has-bottom-nav { padding-bottom: calc(var(--app-bottom-nav-h) + .5rem); }
+}
+
+/* التذييل: كان يستعمل .glass مع border-x-0/border-b-0 فتخسر الأدوات المعركة أمام .glass (خارج الطبقات) وتظهر حدود جانبية/سفلية. حدّ علوي فقط هنا. */
+.app-footer {
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-surface-border);
+    backdrop-filter: blur(14px);
+}
+
+/* بطاقة نص قانوني/تعريفي: سطح هادئ بلا حركة تحويم (بخلاف .puzzle-card) لصفحات القراءة الطويلة. */
+.legal-card {
+    padding: 1.5rem;
+    border-radius: calc(var(--ui-radius) * 1.4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-border);
+    scroll-margin-top: calc(var(--app-header-h) + 1rem);
+}
+
+/*
+ * ===== E23: تسلسل الأزرار (Button hierarchy) =====
+ *  أساسي   .btn-gem        إجراء واحد رئيسي بالصفحة/البطاقة (موجود).
+ *  ثانوي   .btn-secondary  إجراء مساعد (إلغاء، رجوع، عرض).
+ *  خطِر    .btn-danger     حذف/خروج/إجراء لا رجعة فيه (لون خطر + نص، لا اللون وحده).
+ *  أيقونة  .btn-icon       زر أيقونة بلا خلفية (يلزمه aria-label) بمساحة لمس 40px.
+ * كلها من رموز الثيم (فاتح/داكن)، ولكل منها hover وfocus-visible وdisabled واضحة.
+ */
+.btn-secondary,
+.btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    min-height: 2.5rem;
+    border-radius: var(--ui-radius);
+    padding: .55rem 1.25rem;
+    font-size: .875rem;
+    font-weight: 800;
+    transition: border-color .2s ease, background-color .2s ease, color .2s ease;
+}
+
+.btn-secondary {
+    color: var(--color-text-strong);
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-border);
+}
+
+.btn-secondary:hover { border-color: color-mix(in srgb, var(--color-primary) 55%, transparent); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+
+.btn-danger {
+    color: color-mix(in srgb, var(--color-danger) 62%, var(--color-text-strong));
+    background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-danger) 38%, transparent);
+}
+
+.btn-danger:hover { background: color-mix(in srgb, var(--color-danger) 22%, transparent); border-color: color-mix(in srgb, var(--color-danger) 60%, transparent); }
+
+.btn-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    border-radius: .85rem;
+    color: var(--color-text);
+    transition: background-color .2s ease, color .2s ease;
+}
+
+.btn-icon:hover { color: var(--color-text-strong); background: var(--color-surface); }
+
+.btn-secondary:focus-visible,
+.btn-danger:focus-visible,
+.btn-icon:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+.btn-secondary:disabled,
+.btn-danger:disabled,
+.btn-icon:disabled,
+.btn-gem:disabled { opacity: .5; cursor: not-allowed; }
+
+.btn-gem:disabled:hover { transform: none; background-position: 0 0; }
+
+@media (prefers-reduced-motion: reduce) {
+    .btn-secondary, .btn-danger, .btn-icon { transition: none; }
+}
+

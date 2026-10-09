@@ -4,14 +4,10 @@
 
 @section('content')
     <div class="max-w-5xl mx-auto">
-        <h1 class="font-display font-black text-2xl md:text-4xl text-white mb-8 anim-fade-up">
-            الحملات 🏆
-        </h1>
+        <x-page-header title="الحملات" icon="quests" subtitle="رحلات متتابعة من الأحجيات والقصص، كل خطوة تقرّبك من الجائزة." class="anim-fade-up" />
 
         @if ($campaigns->isEmpty())
-            <div class="puzzle-card !p-8 text-center text-slate-400 anim-fade-up">
-                لا توجد حملات متاحة حالياً.
-            </div>
+            <x-empty-state icon="quests" title="لا توجد حملات متاحة حالياً" message="تابعنا، حملة جديدة قادمة قريباً." class="anim-fade-up" />
         @else
             <div class="grid gap-6 md:grid-cols-2">
                 @foreach ($campaigns as $campaign)

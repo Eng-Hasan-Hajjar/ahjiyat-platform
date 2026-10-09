@@ -1,0 +1,292 @@
+/*
+ * ===== E23: سطوح الدردشة (عرض فقط) =====
+ * رموز E4/E22 فقط (--color-*, --ui-radius, --app-*)؛ لا لوحة ألوان جديدة ولا تدرّجات نيون. تصحّ بالثيمين دون تجاوزات خاصة.
+ * ملاحظة طبقات Tailwind 4: هذه الأصناف خارج @layer فتغلب أصناف الأدوات؛ لذلك لا نخلط صنفًا من هنا مع أداة تعدّل الخاصية نفسها على العنصر نفسه.
+ */
+
+/*
+ * ارتفاع الغرفة: مشتق من الرأس الفعلي (--app-header-h) والتنقل السفلي (--app-bottom-nav-h، صفر من md) وشريط التنبيه إن وُجد (--app-announcement-h، صفر افتراضيًا ويقيسه شريط التنبيه نفسه) وحشوة <main> (py-6 = 3rem، sm:py-10 = 5rem مجموعًا).
+ * بلا أرقام تخمينية (calc(100vh-18rem) السابقة تركت فراغًا كبيرًا أو قصّت المؤلِّف). التذييل يبقى أسفل الطيّ ولا تُحبس الصفحة: التمرير يتسلسل للصفحة عند حدّ السجل.
+ */
+.chat-shell {
+    height: calc(100vh - var(--app-header-h) - var(--app-bottom-nav-h) - var(--app-announcement-h) - 3rem);
+    height: calc(100dvh - var(--app-header-h) - var(--app-bottom-nav-h) - var(--app-announcement-h) - 3rem);
+    min-height: 24rem;
+}
+
+@media (min-width: 640px) {
+    .chat-shell {
+        height: calc(100vh - var(--app-header-h) - var(--app-bottom-nav-h) - var(--app-announcement-h) - 5rem);
+        height: calc(100dvh - var(--app-header-h) - var(--app-bottom-nav-h) - var(--app-announcement-h) - 5rem);
+    }
+}
+
+/* ---------- الأفاتار (حرف أول؛ بلا صور ولا استعلامات) ---------- */
+.chat-avatar {
+    --chat-tone: var(--color-primary);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    font-size: .8rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--color-text-strong);
+    background: color-mix(in srgb, var(--chat-tone) 24%, transparent);
+    border: 1px solid color-mix(in srgb, var(--chat-tone) 38%, transparent);
+}
+
+.chat-avatar--lg { width: 2.5rem; height: 2.5rem; font-size: 1rem; }
+.chat-avatar--t1 { --chat-tone: var(--color-secondary); }
+.chat-avatar--t2 { --chat-tone: var(--color-success); }
+.chat-avatar--t3 { --chat-tone: var(--color-warning); }
+.chat-avatar--global { --chat-tone: var(--color-success); }
+
+/* ---------- الفقاعات ---------- */
+.chat-bubble {
+    position: relative;
+    min-width: 7rem;
+    max-width: 100%;
+    padding: .5rem .75rem;
+    border-radius: 1.1rem;
+    color: var(--color-text-strong);
+    background: color-mix(in srgb, var(--color-text-strong) 7%, transparent);
+    border: 1px solid var(--color-surface-border);
+}
+
+.chat-bubble--mine {
+    background: color-mix(in srgb, var(--color-primary) 17%, transparent);
+    border-color: color-mix(in srgb, var(--color-primary) 36%, transparent);
+}
+
+/* رسائل متتالية لنفس المرسل: زاوية جهة المحاذاة أصغر ليظهر الاتصال بين الفقاعات (خصائص منطقية: تصحّ بـRTL). */
+.chat-bubble--others.chat-bubble--cont { border-start-start-radius: .35rem; }
+.chat-bubble--mine.chat-bubble--cont { border-start-end-radius: .35rem; }
+
+/* محذوفة: حدّ متقطّع محايد + أيقونة + نص (لا اللون وحده). مخفية بالإشراف: لون تنبيه + أيقونة + نص مختلف. */
+.chat-bubble--deleted {
+    background: transparent;
+    border-style: dashed;
+    color: var(--color-muted);
+}
+
+.chat-bubble--hidden {
+    background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+    border-color: color-mix(in srgb, var(--color-warning) 42%, transparent);
+}
+
+.chat-sender {
+    color: var(--color-accent-text);
+    font-size: .6875rem;
+    font-weight: 800;
+    margin-bottom: .125rem;
+}
+
+.chat-meta {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-top: .25rem;
+    font-size: .6875rem;
+    line-height: 1.2;
+    color: var(--color-muted);
+}
+
+.chat-day {
+    display: flex;
+    justify-content: center;
+    margin: .75rem 0 .5rem;
+}
+
+.chat-day > span {
+    padding: .15rem .7rem;
+    border-radius: 9999px;
+    font-size: .6875rem;
+    font-weight: 700;
+    color: var(--color-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-border);
+}
+
+/* ---------- زر الإجراءات + القائمة ---------- */
+.chat-act {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: .6rem;
+    color: var(--color-muted);
+    transition: color .15s ease, background-color .15s ease, opacity .15s ease;
+}
+
+/* منطقة لمس 44px على الجوال دون تكبير الشكل. */
+.chat-act::after {
+    content: "";
+    position: absolute;
+    inset: -.5rem;
+}
+
+.chat-act:hover,
+.chat-act[aria-expanded="true"] {
+    color: var(--color-text-strong);
+    background: var(--color-surface);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .chat-act { opacity: 0; }
+    .chat-row:hover .chat-act,
+    .chat-row:focus-within .chat-act,
+    .chat-act:focus-visible,
+    .chat-act[aria-expanded="true"] { opacity: 1; }
+}
+
+.chat-menu {
+    position: absolute;
+    z-index: 10;
+    width: 8.5rem;
+    padding: .25rem;
+    border-radius: .9rem;
+    background: color-mix(in srgb, var(--color-bg) 86%, var(--color-text-strong));
+    border: 1px solid color-mix(in srgb, var(--color-text-strong) 16%, transparent);
+    box-shadow: 0 14px 30px -14px rgb(0 0 0 / .55);
+}
+
+.chat-menu button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: .5rem;
+    min-height: 2.5rem;
+    padding: .25rem .6rem;
+    border-radius: .65rem;
+    font-size: .8125rem;
+    font-weight: 700;
+    text-align: start;
+    color: var(--color-text);
+}
+
+.chat-menu button:hover,
+.chat-menu button:focus-visible { background: var(--color-surface); color: var(--color-text-strong); outline: none; }
+.chat-menu button:focus-visible { box-shadow: inset 0 0 0 2px var(--color-primary); }
+.chat-menu .chat-menu__danger { color: var(--color-danger); }
+
+/* ---------- المؤلِّف ---------- */
+.chat-composer {
+    flex-shrink: 0;
+    padding: .625rem .75rem max(.625rem, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-surface-border);
+}
+
+@media (min-width: 640px) {
+    .chat-composer { padding-inline: 1rem; }
+}
+
+.chat-input {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-height: 9.5rem;
+    padding: .6rem .9rem;
+    border-radius: 1.25rem;
+    font-size: .9375rem;
+    line-height: 1.5rem;
+    resize: none;
+    color: var(--color-text-strong);
+    background: color-mix(in srgb, var(--color-text-strong) 6%, transparent);
+    border: 1px solid var(--color-surface-border);
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.chat-input::placeholder { color: var(--color-muted); }
+
+.chat-input:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--color-primary) 70%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.chat-input:disabled { opacity: .55; cursor: not-allowed; }
+
+.chat-send {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    color: #fff;
+    background: color-mix(in srgb, var(--color-primary) 78%, black);
+    transition: filter .15s ease, opacity .15s ease, transform .15s ease;
+}
+
+.chat-send:hover:not(:disabled) { filter: brightness(1.1); }
+.chat-send:active:not(:disabled) { transform: scale(.96); }
+.chat-send:disabled { opacity: .45; cursor: not-allowed; }
+.chat-send:focus-visible { outline: 2px solid var(--color-text-strong); outline-offset: 2px; }
+
+.chat-spinner {
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 9999px;
+    border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+    border-top-color: currentColor;
+    animation: chat-spin .8s linear infinite;
+}
+
+@keyframes chat-spin { to { transform: rotate(360deg); } }
+
+/* ---------- حالات عامة ---------- */
+.chat-blocked {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    padding: .75rem .9rem;
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 38%, transparent);
+}
+
+/* لا نضبط display هنا: العنصر يأخذ grid/hidden من أدوات Tailwind (صنف غير مُطبَّق بطبقة يغلب lg:hidden ويُظهر الزر على سطح المكتب). */
+.chat-icon-btn {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: .85rem;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-border);
+}
+
+.chat-icon-btn:hover { color: var(--color-text-strong); }
+.chat-icon-btn:focus-visible,
+.chat-act:focus-visible,
+.chat-scroller:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+.chat-new {
+    position: absolute;
+    bottom: .75rem;
+    inset-inline: 0;
+    margin-inline: auto;
+    width: max-content;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .45rem .9rem;
+    border-radius: 9999px;
+    font-size: .8125rem;
+    font-weight: 800;
+    color: #fff;
+    background: color-mix(in srgb, var(--color-primary) 78%, black);
+    box-shadow: 0 10px 24px -12px rgb(0 0 0 / .6);
+}
+
+.chat-new:focus-visible { outline: 2px solid var(--color-text-strong); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-act, .chat-input, .chat-send { transition: none; }
+    .chat-spinner { animation-duration: 1.6s; }
+}

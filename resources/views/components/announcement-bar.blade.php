@@ -14,7 +14,9 @@
     $style = $styles[$announcement['type']] ?? $styles['info'];
 @endphp
 
-<div class="border-b {{ $style }} text-sm font-bold">
+{{-- E23: الشريط يقيس ارتفاعه ويكتبه في --app-announcement-h (تحسين تدريجي بلا JS = صفر) فيطرحه غلاف الدردشة من ارتفاعه ولا يغطي التنقل السفلي المؤلِّف. --}}
+<div class="border-b {{ $style }} text-sm font-bold" data-announcement-bar x-data
+    x-init="const set = () => document.documentElement.style.setProperty('--app-announcement-h', $el.offsetHeight + 'px'); set(); if (window.ResizeObserver) { new ResizeObserver(set).observe($el); }">
     <div class="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-center gap-3 text-center flex-wrap">
         <span>{{ $announcement['text'] }}</span>
 

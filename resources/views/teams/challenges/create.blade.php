@@ -4,10 +4,7 @@
 
 @section('content')
     <div class="max-w-3xl mx-auto space-y-6">
-        <div class="anim-fade-up">
-            <h1 class="font-display font-black text-2xl text-white">تحدّي فريق «{{ $opponent->name }}»</h1>
-            <p class="text-sm text-slate-400 mt-1">اختر الأحجية والروستر. يُختار روستر الخصم عند قبوله، ويُقفل الروستران عند القبول فلا تبديل بعده. لا رسوم ولا جوائز.</p>
-        </div>
+        <x-page-header :title="'تحدّي فريق «'.$opponent->name.'»'" icon="bolt" subtitle="اختر الأحجية والروستر. يُختار روستر الخصم عند قبوله، ويُقفل الروستران عند القبول فلا تبديل بعده. لا رسوم ولا جوائز." :back="route('teams.show', $opponent)" backLabel="صفحة الفريق" class="anim-fade-up !mb-0" />
 
         <form method="GET" action="{{ route('teams.challenges.create') }}" role="search" class="glass rounded-3xl p-5 flex flex-wrap items-center gap-3">
             <input type="hidden" name="opponent" value="{{ $opponent->slug }}">
