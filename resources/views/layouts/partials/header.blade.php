@@ -1,7 +1,8 @@
 {{--
     E22: الرأس العام. **غلاف الرأس سائل** (عرض كامل بهامش آمن 16px جوال / 24px سطح مكتب)، منفصل عن غلاف المحتوى المقيَّد (max-w بـ<main>).
     - مصادق: شعار + تنقل أيقونات رئيسي (Home/Puzzles/Competitions/Teams/Friends/Messages) + «المزيد» + إجراءات (ثيم، جرس، محفظة، قائمة الحساب).
-    - ضيف: شعار + روابط نصية قليلة + دخول/تسجيل (أبسط بكثير، بلا غلاف لاعب).
+    - ضيف: شعار + روابط نصية قليلة + دخول/تسجيل (أبسط بكثير، بلا غلاف لاعب). روابط الضيف الستة تحتاج ≈ 400px بخطوط الموقع الثلاثة (Cairo/Tajawal/Noto Kufi)،
+      فلا تُعرض أفقيًا إلا من lg (1024px)؛ دون ذلك تُستعمل قائمة الهامبرغر (E23: كانت من md فتتداخل مع الشعار وزر المظهر عند 768px).
     - أقل من md: الأيقونات الرئيسية تنتقل للتنقل السفلي (layouts.partials.bottom-nav)، وتبقى الرسائل والإشعارات والحساب ظاهرة.
     لا عناصر بعرض ثابت ولا nowrap تتجاوز العرض: الأيقونات 40px بفواصل صغيرة (≈ 700px أقصى عرض مطلوب عند 1100px).
 
@@ -49,13 +50,13 @@
             </nav>
             <div class="flex-1 md:hidden"></div>
         @else
-            <nav aria-label="التنقل الرئيسي" class="hidden md:flex flex-1 min-w-0 items-center justify-center gap-4 lg:gap-6 text-sm font-bold text-slate-300">
+            <nav aria-label="التنقل الرئيسي" class="hidden lg:flex flex-1 min-w-0 items-center justify-center gap-4 xl:gap-6 text-sm font-bold text-slate-300">
                 @foreach ($menu['guest'] as $item)
                     <a href="{{ $item['url'] }}" @if (\App\Support\NavigationMenu::isActive($item)) aria-current="page" @endif
                         class="rounded-lg px-1 py-1 transition motion-reduce:transition-none hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst {{ \App\Support\NavigationMenu::isActive($item) ? 'text-white' : '' }}">{{ $item['label'] }}</a>
                 @endforeach
             </nav>
-            <div class="flex-1 md:hidden"></div>
+            <div class="flex-1 lg:hidden"></div>
         @endauth
 
         <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -112,7 +113,7 @@
                 @endif
 
                 <button type="button" aria-label="فتح القائمة" title="القائمة" aria-controls="guest-menu" aria-expanded="false"
-                    class="md:hidden grid place-items-center w-10 h-10 rounded-xl border border-white/10 bg-white/5 text-white shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"
+                    class="lg:hidden grid place-items-center w-10 h-10 rounded-xl border border-white/10 bg-white/5 text-white shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst"
                     @click="guestOpen = !guestOpen" :aria-expanded="guestOpen.toString()">
                     <x-ui-icon name="menu" x-show="!guestOpen" class="w-5 h-5" />
                     <x-ui-icon name="x" x-show="guestOpen" x-cloak class="w-5 h-5" />
@@ -122,7 +123,7 @@
     </div>
 
     @guest
-        <div id="guest-menu" class="md:hidden absolute inset-x-0 top-full border-y border-white/10 bg-night-900 shadow-xl shadow-black/30" x-show="guestOpen" x-cloak x-transition.opacity.duration.150ms @click.outside="guestOpen = false">
+        <div id="guest-menu" class="lg:hidden absolute inset-x-0 top-full border-y border-white/10 bg-night-900 shadow-xl shadow-black/30" x-show="guestOpen" x-cloak x-transition.opacity.duration.150ms @click.outside="guestOpen = false">
             <nav aria-label="القائمة" class="px-4 py-3 flex flex-col gap-1 text-sm font-bold text-slate-300">
                 @foreach ($menu['guest'] as $item)
                     <a href="{{ $item['url'] }}" @click="guestOpen = false" class="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-white/5 hover:text-white transition motion-reduce:transition-none">
