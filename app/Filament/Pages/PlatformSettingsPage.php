@@ -95,23 +95,39 @@ class PlatformSettingsPage extends Page implements HasForms
 
                         Forms\Components\Tabs\Tab::make('الهوية البصرية')
                             ->schema([
+                                // Hotfix (2026-10-09): previewable(false) على الحقول الستة.
+                                // السبب: Filament/FilePond لملف صورة قابل للمعاينة لا يرسل
+                                // name/size/type الجاهزة من السيرفر مع حالة الحقل، بل يترك
+                                // FilePond يجلب الـblob بنفسه عبر fetch(source) (انظر
+                                // vendor/filament/forms/resources/js/components/file-upload.js
+                                // دالة server.load). هذا fetch بلا أي معالجة أخطاء: لو
+                                // تعذّر الوصول لرابط الملف من المتصفح (غالبًا بسبب APP_URL
+                                // بالـ.env لا يطابق فعليًا العنوان اللي بيتصفّح منه - شائع
+                                // على XAMPP) يبقى الحقل عالقًا على "بانتظار الرفع/الحجم" للأبد.
+                                // previewable(false) يجبر Filament يرسل name/size/type
+                                // الجاهزة من السيرفر فيتجنّب الـfetch هذا كليًا، فيصير الحقل
+                                // يعرض الملف الموجود كـ"مستقر" فورًا بلا أي اعتماد على صحّة
+                                // الرابط. الثمن: ما في معاينة مصغّرة (thumbnail) داخل الحقل
+                                // نفسه بعد الآن - فقط اسم/حجم الملف. إن تأكّدتم أن APP_URL
+                                // مطابق لعنوان المتصفح فعليًا يمكن حذف previewable(false) من
+                                // أي حقل لاستعادة المعاينة المصغّرة بأمان.
                                 Forms\Components\FileUpload::make('branding.logo_main')
-                                    ->label('الشعار الرئيسي')->image()->disk('public')->directory('settings/branding')
+                                    ->label('الشعار الرئيسي')->image()->previewable(false)->disk('public')->directory('settings/branding')
                                     ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp'])->maxSize(2048),
                                 Forms\Components\FileUpload::make('branding.logo_square')
-                                    ->label('شعار مربَّع (App Icon)')->image()->disk('public')->directory('settings/branding')
+                                    ->label('شعار مربَّع (App Icon)')->image()->previewable(false)->disk('public')->directory('settings/branding')
                                     ->acceptedFileTypes(['image/png', 'image/webp'])->maxSize(1024),
                                 Forms\Components\FileUpload::make('branding.logo_light')
-                                    ->label('شعار للثيم الفاتح (اختياري)')->image()->disk('public')->directory('settings/branding')
+                                    ->label('شعار للثيم الفاتح (اختياري)')->image()->previewable(false)->disk('public')->directory('settings/branding')
                                     ->acceptedFileTypes(['image/png', 'image/webp'])->maxSize(1024),
                                 Forms\Components\FileUpload::make('branding.logo_dark')
-                                    ->label('شعار للثيم الداكن (اختياري)')->image()->disk('public')->directory('settings/branding')
+                                    ->label('شعار للثيم الداكن (اختياري)')->image()->previewable(false)->disk('public')->directory('settings/branding')
                                     ->acceptedFileTypes(['image/png', 'image/webp'])->maxSize(1024),
                                 Forms\Components\FileUpload::make('branding.favicon')
-                                    ->label('أيقونة المتصفح (Favicon)')->image()->disk('public')->directory('settings/branding')
+                                    ->label('أيقونة المتصفح (Favicon)')->image()->previewable(false)->disk('public')->directory('settings/branding')
                                     ->acceptedFileTypes(['image/png', 'image/x-icon', 'image/vnd.microsoft.icon'])->maxSize(512),
                                 Forms\Components\FileUpload::make('branding.social_share_image')
-                                    ->label('صورة المشاركة الافتراضية (OG Image)')->image()->disk('public')->directory('settings/branding')
+                                    ->label('صورة المشاركة الافتراضية (OG Image)')->image()->previewable(false)->disk('public')->directory('settings/branding')
                                     ->acceptedFileTypes(['image/png', 'image/jpeg'])->maxSize(2048),
                             ])->columns(2),
 
