@@ -9,6 +9,9 @@ use App\Models\User;
 use Filament\Pages\Page;
 
 /**
+ * E24: كل getter هنا يُستدعى من القالب مرتين إلى خمس مرات بالعرض الواحد (شرط ثم قيمة…) وكان يعيد الاستعلام نفسه كل مرة (32 استعلامًا، 15 مكرّرة).
+ * once() تحفظ النتيجة لكل نسخة صفحة (أي لكل طلب/تحديث Livewire) فقط؛ لا أثر بين الطلبات ولا بين المشرفين. الصلاحيات تُقيَّم كما كانت داخل الإغلاق.
+ *
  * "ما الذي يحتاج تدخل Admin الآن؟" - ليست Analytics، فقط طوابير إجراءات
  * ونشاط حديث. كل قسم يحترم صلاحيته الخاصة.
  */
@@ -40,80 +43,100 @@ class OperationsCenter extends Page
 
     public function getPendingRedemptionsCount(): ?int
     {
-        return auth()->user()?->can('redemptions.view')
-            ? RedemptionRequest::where('status', RedemptionRequest::STATUS_PENDING)->count()
-            : null;
+        return once(function () {
+            return auth()->user()?->can('redemptions.view')
+                ? RedemptionRequest::where('status', RedemptionRequest::STATUS_PENDING)->count()
+                : null;
+        });
     }
 
     /** E10 (بند 138): طلبات شراء متجر يدوية بانتظار إنجاز الإدارة. */
     public function getPendingStoreFulfillmentCount(): ?int
     {
-        return auth()->user()?->can('store.purchases.view')
-            ? \App\Models\StorePurchase::where('status', \App\Models\StorePurchase::STATUS_PENDING_FULFILLMENT)->count()
-            : null;
+        return once(function () {
+            return auth()->user()?->can('store.purchases.view')
+                ? \App\Models\StorePurchase::where('status', \App\Models\StorePurchase::STATUS_PENDING_FULFILLMENT)->count()
+                : null;
+        });
     }
 
     /** E20: مباريات فرق مقبولة تجاوزت مهلتها بلا اعتماد، وبطولات انتهت بلا اعتماد (يعالجها الأمر الدوري؛ ظهورها هنا يعني تأخره). */
     public function getOverdueTeamCompetitionCount(): ?int
     {
-        $user = auth()->user();
+        return once(function () {
+            $user = auth()->user();
 
-        if (! ($user?->can('team_challenges.view') || $user?->can('team_championships.view'))) {
-            return null;
-        }
+            if (! ($user?->can('team_challenges.view') || $user?->can('team_championships.view'))) {
+                return null;
+            }
 
-        return \App\Models\TeamChallenge::query()->where('status', 'accepted')->where('play_ends_at', '<=', now()->subHour())->count()
-            + \App\Models\TeamChampionship::query()->where('status', 'published')->where('ends_at', '<=', now()->subHour())->count();
+            return \App\Models\TeamChallenge::query()->where('status', 'accepted')->where('play_ends_at', '<=', now()->subHour())->count()
+                + \App\Models\TeamChampionship::query()->where('status', 'published')->where('ends_at', '<=', now()->subHour())->count();
+        });
     }
 
     /** E18: منح جوائز تنافسية فاشلة (تحتاج إعادة محاولة بالإدارة). */
     public function getFailedCompetitiveGrantsCount(): ?int
     {
-        return auth()->user()?->can('competitive_events.rewards.view')
-            ? \App\Models\CompetitiveRewardGrant::query()->where('status', \App\Models\CompetitiveRewardGrant::STATUS_FAILED)->count()
-            : null;
+        return once(function () {
+            return auth()->user()?->can('competitive_events.rewards.view')
+                ? \App\Models\CompetitiveRewardGrant::query()->where('status', \App\Models\CompetitiveRewardGrant::STATUS_FAILED)->count()
+                : null;
+        });
     }
 
     public function getOpenFraudFlagsCount(): ?int
     {
-        return auth()->user()?->can('fraud.view')
-            ? FraudFlag::where('resolved', false)->count()
-            : null;
+        return once(function () {
+            return auth()->user()?->can('fraud.view')
+                ? FraudFlag::where('resolved', false)->count()
+                : null;
+        });
     }
 
     public function getFrozenUsersCount(): ?int
     {
-        return auth()->user()?->can('users.view')
-            ? User::where('is_frozen', true)->count()
-            : null;
+        return once(function () {
+            return auth()->user()?->can('users.view')
+                ? User::where('is_frozen', true)->count()
+                : null;
+        });
     }
 
     public function getUnverifiedUsersCount(): ?int
     {
-        return auth()->user()?->can('users.view')
-            ? User::whereNull('email_verified_at')->count()
-            : null;
+        return once(function () {
+            return auth()->user()?->can('users.view')
+                ? User::whereNull('email_verified_at')->count()
+                : null;
+        });
     }
 
     public function getRecentUsers()
     {
-        return auth()->user()?->can('users.view')
-            ? User::latest()->limit(8)->get(['id', 'name', 'email', 'created_at'])
-            : collect();
+        return once(function () {
+            return auth()->user()?->can('users.view')
+                ? User::latest()->limit(8)->get(['id', 'name', 'email', 'created_at'])
+                : collect();
+        });
     }
 
     public function getRecentFraudFlags()
     {
-        return auth()->user()?->can('fraud.view')
-            ? FraudFlag::with('user:id,name')->where('resolved', false)->latest()->limit(8)->get()
-            : collect();
+        return once(function () {
+            return auth()->user()?->can('fraud.view')
+                ? FraudFlag::with('user:id,name')->where('resolved', false)->latest()->limit(8)->get()
+                : collect();
+        });
     }
 
     public function getRecentOperationalActions()
     {
-        return auth()->user()?->can('operations.dashboard_view')
-            ? OperationalAuditLog::with('actor:id,name')->latest()->limit(10)->get()
-            : collect();
+        return once(function () {
+            return auth()->user()?->can('operations.dashboard_view')
+                ? OperationalAuditLog::with('actor:id,name')->latest()->limit(10)->get()
+                : collect();
+        });
     }
 
     protected static array $actionLabels = [
