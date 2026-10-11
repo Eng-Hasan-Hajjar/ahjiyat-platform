@@ -34,14 +34,17 @@ class CosmeticLoadoutService
 
     public function loadoutFor(User $user): array
     {
-        $rows = $user->cosmeticLoadouts()->with('storeItem')->get()->keyBy('slot');
+        // E24: التنقل ولوحة الرئيسية وصفحة الملف كلها تقرأ التجهيز نفسه في الطلب الواحد؛ تُقرأ مرة واحدة لكل طلب GET (انظر RequestMemo: لا أثر على POST ولا بين الطلبات).
+        return \App\Support\RequestMemo::remember('loadout.'.$user->getKey(), function () use ($user) {
+            $rows = $user->cosmeticLoadouts()->with('storeItem')->get()->keyBy('slot');
 
-        $result = [];
-        foreach (StoreItem::COSMETIC_SLOTS as $slot) {
-            $result[$slot] = $rows->get($slot)?->storeItem;
-        }
+            $result = [];
+            foreach (StoreItem::COSMETIC_SLOTS as $slot) {
+                $result[$slot] = $rows->get($slot)?->storeItem;
+            }
 
-        return $result;
+            return $result;
+        });
     }
 
     public function equippedForSlot(User $user, string $slot): ?StoreItem

@@ -68,12 +68,19 @@ export default function chatRoom(cfg) {
 
         // ---------- بثّ لحظي (اختياري)
         subscribe() {
-            if (!window.Echo || !this.cfg.channel || this.subscribedTo === this.cfg.channel) {
+            if (!this.cfg.channel || this.subscribedTo === this.cfg.channel) {
+                return;
+            }
+
+            // E24: الاتصال بـReverb يُفتح هنا عند الحاجة فقط (انظر echo.js) لا عند تحميل كل صفحة.
+            const echo = typeof window.getEcho === 'function' ? window.getEcho() : window.Echo;
+
+            if (!echo) {
                 return;
             }
 
             this.subscribedTo = this.cfg.channel;
-            window.Echo.private(this.cfg.channel)
+            echo.private(this.cfg.channel)
                 .listen('.message.sent', (event) => this.receive(event, true))
                 .listen('.message.updated', (event) => this.receive(event, false));
         },

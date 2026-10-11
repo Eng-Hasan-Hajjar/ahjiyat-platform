@@ -50,9 +50,10 @@ class HomeController extends Controller
 
         if (auth()->check()) {
             $myProgression = $this->levels->progressionFor(auth()->user());
-            $myCurrentLevel = $this->levels->currentLevelFor(auth()->user());
-            $myNextLevel = $this->levels->nextLevelFor(auth()->user());
-            $myProgressPercent = $this->levels->progressPercentFor(auth()->user());
+            // E24: التقدّم يُقرأ مرة واحدة ويُمرَّر (كان يُعاد جلبه 6 مرات مع كل استدعاء).
+            $myCurrentLevel = $this->levels->currentLevelFor(auth()->user(), $myProgression);
+            $myNextLevel = $this->levels->nextLevelFor(auth()->user(), $myProgression);
+            $myProgressPercent = $this->levels->progressPercentFor(auth()->user(), $myProgression);
 
             // E13 (بند 374): للعرض فقط - لا إنشاء صفوف تقدُّم جديدة من لوحة التحكم.
             $dailyPeriod = $this->periods->dailyContext();
@@ -78,6 +79,9 @@ class HomeController extends Controller
             if ($featuredSeason && auth()->check()) {
                 $user = auth()->user();
                 $campaign = $featuredSeason->campaign;
+
+                // E24: صفحة قراءة. لقطة تقدّم واحدة بدل استعلام لكل خطوة (كانت أكبر مصدر لاستعلامات الرئيسية).
+                $this->progress->preloadFor($user, $campaign);
 
                 $featuredSeasonCurrentStep = $this->progress->currentStepFor($user, $campaign);
 

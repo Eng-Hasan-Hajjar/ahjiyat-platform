@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\PlatformSetting;
 use App\Models\User;
+use App\Support\RequestMemo;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * الواجهة الوحيدة المسموحة للتعامل مع الإعدادات - لا View/Controller يستعلم
@@ -15,6 +17,10 @@ use Illuminate\Support\Facades\Cache;
 class PlatformSettingsService
 {
     protected const CACHE_KEY = 'platform_settings.all';
+
+    protected const MEMO_KEY = 'platform_settings.all';
+
+    protected const BRANDING_MEMO_KEY = 'platform_settings.branding_urls';
 
     public function get(string $group, string $key, mixed $fallback = null): mixed
     {
@@ -69,6 +75,42 @@ class PlatformSettingsService
     public function forgetCache(): void
     {
         Cache::forget(self::CACHE_KEY);
+        RequestMemo::forget('platform_settings.');
+    }
+
+    /**
+     * E24: روابط ملفات الهوية البصرية **الموجودة فعلًا** بالقرص العام (الشعار، الأيقونة، صورة المشاركة). كان القالب يفحص `exists()` ثلاث مرات في كل صفحة (طلب شبكة HEAD لكل ملف على S3).
+     * المفتاح يتضمّن بصمة المسارات الحالية، فتتجدد النتيجة فور تغيير أي مسار حتى بلا إبطال صريح، والمدة (TTL) تحدّ حالة حذف الملف يدويًا من القرص. الخرج مطابق لما كان يحسبه القالب.
+     *
+     * @return array{logo_main: ?string, favicon: ?string, social_share_image: ?string}
+     */
+    public function brandingUrls(): array
+    {
+        $paths = [
+            'logo_main' => $this->get('branding', 'logo_main'),
+            'favicon' => $this->get('branding', 'favicon'),
+            'social_share_image' => $this->get('branding', 'social_share_image'),
+        ];
+
+        $resolve = function () use ($paths): array {
+            $disk = Storage::disk('public');
+
+            return array_map(fn ($path) => $path && $disk->exists($path) ? Storage::url($path) : null, $paths);
+        };
+
+        $ttl = (int) config('performance.cache.branding_urls_ttl', 600);
+
+        if ($ttl <= 0) {
+            return $resolve();
+        }
+
+        return RequestMemo::remember(self::BRANDING_MEMO_KEY, function () use ($paths, $resolve, $ttl) {
+            try {
+                return Cache::remember('platform_settings.branding_urls.'.md5(json_encode($paths)), $ttl, $resolve);
+            } catch (\Throwable) {
+                return $resolve();
+            }
+        });
     }
 
     public function defaults(): array
@@ -77,6 +119,13 @@ class PlatformSettingsService
     }
 
     protected function allRaw(): array
+    {
+        // E24: get() تُستدعى عشرات المرات بالصفحة الواحدة (القالب يطلب كل المجموعات)؛ كانت كل مرة قراءة كاش كاملة (فكّ تسلسل المصفوفة كلها / استعلام مع CACHE_STORE=database).
+        // الآن تُقرأ مرة لكل طلب GET (RequestMemo) وتبقى قراءة الكاش المباشرة كما كانت لباقي الطلبات (POST/الأوامر/الطوابير).
+        return RequestMemo::remember(self::MEMO_KEY, fn () => $this->loadAllRaw());
+    }
+
+    protected function loadAllRaw(): array
     {
         try {
             return Cache::rememberForever(self::CACHE_KEY, function () {

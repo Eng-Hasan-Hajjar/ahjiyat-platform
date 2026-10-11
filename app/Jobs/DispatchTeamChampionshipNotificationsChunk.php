@@ -19,6 +19,7 @@ use Illuminate\Queue\InteractsWithQueue;
 class DispatchTeamChampionshipNotificationsChunk implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable;
+    use \App\Jobs\Concerns\BoundedRetries;
 
     public int $tries = 3;
 

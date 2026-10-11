@@ -20,6 +20,10 @@ class LevelDefinition extends Model
         static::deleting(function (LevelDefinition $level) {
             app(\App\Services\Progression\LevelDefinitionInvariantGuard::class)->enforceDeletable($level);
         });
+
+        // E24: كاش كتالوج المستويات (للعرض فقط) يُبطَل فور أي حفظ/حذف.
+        static::saved(fn () => \App\Services\Progression\LevelService::forgetCatalog());
+        static::deleted(fn () => \App\Services\Progression\LevelService::forgetCatalog());
     }
 
     protected $fillable = [

@@ -13,6 +13,7 @@ use Illuminate\Queue\InteractsWithQueue;
 class ComputeTeamRankings implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable;
+    use \App\Jobs\Concerns\BoundedRetries;
 
     public int $tries = 3;
 

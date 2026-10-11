@@ -1,54 +1,43 @@
 <?php
 
-use App\Models\GemTransaction;
-use App\Models\User;
-use App\Services\GemWalletService;
+use App\Services\PendingGemReleaseService;
+use Illuminate\Console\Scheduling\Event;
 use Illuminate\Support\Facades\Schedule;
 
+/*
+ * E24: كل المهام المجدولة تمرّ من هنا بنفس القاعدتين:
+ *  - withoutOverlapping($minutes): كان الافتراضي 24 ساعة، فانهيار عملية أثناء التشغيل (OOM/نشر/قتل) كان يجمّد مهمة ساعية يومًا كاملًا.
+ *    القيم أدناه أطول بكثير من زمن التشغيل الطبيعي (أمان ضد التداخل) وأقصر من اليوم (تعافٍ تلقائي).
+ *  - onOneServer(): عند تشغيل المجدول على أكثر من خادم (نشر أفقي) ينفّذ خادم واحد فقط كل تشغيل. يحتاج كاشًا مشتركًا (Redis/قاعدة بيانات)؛ على خادم واحد بلا أي أثر.
+ *    يُعطَّل بـ PERF_SCHEDULER_ONE_SERVER=false إن لم يتوفّر كاش مشترك بعد.
+ */
+$guard = function (Event $event, int $lockMinutes): Event {
+    $event->withoutOverlapping($lockMinutes);
+
+    return config('performance.scheduler.one_server', true) ? $event->onOneServer() : $event;
+};
+
 // تحويل الجواهر المعلقة إلى متاحة يومياً بعد انتهاء فترة التعليق (config('gems.pending_hold_days'))
-Schedule::call(function () {
-    $walletService = app(GemWalletService::class);
-    $holdDays = config('gems.pending_hold_days');
-
-    User::whereHas('wallet', fn ($q) => $q->where('pending_balance', '>', 0))
-        ->with('wallet')
-        ->chunk(200, function ($users) use ($walletService, $holdDays) {
-            foreach ($users as $user) {
-                $releasable = GemTransaction::where('user_id', $user->id)
-                    ->where('type', GemTransaction::TYPE_EARN_PENDING)
-                    ->where('created_at', '<=', now()->subDays($holdDays))
-                    ->sum('amount');
-
-                $alreadyReleased = GemTransaction::where('user_id', $user->id)
-                    ->where('type', GemTransaction::TYPE_RELEASE_AVAILABLE)
-                    ->sum('amount');
-
-                $toRelease = $releasable - $alreadyReleased;
-
-                if ($toRelease > 0) {
-                    $walletService->releasePendingToAvailable($user, (int) $toRelease, 'pending_hold_expired');
-                }
-            }
-        });
-})->daily()->name('release-pending-gems')->withoutOverlapping();
+// المنطق في PendingGemReleaseService: استعلامات مجمّعة لكل دفعة، والتحرير الفعلي حصرًا عبر GemWalletService.
+$guard(Schedule::call(fn () => app(PendingGemReleaseService::class)->run())->daily()->name('release-pending-gems'), 360);
 
 // تذكيرات "ينتهي قريبًا" للمواسم والحملات المستقلة (قراءة فقط) - ساعيًا، وقبل تذكيرات العودة بنفس الساعة (ترتيب التسجيل)
 // كي يسبق ينتهي-قريبًا تذكير المهام الأدنى أولوية. غيابه لا يكسر شيئًا: لا تصل التذكيرات فقط.
-Schedule::command('notifications:dispatch-lifecycle-reminders')->hourly()->name('notifications-lifecycle-reminders')->withoutOverlapping();
+$guard(Schedule::command('notifications:dispatch-lifecycle-reminders')->hourly()->name('notifications-lifecycle-reminders'), 120);
 
 // E15: تذكيرات العودة (تحذير السلسلة + مهام اليوم) - ساعيًا. غيابه لا يكسر شيئًا: لا تصل التذكيرات فقط.
-Schedule::command('competitive:process-lifecycle')->hourly()->name('competitive-process-lifecycle')->withoutOverlapping();
+$guard(Schedule::command('competitive:process-lifecycle')->hourly()->name('competitive-process-lifecycle'), 120);
 
 // E19: دعوات الفرق، عدّادات الأعضاء، وترتيب الفرق المتأخر (بعد اعتماد المنافسات).
-Schedule::command('teams:process-lifecycle')->hourly()->name('teams-process-lifecycle')->withoutOverlapping();
+$guard(Schedule::command('teams:process-lifecycle')->hourly()->name('teams-process-lifecycle'), 120);
 
-Schedule::command('notifications:dispatch-reengagement')->hourly()->name('notifications-reengagement')->withoutOverlapping();
+$guard(Schedule::command('notifications:dispatch-reengagement')->hourly()->name('notifications-reengagement'), 120);
 
 // E15: تنظيف المقروء القديم يوميًا - صحة النظام لا تعتمد عليه.
-Schedule::command('notifications:prune')->daily()->name('notifications-prune')->withoutOverlapping();
+$guard(Schedule::command('notifications:prune')->daily()->name('notifications-prune'), 360);
 
 // التقاط بدء المواسم الناتج عن مرور الوقت. غيابه لا يكسر شيئًا: البدء بالحفظ الإداري يُلتقَط فورًا بخطافات النماذج.
-Schedule::command('seasons:sync-live-state')->everyFiveMinutes()->name('seasons-sync-live-state')->withoutOverlapping();
+$guard(Schedule::command('seasons:sync-live-state')->everyFiveMinutes()->name('seasons-sync-live-state'), 30);
 
 // التقاط إتاحة الحملات الناتجة عن مرور الوقت. غيابه لا يكسر شيئًا: الإتاحة بالحفظ الإداري تُلتقَط فورًا بخطاف النموذج.
-Schedule::command('campaigns:sync-availability')->everyFiveMinutes()->name('campaigns-sync-availability')->withoutOverlapping();
+$guard(Schedule::command('campaigns:sync-availability')->everyFiveMinutes()->name('campaigns-sync-availability'), 30);

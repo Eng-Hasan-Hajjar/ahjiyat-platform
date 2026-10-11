@@ -25,7 +25,11 @@ class TeamMembershipService
 
     public function membershipOf(User $user): ?TeamMembership
     {
-        return TeamMembership::query()->where('user_id', $user->getKey())->first();
+        // E24: التنقل والشريط الجانبي والمتحكّم والقالب تسأل عن العضوية نفسها بالصفحة الواحدة؛ تُحفظ لطلب GET واحد فقط (انظر RequestMemo).
+        return \App\Support\RequestMemo::remember(
+            'team.membership.'.$user->getKey(),
+            fn () => TeamMembership::query()->where('user_id', $user->getKey())->first(),
+        );
     }
 
     public function roleIn(User $user, Team $team): ?string

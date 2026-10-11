@@ -15,10 +15,11 @@
     $fontSizeMap = ['small' => '15px', 'normal' => '16px', 'large' => '17.5px'];
     $radiusMap = ['compact' => '.6rem', 'rounded' => '1rem', 'soft' => '1.5rem'];
 
-    $exists = fn(?string $path) => $path && \Illuminate\Support\Facades\Storage::disk('public')->exists($path);
-    $logoUrl = $exists($branding['logo_main']) ? \Illuminate\Support\Facades\Storage::url($branding['logo_main']) : null;
-    $faviconUrl = $exists($branding['favicon']) ? \Illuminate\Support\Facades\Storage::url($branding['favicon']) : null;
-    $ogImageUrl = $exists($branding['social_share_image']) ? \Illuminate\Support\Facades\Storage::url($branding['social_share_image']) : null;
+    // E24: فحص وجود ملفات الهوية (3 طلبات HEAD لكل صفحة على S3) صار مخزَّنًا بمدة قصيرة داخل الخدمة بدل القالب.
+    $brandingUrls = $settings->brandingUrls();
+    $logoUrl = $brandingUrls['logo_main'];
+    $faviconUrl = $brandingUrls['favicon'];
+    $ogImageUrl = $brandingUrls['social_share_image'];
 
     $metaTitle = $seo['meta_title'] ?: $general['site_name'];
     $metaDescription = $seo['meta_description'] ?: $general['short_description'];

@@ -53,7 +53,9 @@ test('FX5: the privacy semantics are unchanged - the public profile still hides 
     expect($visible)->not->toContain('7391')->not->toContain('7,391')->not->toContain('سبب-سري-للاختبار');
 });
 
-test('FX6: second flaky test, root cause reproduced - the device-sighting touch issues one UPDATE only when the clock moves to a new second, so a time-dependent query count is not an N+1', function () {
+test('FX6: second flaky test, root cause reproduced - the device-sighting touch is time-dependent (E24: once per throttle window, here 1s), so a time-dependent query count is not an N+1', function () {
+    // E24: التتبّع صار مرة لكل نافذة (الافتراضي 60 ثانية) بدل كل طلب؛ نضيّق النافذة إلى ثانية هنا كي يبقى السبب الجذري (استعلام تابع للزمن) قابلًا للإثبات بـ travel(2).
+    config(['performance.device_sighting.throttle_seconds' => 1]);
     $this->freezeTime();
     $this->get(route('leaderboard.index'))->assertOk();   // تسخين: ينشئ صفّ البصمة
 
@@ -71,7 +73,8 @@ test('FX6: second flaky test, root cause reproduced - the device-sighting touch 
     $this->travel(2)->seconds();
     [$nextSecond, $nextSecondTouched] = $count();
 
-    expect($sameSecondTouched)->toBeFalse()->and($nextSecondTouched)->toBeTrue()->and($nextSecond)->toBe($sameSecond + 1);
+    // بعد انتهاء النافذة يعود استعلام القراءة (select) + الكتابة (update) معًا => +2 (قبل E24 كان +1 لأن القراءة كانت تُنفَّذ في كل طلب).
+    expect($sameSecondTouched)->toBeFalse()->and($nextSecondTouched)->toBeTrue()->and($nextSecond)->toBe($sameSecond + 2);
 });
 
 test('FX7: the leaderboard query-count test freezes time, and it still asserts the constant query count - the N+1 guard is not weakened', function () {

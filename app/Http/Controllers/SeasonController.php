@@ -47,6 +47,11 @@ class SeasonController extends Controller
         $season->load('campaign.stages.gates.steps.puzzle');
         $campaign = $season->campaign;
 
+        // E24: صفحة قراءة. لقطة تقدّم واحدة (5 استعلامات) + ربط العلاقات العكسية بدل استعلام/إعادة تحميل لكل خطوة وبوابة ومرحلة.
+        if ($user) {
+            $this->progress->preloadFor($user, $campaign);
+        }
+
         $campaignAvailable = $this->progress->isCampaignAvailable($campaign);
         $currentStep = $user ? $this->progress->currentStepFor($user, $campaign) : null;
         $currentStepMissionNumber = $currentStep ? $this->progress->missionNumberFor($campaign, $currentStep) : null;

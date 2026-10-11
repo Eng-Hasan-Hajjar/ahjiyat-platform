@@ -23,6 +23,7 @@ use Illuminate\Queue\InteractsWithQueue;
 class DispatchCampaignAvailableChunk implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable;
+    use \App\Jobs\Concerns\BoundedRetries;
 
     public int $tries = 3;
 

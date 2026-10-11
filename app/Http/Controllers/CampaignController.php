@@ -35,6 +35,12 @@ class CampaignController extends Controller
         $campaign->load('stages.gates.steps');
 
         $user = Auth::user();
+
+        // E24: صفحة قراءة. لقطة تقدّم واحدة (5 استعلامات) + ربط العلاقات العكسية بدل استعلام/إعادة تحميل لكل خطوة وبوابة ومرحلة.
+        if ($user) {
+            $this->progress->preloadFor($user, $campaign);
+        }
+
         $currentStep = $user ? $this->progress->currentStepFor($user, $campaign) : null;
 
         $stagesView = $campaign->stages->sortBy('sort_order')->map(function ($stage) use ($user) {

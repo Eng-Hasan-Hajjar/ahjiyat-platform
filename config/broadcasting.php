@@ -18,8 +18,14 @@ return [
                 'port' => env('REVERB_PORT', 443),
                 'scheme' => env('REVERB_SCHEME', 'https'),
                 'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
+                // E24: البثّ المتزامن (ShouldBroadcastNow) يحجز عامل PHP-FPM أثناء استدعاء Reverb. الافتراضي في Laravel/Pusher: اتصال 10ث وطلب 30ث،
+                // فخادم Reverb المعلّق (لا مرفوض) كان يُبقي كل رسالة دردشة مرسَلة عالقة حتى 30 ثانية ويستنزف العمّال. الآن: حدود قصيرة؛ فشل البثّ معزول أصلًا ولا يفقد الرسالة.
+                'timeout' => (float) env('REVERB_HTTP_TIMEOUT', 3),
             ],
-            'client_options' => [],
+            'client_options' => [
+                'connect_timeout' => (float) env('REVERB_HTTP_CONNECT_TIMEOUT', 1),
+                'timeout' => (float) env('REVERB_HTTP_TIMEOUT', 3),
+            ],
         ],
 
         'log' => ['driver' => 'log'],

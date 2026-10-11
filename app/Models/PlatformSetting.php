@@ -18,6 +18,13 @@ class PlatformSetting extends Model
 
     protected $fillable = ['group', 'key', 'value', 'type', 'updated_by'];
 
+    protected static function booted(): void
+    {
+        // E24: أي كاتب (الخدمة، سكربت، Seeder، Tinker) يُبطل كاش الإعدادات؛ في نشر متعدد الخوادم يكون الكاش مشتركًا (Redis) فيصل الإبطال للجميع.
+        static::saved(fn () => app(\App\Services\PlatformSettingsService::class)->forgetCache());
+        static::deleted(fn () => app(\App\Services\PlatformSettingsService::class)->forgetCache());
+    }
+
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');

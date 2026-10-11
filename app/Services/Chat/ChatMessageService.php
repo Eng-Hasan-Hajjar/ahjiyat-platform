@@ -136,13 +136,26 @@ class ChatMessageService
 
         if ($after !== null) {
             $rows = $query->where('id', '>', $after)->orderBy('id')->limit($limit + 1)->get();
+            $this->bindThread($rows, $thread);
 
             return ['messages' => $rows->take($limit)->values(), 'has_more' => $rows->count() > $limit];
         }
 
         $rows = $query->when($before !== null, fn ($q) => $q->where('id', '<', $before))->orderByDesc('id')->limit($limit + 1)->get();
+        $this->bindThread($rows, $thread);
 
         return ['messages' => $rows->take($limit)->reverse()->values(), 'has_more' => $rows->count() > $limit];
+    }
+
+    /**
+     * E24: كل رسائل الصفحة تنتمي إلى الغرفة نفسها المعروفة مسبقًا؛ ربطها بالعلاقة يمنع ChatMessagePresenter::public() من تحميل الغرفة
+     * استعلامًا لكل رسالة (N+1: 16 استعلامًا لـ16 رسالة بالغرفة العامة، ويتضاعف مع حجم الصفحة).
+     *
+     * @param  Collection<int, ChatMessage>  $rows
+     */
+    protected function bindThread(Collection $rows, ChatThread $thread): void
+    {
+        $rows->each(fn (ChatMessage $m) => $m->setRelation('thread', $thread));
     }
 
     /** يعلّم الغرفة مقروءة حتى أحدث رسالة (أو المعرّف المحدَّد). رتيب (لا يتراجع) وIdempotent. لمن يملك القراءة فقط. */

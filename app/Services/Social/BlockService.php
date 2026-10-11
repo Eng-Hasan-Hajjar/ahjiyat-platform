@@ -31,9 +31,10 @@ class BlockService
     {
         $id = $user->getKey();
 
-        return UserBlock::query()->where('blocker_id', $id)->pluck('blocked_id')
+        // E24: الدردشة (الشارة، الشريط الجانبي، الصفحة) تسأل عن القائمة نفسها بالطلب الواحد؛ تُحفظ لطلب GET واحد فقط (انظر RequestMemo).
+        return \App\Support\RequestMemo::remember('blocks.hidden.'.$id, fn () => UserBlock::query()->where('blocker_id', $id)->pluck('blocked_id')
             ->merge(UserBlock::query()->where('blocked_id', $id)->pluck('blocker_id'))
-            ->unique()->values()->all();
+            ->unique()->values()->all());
     }
 
     /**

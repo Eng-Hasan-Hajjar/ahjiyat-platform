@@ -71,7 +71,7 @@ Read-Only بالكامل - لا يُعدِّل شيئًا، لا يطبع أي �
 `QUEUE_CONNECTION=database` كافٍ حاليًا - لا Job فعلية بـ`ShouldQueue` بعد.
 
 [program:ahjiyat-worker]
-command=php /path/to/project/artisan queue:work --sleep=3 --tries=3 --timeout=90
+command=php /path/to/project/artisan queue:work --sleep=3 --tries=3 --timeout=80
 autostart=true
 autorestart=true
 numprocs=1
@@ -274,3 +274,18 @@ server {
 - **الطابور:** الدردشة **لا تحتاج عامل طابور** (البثّ فوري `ShouldBroadcastNow` بعد commit). عامل الطابور (`php artisan queue:work`) ما زال لازمًا لبقية المنصة (إشعارات الأحداث والبطولات). فشل Reverb لا يفقد رسالة ولا يملأ `failed_jobs`.
 - `npm run build` **ضروري** (صفحات وأصناف جديدة + Echo).
 - **مراقبة:** لوحة الإدارة: «بلاغات الدردشة» و«كتم الدردشة». لا يوجد (عمدًا) عرض لكل الرسائل الخاصة.
+
+## الأداء والتوسّع والمراقبة (E24)
+
+التفاصيل: `docs/performance-e24.md` (ما نُفِّذ كودًا وقياساته) و`docs/scaling-architecture.md` (توصيات بنية تحتية لم تُنفَّذ).
+
+**ما يتغيّر في النشر:**
+1. `php artisan migrate --force` يضيف migrationَين: جدولا `cache`/`cache_locks` (لـ`CACHE_STORE=database`) وخمسة فهارس. على جداول كبيرة (`puzzle_attempts`) قد يستغرق إنشاء الفهرس وقتًا وقفلًا؛ شغّله في نافذة هادئة أو بوضع الصيانة.
+2. `npm run build` **ضروري**: اتصال WebSocket صار كسولًا (يُفتح عند غرفة دردشة فقط).
+3. متغيرات اختيارية جديدة في `.env.example` (قسم E24): `TRUSTED_PROXIES`، `PERF_*`، `REVERB_HTTP_*`. الافتراضات لا تغيّر السلوك سوى ما ورد في «تغييرات سلوكية» بـ`performance-e24.md` §6.
+4. الطابور: اجعل `queue:work --timeout=80` (أقل من `retry_after`=90). مهام الطابور لها الآن `timeout=80` و`backoff` 15/60/180 و`failOnTimeout`.
+5. المجدول: المهام الثماني محمية الآن بـ`withoutOverlapping(30–360 دقيقة)` و`onOneServer()`. على خادم واحد لا أثر؛ على عدة خوادم يلزم كاش مشترك (Redis).
+6. موازن الحِمل: `GET /ready` (جاهزية: قاعدة بيانات + كاش، 503 إن تعطّل أحدهما) و`GET /up` (حياة). عند وجود موازن اضبط `TRUSTED_PROXIES` وإلا رأى التطبيق IP الموازن.
+7. مراقبة: `X-Request-ID` في كل استجابة، وسجل `slow_request` (>1500ms) في السجلات. ابحث عنه: `grep slow_request storage/logs/laravel.log`.
+
+**اختبار دخان بعد النشر:** `GET /up` → 200، `GET /ready` → 200، صفحة الصدارة، غرفة الدردشة العامة (الإرسال والاستقبال اللحظي إن كان Reverb يعمل)، `php artisan schedule:list`.

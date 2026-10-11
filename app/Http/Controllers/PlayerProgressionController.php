@@ -16,9 +16,9 @@ class PlayerProgressionController extends Controller
         $user = Auth::user();
 
         $progression = $this->levels->progressionFor($user);
-        $currentLevel = $this->levels->currentLevelFor($user);
-        $nextLevel = $this->levels->nextLevelFor($user);
-        $progressPercent = $this->levels->progressPercentFor($user);
+        $currentLevel = $this->levels->currentLevelFor($user, $progression);
+        $nextLevel = $this->levels->nextLevelFor($user, $progression);
+        $progressPercent = $this->levels->progressPercentFor($user, $progression);
 
         $allLevels = LevelDefinition::where('is_active', true)->orderBy('level_number')->get();
 

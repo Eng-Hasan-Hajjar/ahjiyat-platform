@@ -1,0 +1,4601 @@
+# حزمة تسليم E24 — الأداء والتوسّع والموثوقية والمراقبة
+
+> للنسخ اليدوي إلى مشروعك المحلي. **لا أوامر git هنا.** لم يُلمس `PlatformSettingsPage.php` ولا `AdminPanelProvider.php` (الإصلاحان المحليان غير المدفوعين يبقيان كما هما).
+> الأسهل: فكّ `e24-performance.zip` فوق جذر المشروع (يحتفظ بالمسارات)، ثم نفّذ القسم E. الأقسام أدناه هي نفس المحتوى للمراجعة أو النسخ الفردي.
+
+ملخص: 29 ملف جديد، 33 ملف معدَّل، 2 migrations، و`.env.example`.
+
+## A) ملفات جديدة (محتوى كامل)
+
+### `app/Console/Commands/PerformanceSeed.php`
+
+```php
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\ChatThread;
+use App\Models\CurrencyTransaction;
+use App\Models\Puzzle;
+use App\Models\PuzzleCategory;
+use App\Models\User;
+use App\Services\Chat\ChatThreadService;
+use App\Services\Economy\CurrencyRegistry;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
+/**
+ * E24: بيانات أداء اصطناعية لقياس الاستعلامات والفهارس (EXPLAIN) وللاختبار الحِملي المحلي.
+ *
+ * حدود صارمة:
+ *  - لا تعمل إلا في local/testing (حارس إنتاج صريح) ولا تُشغَّل ضمن DatabaseSeeder.
+ *  - **تُضيف فقط**: كل مستخدم اصطناعي بريده perfN@perf.ahjiyat.test؛ لا تعدّل ولا تحذف أي صف موجود (بيانات QA-D1 تبقى كما هي).
+ *  - --purge يحذف فقط ما أنشأته هي (بحسب نطاق البريد الاصطناعي)، ولا شيء غيره.
+ *  - small هو المعتمد محليًا (1000 مستخدم افتراضيًا)؛ medium/large يتطلبان --allow-large صراحةً.
+ * هذه البيانات لا تُمثّل سلوك لاعبين حقيقيين؛ هي لقياس شكل الخطط (index vs scan) لا لتقدير سعة الإنتاج.
+ */
+class PerformanceSeed extends Command
+{
+    protected $signature = 'performance:seed
+        {profile=small : small|medium|large (الأحجام من config/performance.php)}
+        {--users= : تجاوز عدد المستخدمين الاصطناعيين}
+        {--allow-large : مطلوب لـ medium/large}
+        {--purge : احذف فقط البيانات التي أنشأها هذا الأمر ثم اخرج}';
+
+    protected $description = 'E24: يزرع بيانات أداء اصطناعية (local/testing فقط) أو يحذف ما زرعه. لا يمسّ بيانات QA الحالية.';
+
+    private const EMAIL_DOMAIN = '@perf.ahjiyat.test';
+
+    public function handle(ChatThreadService $threads, CurrencyRegistry $currencies): int
+    {
+        if (! app()->environment(['local', 'testing'])) {
+            $this->error('performance:seed يعمل فقط في بيئة local أو testing. (حارس الإنتاج)');
+
+            return self::FAILURE;
+        }
+
+        if ($this->option('purge')) {
+            return $this->purge();
+        }
+
+        $profile = (string) $this->argument('profile');
+        $profiles = (array) config('performance.seed.profiles', []);
+
+        if (! isset($profiles[$profile])) {
+            $this->error('ملف غير معروف. المتاح: '.implode(', ', array_keys($profiles)));
+
+            return self::FAILURE;
+        }
+
+        if ($profile !== 'small' && ! $this->option('allow-large')) {
+            $this->error("الملف {$profile} كبير: أضف --allow-large صراحةً (لا يُنصح به على جهاز تطوير عادي).");
+
+            return self::FAILURE;
+        }
+
+        if (User::query()->where('email', 'like', '%'.self::EMAIL_DOMAIN)->exists()) {
+            $this->error('توجد بيانات اصطناعية سابقة. شغّل --purge أولًا (لا نكرّر ولا نعدّل).');
+
+            return self::FAILURE;
+        }
+
+        $cfg = $profiles[$profile];
+        $userCount = max(1, (int) ($this->option('users') ?: $cfg['users']));
+        $perUser = max(1, (int) $cfg['attempts_per_user']);
+        $messages = max(0, (int) $cfg['chat_messages']);
+        $started = microtime(true);
+
+        $puzzleIds = $this->ensurePuzzles();
+        $currencyId = $currencies->defaultEarnedCurrency()->id;
+        $hash = Hash::make('perf-seed-not-a-real-password');
+        $now = now();
+        $firstId = (int) (User::query()->max('id') ?? 0) + 1;
+
+        // ---- المستخدمون + المحافظ + التقدّم (دفعات 500)
+        foreach (array_chunk(range(1, $userCount), 500) as $chunk) {
+            DB::transaction(function () use ($chunk, $hash, $now, $currencyId) {
+                DB::table('users')->insert(array_map(fn (int $i) => [
+                    'name' => 'لاعب اختبار '.$i, 'email' => 'perf'.$i.self::EMAIL_DOMAIN, 'email_verified_at' => $now, 'password' => $hash,
+                    'role' => 'user', 'public_id' => (string) Str::ulid(), 'profile_visibility' => 'members',
+                    'created_at' => $now->copy()->subDays(random_int(0, 90)), 'updated_at' => $now,
+                ], $chunk));
+            });
+        }
+
+        $ids = User::query()->where('email', 'like', '%'.self::EMAIL_DOMAIN)->orderBy('id')->pluck('id')->all();
+
+        foreach (array_chunk($ids, 500) as $chunk) {
+            DB::transaction(function () use ($chunk, $now, $currencyId, $puzzleIds, $perUser) {
+                DB::table('wallets')->insert(array_map(fn ($id) => [
+                    'user_id' => $id, 'currency_id' => $currencyId, 'pending_balance' => random_int(0, 80), 'available_balance' => random_int(0, 500),
+                    'lifetime_earned' => random_int(0, 900), 'lifetime_redeemed' => 0, 'created_at' => $now, 'updated_at' => $now,
+                ], $chunk));
+
+                DB::table('player_progressions')->insert(array_map(fn ($id) => [
+                    'user_id' => $id, 'total_xp' => random_int(0, 400), 'current_level' => 1, 'created_at' => $now, 'updated_at' => $now,
+                ], $chunk));
+
+                $attempts = [];
+                foreach ($chunk as $id) {
+                    foreach (array_slice($this->shuffled($puzzleIds), 0, min($perUser, count($puzzleIds))) as $n => $puzzleId) {
+                        $attempts[] = [
+                            'user_id' => $id, 'puzzle_id' => $puzzleId, 'attempt_number' => 1, 'is_correct' => random_int(1, 100) <= 60, 'used_hint' => false,
+                            'time_taken_seconds' => random_int(5, 90), 'created_at' => $now->copy()->subHours(random_int(0, 24 * 30)), 'updated_at' => $now,
+                        ];
+                    }
+                }
+                DB::table('puzzle_attempts')->insert($attempts);
+
+                // ~30% لديهم جواهر معلّقة (مرشَّحو مهمة التحرير)
+                $tx = [];
+                foreach ($chunk as $id) {
+                    if (random_int(1, 100) <= 30) {
+                        $tx[] = [
+                            'user_id' => $id, 'currency_id' => $currencyId, 'amount' => random_int(5, 40), 'type' => CurrencyTransaction::TYPE_EARN_PENDING,
+                            'reason' => 'perf_seed', 'created_at' => $now->copy()->subDays(random_int(0, 12)), 'updated_at' => $now,
+                        ];
+                    }
+                }
+                $tx !== [] && DB::table('currency_transactions')->insert($tx);
+
+                // بصمات الأجهزة: 5% يشاركون مجموعة IP صغيرة (يحاكي شبكات مشتركة)
+                DB::table('device_sightings')->insert(array_map(fn ($id) => [
+                    'user_id' => $id, 'ip_address' => random_int(1, 100) <= 5 ? '10.9.0.'.random_int(1, 4) : '10.'.random_int(10, 250).'.'.random_int(0, 250).'.'.random_int(1, 250),
+                    'device_hash' => hash('sha256', 'perf-ua-'.($id % 7)), 'last_seen_at' => $now, 'created_at' => $now, 'updated_at' => $now,
+                ], $chunk));
+
+                // إشعارات لـ ~20%
+                $notes = [];
+                foreach ($chunk as $id) {
+                    if (random_int(1, 100) <= 20) {
+                        foreach ([1, 2] as $k) {
+                            $notes[] = [
+                                'id' => (string) Str::uuid(), 'type' => 'App\\Notifications\\PerfSeedNotification', 'notifiable_type' => User::class, 'notifiable_id' => $id,
+                                'data' => json_encode(['title' => 'perf', 'k' => $k]), 'read_at' => $k === 1 ? null : $now, 'created_at' => $now->copy()->subMinutes($k * 10), 'updated_at' => $now,
+                                'type_key' => 'perf_seed', 'category' => 'system', 'idempotency_key' => 'perf:'.$id.':'.$k,
+                            ];
+                        }
+                    }
+                }
+                $notes !== [] && DB::table('notifications')->insert($notes);
+            });
+        }
+
+        // ---- رسائل الغرفة العامة
+        if ($messages > 0) {
+            $global = $threads->global();
+            $rows = [];
+            $t = $now->copy()->subMinutes($messages);
+
+            for ($m = 0; $m < $messages; $m++) {
+                $rows[] = [
+                    'chat_thread_id' => $global->id, 'sender_id' => $ids[array_rand($ids)], 'body' => 'رسالة اختبار أداء رقم '.$m,
+                    'created_at' => $t->copy()->addMinutes($m), 'updated_at' => $t->copy()->addMinutes($m),
+                ];
+                if (count($rows) === 1000) {
+                    DB::table('chat_messages')->insert($rows);
+                    $rows = [];
+                }
+            }
+            $rows !== [] && DB::table('chat_messages')->insert($rows);
+
+            $last = DB::table('chat_messages')->where('chat_thread_id', $global->id)->orderByDesc('id')->first(['id', 'created_at']);
+            DB::table('chat_threads')->where('id', $global->id)->update(['last_message_id' => $last->id, 'last_message_at' => $last->created_at]);
+        }
+
+        $this->info(sprintf('تم: %d مستخدم اصطناعي، %d رسالة، في %.1f ثانية. للحذف: php artisan performance:seed --purge', $userCount, $messages, microtime(true) - $started));
+
+        return self::SUCCESS;
+    }
+
+    /** @return list<int> */
+    protected function ensurePuzzles(): array
+    {
+        $ids = Puzzle::query()->where('is_active', true)->limit(60)->pluck('id')->all();
+
+        if (count($ids) >= 20) {
+            return $ids;
+        }
+
+        if (PuzzleCategory::query()->count() === 0) {
+            PuzzleCategory::factory()->create();
+        }
+
+        Puzzle::factory()->count(30)->create(['is_active' => true]);
+
+        return Puzzle::query()->where('is_active', true)->limit(60)->pluck('id')->all();
+    }
+
+    /** @param  list<int>  $items @return list<int> */
+    protected function shuffled(array $items): array
+    {
+        shuffle($items);
+
+        return $items;
+    }
+
+    protected function purge(): int
+    {
+        $ids = User::query()->where('email', 'like', '%'.self::EMAIL_DOMAIN)->pluck('id')->all();
+
+        if ($ids === []) {
+            $this->info('لا بيانات اصطناعية لحذفها.');
+
+            return self::SUCCESS;
+        }
+
+        foreach (array_chunk($ids, 500) as $chunk) {
+            DB::transaction(function () use ($chunk) {
+                DB::table('chat_messages')->whereIn('sender_id', $chunk)->delete();
+                DB::table('notifications')->where('notifiable_type', User::class)->whereIn('notifiable_id', $chunk)->delete();
+                foreach (['device_sightings', 'currency_transactions', 'puzzle_attempts', 'player_progressions', 'wallets'] as $table) {
+                    DB::table($table)->whereIn('user_id', $chunk)->delete();
+                }
+                DB::table('users')->whereIn('id', $chunk)->delete();
+            });
+        }
+
+        // آخر رسالة في الغرفة العامة بعد حذف رسائلنا (لا تُترك مؤشرًا إلى رسالة محذوفة).
+        $global = ChatThread::query()->where('type', ChatThread::TYPE_GLOBAL)->first();
+
+        if ($global !== null) {
+            $last = DB::table('chat_messages')->where('chat_thread_id', $global->id)->orderByDesc('id')->first(['id', 'created_at']);
+            DB::table('chat_threads')->where('id', $global->id)->update(['last_message_id' => $last?->id, 'last_message_at' => $last?->created_at]);
+        }
+
+        $this->info('حُذف '.count($ids).' مستخدمًا اصطناعيًا وبياناتهم.');
+
+        return self::SUCCESS;
+    }
+}
+```
+
+### `app/Http/Controllers/HealthController.php`
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * E24 - جاهزية (readiness) للموازن: GET /ready. الحيوية (liveness) هي /up المدمجة (لا تلمس أي تابع).
+ * تفحص قاعدة البيانات (SELECT 1) والكاش (كتابة/قراءة قصيرة) وتقيس زمن كلٍّ؛ تُعدّ «بطيئة=غير جاهزة» إن تجاوزت performance.observability.readiness_timeout_ms.
+ * لا أسرار ولا أسماء مضيفين ولا إصدارات ولا نص استثناء: فقط ok/زمن بالميلي ثانية. 200 عند الجاهزية، 503 وإلا.
+ * اختياريًا يُقيَّد برمز (PERF_READINESS_TOKEN) في الرأس X-Health-Token.
+ * ملاحظة: مهلة اتصال القاعدة الفعلية تُضبط في الاتصال (انظر docs/scaling-architecture.md)؛ هنا نُبلّغ فقط عن البطء.
+ */
+class HealthController extends Controller
+{
+    public function ready(Request $request): JsonResponse
+    {
+        $token = (string) config('performance.observability.readiness_token', '');
+
+        if ($token !== '' && ! hash_equals($token, (string) $request->header('X-Health-Token', ''))) {
+            return response()->json(['status' => 'forbidden'], 403, $this->headers());
+        }
+
+        $limit = (int) config('performance.observability.readiness_timeout_ms', 1500);
+        $checks = [
+            'database' => $this->probe(fn () => DB::select('select 1'), $limit),
+            'cache' => $this->probe(function () {
+                $key = 'health:ready:'.bin2hex(random_bytes(4));
+                Cache::put($key, 1, 10);
+
+                if (Cache::get($key) !== 1) {
+                    throw new \RuntimeException('cache round-trip mismatch');
+                }
+                Cache::forget($key);
+            }, $limit),
+        ];
+
+        $ready = collect($checks)->every(fn (array $c) => $c['ok']);
+
+        return response()->json(['status' => $ready ? 'ok' : 'unavailable', 'checks' => $checks], $ready ? 200 : 503, $this->headers());
+    }
+
+    /** @return array{ok: bool, ms: float} */
+    private function probe(\Closure $fn, int $limitMs): array
+    {
+        $start = hrtime(true);
+
+        try {
+            $fn();
+            $ok = true;
+        } catch (\Throwable) {
+            $ok = false; // لا نُسرّب نص الخطأ؛ الخطأ الكامل يصل لسجلات التطبيق عبر الطرق المعتادة عند الحاجة.
+        }
+
+        $ms = round((hrtime(true) - $start) / 1e6, 1);
+
+        return ['ok' => $ok && ($limitMs <= 0 || $ms <= $limitMs), 'ms' => $ms];
+    }
+
+    private function headers(): array
+    {
+        return ['Cache-Control' => 'no-store, private', 'X-Robots-Tag' => 'noindex'];
+    }
+}
+```
+
+### `app/Http/Middleware/RequestObservability.php`
+
+```php
+<?php
+
+namespace App\Http\Middleware;
+
+use App\Support\RequestMemo;
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * E24 - مراقبة خفيفة بلا مزوّد خارجي:
+ *  1) X-Request-ID: يُقبل من الوكيل الأمامي فقط إن كان بصيغة آمنة (حروف/أرقام/. _ -، 8..64) وإلا يُولَّد UUID. يُعاد في الاستجابة ويُضاف لسياق السجلّات (Context) فيظهر في كل سطر سجل وفي المهام المُرسلة من الطلب.
+ *  2) سجل الطلبات البطيئة (terminate: بعد إرسال الاستجابة): method + مسار القالب (route name/uri، لا الرابط الفعلي) + status + المدة + ذروة الذاكرة (+ معرّف المستخدم الرقمي).
+ *     لا أجسام، لا رؤوس، لا كوكيز، لا سلسلة استعلام، لا نصوص دردشة، لا بيانات محفظة. مع أخذ عيّنات (performance.observability.slow_request_sample) كي لا يغرق السجل تحت الحِمل.
+ *  3) Server-Timing (عدد استعلامات DB ووقتها) **محليًا/اختباريًا فقط**؛ لا مستمع DB ولا رأس إضافي في الإنتاج.
+ * الحالة تُحفظ في attributes الطلب لا في الكائن: Laravel ينشئ نسخة جديدة من الوسيط عند terminate.
+ */
+class RequestObservability
+{
+    private const ID_PATTERN = '/^[A-Za-z0-9._\-]{8,64}$/';
+
+    public function handle(Request $request, Closure $next): Response
+    {
+        $request->attributes->set('_obs_started', hrtime(true));
+
+        $requestId = null;
+
+        if (config('performance.observability.request_id', true)) {
+            $incoming = (string) $request->headers->get('X-Request-ID', '');
+            $requestId = preg_match(self::ID_PATTERN, $incoming) === 1 ? $incoming : (string) Str::uuid();
+            $request->attributes->set('request_id', $requestId);
+            Context::add('request_id', $requestId);
+        }
+
+        $measureDb = app()->environment(['local', 'testing']);
+
+        if ($measureDb) {
+            $stats = (object) ['count' => 0, 'ms' => 0.0];
+            $request->attributes->set('_obs_db', $stats);
+            DB::listen(function ($query) use ($stats) {
+                $stats->count++;
+                $stats->ms += $query->time;
+            });
+        }
+
+        // نافذة RequestMemo: من هنا حتى انتهاء المعالجة فقط (يشمل رسم القالب الذي يحدث داخل $next). بعدها تقرأ الاستدعاءات القاعدة مباشرةً.
+        RequestMemo::begin($request);
+
+        try {
+            $response = $next($request);
+        } finally {
+            RequestMemo::end($request);
+        }
+
+        if ($requestId !== null) {
+            $response->headers->set('X-Request-ID', $requestId);
+        }
+
+        if ($measureDb) {
+            $total = (hrtime(true) - $request->attributes->get('_obs_started')) / 1e6;
+            $response->headers->set('Server-Timing', sprintf('app;dur=%.1f, db;dur=%.1f;desc="%d queries"', $total, $stats->ms, $stats->count));
+        }
+
+        return $response;
+    }
+
+    public function terminate(Request $request, Response $response): void
+    {
+        $threshold = (int) config('performance.observability.slow_request_ms', 0);
+        $started = $request->attributes->get('_obs_started');
+
+        if ($threshold <= 0 || $started === null) {
+            return;
+        }
+
+        $durationMs = (hrtime(true) - $started) / 1e6;
+
+        if ($durationMs < $threshold) {
+            return;
+        }
+
+        $sample = max(0.0, min(1.0, (float) config('performance.observability.slow_request_sample', 1.0)));
+
+        if ($sample < 1.0 && random_int(1, 1_000_000) > (int) ($sample * 1_000_000)) {
+            return;
+        }
+
+        $route = $request->route();
+        $db = $request->attributes->get('_obs_db');
+
+        Log::warning('slow_request', array_filter([
+            'request_id' => $request->attributes->get('request_id'),
+            'method' => $request->method(),
+            'route' => $route?->getName() ?? ($route ? '/'.ltrim($route->uri(), '/') : null),
+            'status' => $response->getStatusCode(),
+            'duration_ms' => round($durationMs, 1),
+            'peak_memory_mb' => round(memory_get_peak_usage(true) / 1048576, 1),
+            'user_id' => $request->user()?->getAuthIdentifier(),
+            'db_queries' => $db?->count,
+            'db_ms' => $db ? round($db->ms, 1) : null,
+        ], fn ($v) => $v !== null));
+    }
+}
+```
+
+### `app/Jobs/Concerns/BoundedRetries.php`
+
+```php
+<?php
+
+namespace App\Jobs\Concerns;
+
+/**
+ * E24: حدود إعادة المحاولة المشتركة لمهام الطابور (كلها دفعات idempotent بمفاتيح دلالية، فإعادة التشغيل آمنة).
+ *  - timeout أقل من retry_after (90ث افتراضيًا في config/queue.php) كي لا يلتقط عامل آخر مهمة ما زالت تعمل فتتكرر.
+ *  - failOnTimeout: المهمة التي تجاوزت المهلة تُسجَّل فاشلة (failed_jobs) بدل أن تعيد المحاولة بلا نهاية.
+ *  - backoff متصاعد: لا عاصفة إعادة محاولات متزامنة عند عطل مؤقت (قاعدة بيانات/Redis).
+ * tries تبقى معرَّفة في كل مهمة كما كانت.
+ */
+trait BoundedRetries
+{
+    public int $timeout = 80;
+
+    public bool $failOnTimeout = true;
+
+    /** @return list<int> */
+    public function backoff(): array
+    {
+        return [15, 60, 180];
+    }
+}
+```
+
+### `app/Services/LeaderboardService.php`
+
+```php
+<?php
+
+namespace App\Services;
+
+use App\Models\User;
+use App\Support\CachedSnapshot;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * E24: لوحة الصدارة (عرض فقط). المعيار كما كان بالضبط: عدد المحاولات الصحيحة (COUNT لصفوف puzzle_attempts حيث is_correct) تنازليًا، أعلى 50.
+ *
+ * ما تغيّر (الأداء فقط):
+ *  - يُجمَّع puzzle_attempts أولًا بـ GROUP BY user_id مع الحدّ، ثم يُضمّ لجدول users للخمسين فقط (كان يضمّ ويجمّع على كل الصفوف ثم يرتّب أعمدة users الأربعة).
+ *    مكافئ تمامًا لأن لكل محاولة مستخدمًا موجودًا (FK ON DELETE CASCADE) ولا SoftDeletes على User. أضيف ترتيب ثانوي بالمعرّف لتثبيت التعادلات (كان غير محدد).
+ *  - النطاق العام (كل اللاعبين) يُخزَّن Top-N لمدة قصيرة (config performance.cache.leaderboard_ttl، الافتراضي 60 ثانية) بحماية من التدافع، لأنه O(كل المحاولات) في كل زيارة.
+ *    القيمة المخزّنة لا تتضمن شيئًا خاصًا بالمشاهد (اسم/معرّف عام/ظهور الملف + العدد)؛ ما يخص المشاهد (رابط الملف، التجهيزات) يُحسب حيًّا في المتحكّم.
+ *  - نطاق الأصدقاء لا يُخزَّن (محدود بمجموعة الأصدقاء ويعتمد على المشاهد).
+ * الإبطال: بالمدة فقط (تأخّر أقصاه TTL ثانية في ظهور حلٍّ جديد بالترتيب). لا يوجد حدث يُبطله عمدًا كي لا يُضاف عمل إلى مسار كل محاولة حلّ.
+ */
+class LeaderboardService
+{
+    public const CACHE_KEY = 'leaderboard.top_solvers.v1';
+
+    /**
+     * @param  list<int>|null  $onlyUserIds  null = كل اللاعبين (يُخزَّن)، مصفوفة = نطاق الأصدقاء (لا يُخزَّن)
+     * @return Collection<int, User> نماذج User بحقول (id, name, public_id, profile_visibility) + solved_count
+     */
+    public function topSolvers(?array $onlyUserIds = null, int $limit = 50): Collection
+    {
+        if ($onlyUserIds !== null) {
+            return User::hydrate($this->rows($onlyUserIds, $limit));
+        }
+
+        $rows = CachedSnapshot::remember(
+            self::CACHE_KEY.'.'.$limit,
+            (int) config('performance.cache.leaderboard_ttl', 60),
+            fn () => $this->rows(null, $limit),
+        );
+
+        return User::hydrate($rows);
+    }
+
+    /** @return list<array<string, mixed>> */
+    protected function rows(?array $onlyUserIds, int $limit): array
+    {
+        $solved = DB::table('puzzle_attempts')
+            ->select('user_id')
+            ->selectRaw('COUNT(*) as solved_count')
+            ->where('is_correct', true)
+            ->when($onlyUserIds !== null, fn ($q) => $q->whereIn('user_id', $onlyUserIds))
+            ->groupBy('user_id')
+            ->orderByDesc('solved_count')
+            ->orderBy('user_id')
+            ->limit($limit);
+
+        return User::query()
+            ->select('users.id', 'users.name', 'users.public_id', 'users.profile_visibility', 'top.solved_count')
+            ->joinSub($solved, 'top', 'top.user_id', '=', 'users.id')
+            ->orderByDesc('top.solved_count')
+            ->orderBy('users.id')
+            ->get()
+            ->map(fn (User $u) => $u->getAttributes())
+            ->all();
+    }
+}
+```
+
+### `app/Services/PendingGemReleaseService.php`
+
+```php
+<?php
+
+namespace App\Services;
+
+use App\Models\CurrencyTransaction;
+use App\Models\User;
+use App\Models\Wallet;
+use App\Services\Economy\CurrencyRegistry;
+use Carbon\CarbonInterface;
+
+/**
+ * E24: مهمة «تحويل الجواهر المعلّقة إلى متاحة» (كانت إغلاقًا داخل routes/console.php).
+ *
+ * نفس المعادلة بالضبط لكل مستخدم: toRelease = مجموع earn_pending الأقدم من (الآن - pending_hold_days) − مجموع release_available السابق،
+ * وإن كان موجبًا يُنفَّذ التحرير **حصرًا** عبر GemWalletService::releasePendingToAvailable (قفل المحفظة + التقييد بالرصيد المعلّق الفعلي + سجل المعاملة).
+ * هذه الخدمة لا تلمس الأرصدة بنفسها إطلاقًا؛ هي فقط تختار المرشَّحين وتحسب المبلغ بدفعة واحدة.
+ *
+ * ما تغيّر عن الأصل (الأداء/الموثوقية فقط، لا الدلالات):
+ *  - استعلامان مجمَّعان (GROUP BY user_id) لكل دفعة بدل استعلامَي SUM لكل مستخدم (كان 2×N استعلامًا).
+ *  - chunkById على المحافظ بدل chunk() على المستخدمين: الأصل كان يعدّل المجموعة التي يُرقِّمها (المستخدم يخرج من الشرط بعد التحرير) فيتخطّى chunk() بالإزاحة مستخدمين حين يتجاوز المرشَّحون الدفعة (200).
+ *  - المرشَّحون: محافظ العملة المكتسبة الافتراضية بـ pending_balance > 0 (هي بالضبط علاقة User::wallet() التي استعملها الأصل)، بلا تحميل User::all().
+ * إعادة التشغيل آمنة (idempotent): بعد التحرير يصير المجموعان متساويين فلا شيء يُحرَّر ثانيةً، والتحرير نفسه مقيَّد بالرصيد المعلّق.
+ */
+class PendingGemReleaseService
+{
+    public function __construct(protected GemWalletService $gems, protected CurrencyRegistry $currencies) {}
+
+    /**
+     * @return array{candidates: int, released_users: int, released_gems: int}
+     */
+    public function run(?CarbonInterface $now = null, int $chunk = 500): array
+    {
+        $cutoff = ($now ?? now())->copy()->subDays((int) config('gems.pending_hold_days'));
+        $currencyId = $this->currencies->defaultEarnedCurrency()->id;
+        $stats = ['candidates' => 0, 'released_users' => 0, 'released_gems' => 0];
+
+        Wallet::query()
+            ->where('currency_id', $currencyId)
+            ->where('pending_balance', '>', 0)
+            ->chunkById(max(1, $chunk), function ($wallets) use ($cutoff, &$stats) {
+                $userIds = $wallets->pluck('user_id')->unique()->values();
+
+                // نفس مجموعَي الأصل (بلا فلتر عملة، كما كانا) لكن لدفعة كاملة باستعلام واحد لكلٍّ منهما.
+                $earned = $this->sumByUser($userIds, CurrencyTransaction::TYPE_EARN_PENDING, $cutoff);
+                $released = $this->sumByUser($userIds, CurrencyTransaction::TYPE_RELEASE_AVAILABLE);
+                $users = User::query()->whereIn('id', $userIds)->get()->keyBy('id');
+
+                foreach ($wallets as $wallet) {
+                    $stats['candidates']++;
+                    $user = $users->get($wallet->user_id);
+
+                    if ($user === null) {
+                        continue;
+                    }
+
+                    $toRelease = (int) ($earned[$user->id] ?? 0) - (int) ($released[$user->id] ?? 0);
+
+                    if ($toRelease > 0 && ($tx = $this->gems->releasePendingToAvailable($user, $toRelease, 'pending_hold_expired')) !== null) {
+                        $stats['released_users']++;
+                        $stats['released_gems'] += (int) $tx->amount;
+                    }
+                }
+            });
+
+        return $stats;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, int>  $userIds
+     * @return array<int, int> user_id => مجموع المبالغ
+     */
+    protected function sumByUser($userIds, string $type, ?CarbonInterface $createdUntil = null): array
+    {
+        return CurrencyTransaction::query()
+            ->selectRaw('user_id, sum(amount) as total')
+            ->whereIn('user_id', $userIds)
+            ->where('type', $type)
+            ->when($createdUntil !== null, fn ($q) => $q->where('created_at', '<=', $createdUntil))
+            ->groupBy('user_id')
+            ->pluck('total', 'user_id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+    }
+}
+```
+
+### `app/Support/CachedSnapshot.php`
+
+```php
+<?php
+
+namespace App\Support;
+
+use Closure;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
+
+/**
+ * E24: كاش لقطة **للعرض فقط** مع حماية من التدافع (stampede): عند الانتهاء يحسب عملية واحدة فقط (قفل ذرّي) والباقي ينتظر ثوانيَ ثم يقرأ القيمة الجاهزة،
+ * بدل أن يشغّل عشرات الطلبات الاستعلام الثقيل نفسه معًا في اللحظة ذاتها.
+ *
+ * ضماناتها:
+ *  - فشل الكاش/القفل بأي شكل (متجر لا يدعم الأقفال، Redis غير متاح…) => يُحسب مباشرةً (fail-open) ولا يفشل الطلب.
+ *  - خطأ الحساب نفسه (استعلام فاشل) لا يُبتلَع ولا يُعاد حسابه: يصعد كما كان.
+ *  - مدة محدودة دائمًا (TTL > 0)؛ TTL <= 0 يعني بلا كاش.
+ *  - لا تُستعمل لأي بيانات سلطة (رصيد، أحقية مكافأة، فائز، صلاحية)، ولا لبيانات تختلف باختلاف المشاهد: على المستدعي أن يُدرج معرّف المستخدم في المفتاح إن كانت خاصة.
+ */
+final class CachedSnapshot
+{
+    /**
+     * @template T
+     *
+     * @param  Closure(): T  $compute
+     * @return T
+     */
+    public static function remember(string $key, int $ttl, Closure $compute, int $lockSeconds = 20, int $waitSeconds = 5): mixed
+    {
+        if ($ttl <= 0) {
+            return $compute();
+        }
+
+        try {
+            $hit = Cache::get($key);
+
+            if ($hit !== null) {
+                return $hit;
+            }
+
+            $lock = Cache::lock($key.':lock', $lockSeconds);
+            $lock->block($waitSeconds);
+        } catch (LockTimeoutException) {
+            // انتظرنا طويلًا: لا نُفشل الطلب ولا نكدّس الانتظار؛ نحسب مباشرةً (حالة نادرة).
+            return $compute();
+        } catch (\Throwable) {
+            return $compute();
+        }
+
+        try {
+            try {
+                $hit = Cache::get($key);
+
+                if ($hit !== null) {
+                    return $hit; // عملية أخرى حسبته أثناء انتظارنا
+                }
+            } catch (\Throwable) {
+                // نكمل بالحساب
+            }
+
+            $value = $compute();
+
+            try {
+                Cache::put($key, $value, $ttl);
+            } catch (\Throwable) {
+                // القيمة صحيحة حتى لو تعذّر حفظها
+            }
+
+            return $value;
+        } finally {
+            try {
+                $lock->release();
+            } catch (\Throwable) {
+                // ينتهي القفل تلقائيًا بعد $lockSeconds
+            }
+        }
+    }
+}
+```
+
+### `app/Support/RequestMemo.php`
+
+```php
+<?php
+
+namespace App\Support;
+
+use Closure;
+use Illuminate\Http\Request;
+
+/**
+ * E24: ذاكرة قراءة **لطلب HTTP واحد** فقط، لتفادي تكرار قراءة نقيّة (عضوية الفريق، قائمة الحظر…) تستدعيها عدة مكوّنات بالصفحة نفسها
+ * (التنقل، الشريط الجانبي، المتحكّم، القالب) فتخرج كل مرة باستعلام مطابق.
+ *
+ * ضماناتها (ولهذا هي آمنة للقراءات التي تقرّر عرضًا لا صلاحية كتابة):
+ *  - تعمل **فقط** لطلب آمن (GET/HEAD) له مسار محلول؛ كل POST/PATCH/PUT/DELETE يقرأ القاعدة مباشرةً كما كان، فلا تُرى قراءة قديمة بعد كتابة بالطلب نفسه.
+ *  - تُخزَّن في `$request->attributes`، فتنتهي بانتهاء الطلب (طلب جديد = ذاكرة جديدة، حتى في الاختبارات وبين طلبات Octane).
+ *  - لا تعمل إلا **بين begin() وend()** اللذين يستدعيهما الوسيط RequestObservability حول معالجة الطلب. بعد انتهاء المعالجة (مثلًا مهام terminate، أو اختبار يستدعي خدمة مباشرةً بعد $this->get())
+ *    يبقى app('request') مرتبطًا بآخر طلب GET ذي مسار؛ لولا هذا الحدّ لقُرئت عضوية/قائمة حظر قديمة من ذلك الطلب (وقد كشفه فعلًا TeamGloryTest).
+ *  - خارج الطلب (الأوامر، الطوابير، المجدول، استدعاء خدمة مباشر بلا مسار) لا تحفظ شيئًا إطلاقًا.
+ * ليست كاشًا مشتركًا: لا تعبر الطلبات ولا المستخدمين، فلا تسرّب بين حسابين. لا تُستعمل لقرارات التفويض الأمنية بحد ذاتها.
+ */
+final class RequestMemo
+{
+    private const BAG = '_request_memo';
+
+    /** @var list<Request> مكدّس الطلبات الجاري معالجتها (الأخير هو النشط؛ مكدّس لا متغيّر مفرد كي لا يُعطِّل طلب متداخل الطلبَ الخارجي). */
+    private static array $active = [];
+
+    /** يفتح نافذة الذاكرة لهذا الطلب. يُستدعى من الوسيط قبل تمرير الطلب. */
+    public static function begin(Request $request): void
+    {
+        self::$active[] = $request;
+    }
+
+    /** يغلق النافذة: بعدها تقرأ كل الاستدعاءات القاعدة مباشرةً. */
+    public static function end(Request $request): void
+    {
+        if (self::$active !== [] && end(self::$active) === $request) {
+            array_pop(self::$active);
+        }
+    }
+
+    /**
+     * @template T
+     *
+     * @param  Closure(): T  $resolve
+     * @return T
+     */
+    public static function remember(string $key, Closure $resolve): mixed
+    {
+        $request = self::activeRequest();
+
+        if ($request === null) {
+            return $resolve();
+        }
+
+        $store = $request->attributes->get(self::BAG, []);
+
+        if (array_key_exists($key, $store)) {
+            return $store[$key];
+        }
+
+        $value = $resolve();
+        // يُعاد قراءة الحقيبة بعد الحساب: قد يكون الحساب نفسه سجّل مفاتيح أخرى.
+        $store = $request->attributes->get(self::BAG, []);
+        $store[$key] = $value;
+        $request->attributes->set(self::BAG, $store);
+
+        return $value;
+    }
+
+    /** يمسح كل مفتاح يبدأ بالبادئة (لمن يكتب ثم يقرأ بعدها داخل طلب آمن نادر). */
+    public static function forget(string $prefix): void
+    {
+        $request = self::activeRequest();
+
+        if ($request === null) {
+            return;
+        }
+
+        $store = array_filter(
+            $request->attributes->get(self::BAG, []),
+            fn (string $key) => ! str_starts_with($key, $prefix),
+            ARRAY_FILTER_USE_KEY,
+        );
+
+        $request->attributes->set(self::BAG, $store);
+    }
+
+    private static function activeRequest(): ?Request
+    {
+        $request = self::$active === [] ? null : end(self::$active);
+
+        return $request !== null && $request->isMethodSafe() && $request->route() !== null ? $request : null;
+    }
+}
+```
+
+### `config/performance.php`
+
+```php
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| E24 - Performance / Scalability / Observability knobs
+|--------------------------------------------------------------------------
+| كل القيم هنا اختيارية ولها افتراضات آمنة تحفظ سلوك المنتج كما هو. لا شيء هنا يغيّر الجواهر/الجوائز/XP/الصلاحيات.
+| الكاش هنا للعرض فقط (انظر docs/performance-e24.md): لا يُخزَّن أي شيء يقرّر صلاحية أو رصيدًا أو مكافأة.
+*/
+
+return [
+
+    /*
+    | تتبّع الجهاز (FraudDetectionService::recordSighting) كان يكتب صفًا (update) + يعدّ بصمات الـIP في **كل** طلب.
+    | الآن: مرة واحدة كل N ثانية لكل (مستخدم، IP، جهاز). 0 = السلوك القديم (كل طلب). عند فشل الكاش يُسجَّل كما كان (fail-open).
+    */
+    'device_sighting' => [
+        'throttle_seconds' => (int) env('PERF_DEVICE_SIGHTING_THROTTLE', 60),
+    ],
+
+    /*
+    | المجدول: onOneServer() لكل مهمة (انظر routes/console.php). يحتاج كاشًا مشتركًا بين الخوادم (Redis أو قاعدة البيانات)؛ على خادم واحد لا أثر له.
+    */
+    'scheduler' => [
+        'one_server' => (bool) env('PERF_SCHEDULER_ONE_SERVER', true),
+    ],
+
+    /*
+    | مدد الكاش (ثوانٍ). كلها قصيرة ومحدودة (لا forever) ولها إبطال صريح عند التعديل حين يوجد مصدر تعديل.
+    */
+    'cache' => [
+        // كتالوج مستويات اللاعب (جدول صغير يُعدَّل نادرًا من الإدارة). يُبطَل فورًا عند أي حفظ/حذف لـ LevelDefinition.
+        'level_catalog_ttl' => (int) env('PERF_LEVEL_CATALOG_TTL', 3600),
+        // روابط الهوية البصرية (الشعار/الأيقونة…): نتيجة فحص وجود الملف على القرص. تُبطَل عند حفظ الإعدادات.
+        'branding_urls_ttl' => (int) env('PERF_BRANDING_URLS_TTL', 600),
+        // أفضل N في لوحة الصدارة العامة (عرض فقط؛ ترتيبي الشخصي يُحسب مباشرةً).
+        'leaderboard_ttl' => (int) env('PERF_LEADERBOARD_TTL', 60),
+    ],
+
+    /*
+    | المراقبة (Observability).
+    */
+    'observability' => [
+        // معرّف طلب (X-Request-ID) يُمرَّر إلى الاستجابة والسجل؛ يُقبل من الوكيل الأمامي فقط إن كان بصيغة آمنة.
+        'request_id' => (bool) env('PERF_REQUEST_ID', true),
+        // سجل الطلبات البطيئة (بلا أجسام/كوكيز/رؤوس). 0 = معطّل.
+        'slow_request_ms' => (int) env('PERF_SLOW_REQUEST_MS', 1500),
+        // نسبة أخذ العيّنات من الطلبات البطيئة (0..1) لتفادي إغراق السجل تحت الحِمل.
+        'slow_request_sample' => (float) env('PERF_SLOW_REQUEST_SAMPLE', 1.0),
+        // مهلة فحص الجاهزية لكل تابع (ms): تجاوزها = غير جاهز (بطيء).
+        'readiness_timeout_ms' => (int) env('PERF_READINESS_TIMEOUT_MS', 1500),
+        // رمز اختياري لـ GET /ready (الرأس X-Health-Token). فارغ = بلا رمز (الفحص لا يُرجع أسرارًا).
+        'readiness_token' => env('PERF_READINESS_TOKEN'),
+    ],
+
+    /*
+    | بيانات الأداء الاصطناعية (php artisan performance:seed) - لا تعمل إلا محليًا/اختباريًا.
+    */
+    'seed' => [
+        'profiles' => [
+            'small' => ['users' => 1000, 'attempts_per_user' => 3, 'chat_messages' => 2000],
+            'medium' => ['users' => 25000, 'attempts_per_user' => 5, 'chat_messages' => 50000],
+            'large' => ['users' => 250000, 'attempts_per_user' => 6, 'chat_messages' => 500000],
+        ],
+    ],
+];
+```
+
+### `config/trustedproxy.php`
+
+```php
+<?php
+
+/*
+| E24: الوكلاء الأماميون الموثوقون (موازن الحِمل / Cloudflare / nginx الأمامي).
+| بدونه، خلف موازن، يرى Laravel عنوان الموازن بدل عنوان اللاعب: يفسد تتبّع الجهاز (كل اللاعبين على IP واحد => علامات ip_shared كاذبة)
+| ويجعل محدّدات المعدّل بالـIP عامة على الجميع، ويخطئ في اكتشاف https (روابط/كوكيز).
+|
+| TRUSTED_PROXIES: فارغ (الافتراضي) = السلوك الحالي دون أي تغيير. '*' = ثق بكل وكيل مباشر (آمن فقط إن كان التطبيق غير قابل للوصول إلا عبر الموازن).
+| أو قائمة عناوين/شبكات CIDR مفصولة بفواصل، مثل: 10.0.0.0/8,172.16.0.0/12
+| يقرؤه إطار العمل من config('trustedproxy.proxies') وقت الطلب (متوافق مع config:cache).
+*/
+$raw = env('TRUSTED_PROXIES');
+
+return [
+    'proxies' => $raw === '*' ? '*' : (is_string($raw) && trim($raw) !== '' ? array_values(array_filter(array_map('trim', explode(',', $raw)))) : null),
+];
+```
+
+### `docs/performance-e24.md`
+
+````markdown
+# E24 — الأداء، التوسّع، التخزين المؤقت، الموثوقية، والمراقبة
+
+> المبدأ: **قِس → حدّد → حسّن → قِس مجددًا.** لم يُغيَّر أي معنى للمنتج (الجواهر، الجوائز، XP، المحفظة، الأحقية، الصداقة، الحظر، عضوية الفرق، خصوصية الدردشة، عدم تكرار الإشعارات).
+> هذا الملف يفصل بصراحة بين **تحسينات كود نُفِّذت** و**توصيات بنية تحتية لم تُنفَّذ** (انظر `docs/scaling-architecture.md`).
+
+## 0) حدود الصدق (اقرأها أولًا)
+
+- **القياسات هنا قياسات طلب واحد لكل عملية PHP** (عدد الاستعلامات، زمن قاعدة البيانات، الذاكرة، زمن الاستجابة) على SQLite محلي وبيانات QA. هي صالحة لمقارنة «قبل/بعد» فقط.
+  هي **ليست** قياس سعة، ولا تتنبأ بإنتاجيتك تحت حِمل متزامن، ولا تعني أن خادمًا واحدًا يخدم ملايين المستخدمين.
+- **مليون مسجَّل ≠ مليون متزامن.** السعة تُقدَّر من المتزامنين ومعدل الطلبات، وتُقاس على staging مستقل (راجع `tools/load/README.md`).
+- k6 غير متاح في بيئة التطوير السحابية، فأدوات `tools/load/` كُتبت وفُحصت صياغتها فقط. أُجري بدلًا منها **اختبار حِمل محلي صغير** (5 و25 مستخدمًا افتراضيًا) بمولّد Python مؤقت خارج المستودع — نتائجه في القسم 12 مع قيودها. لم تُشغَّل ملفات 50/100/500/1000.
+- تحليل `EXPLAIN` أُجري على PostgreSQL 16 المحلي كبديل تقريبي لأن الإنتاج المتوقع MySQL 8؛ **تحقّق من الفهارس على MySQL staging** قبل الاعتماد.
+- التحقق من Redis (القفل الذرّي، `Cache::add`، لقطة الكاش، أعلام المجدول) أُجري يدويًا على Redis مؤقت أُغلق بعدها؛ ليس ضمن الاختبارات الآلية.
+
+## 1) المنهجية
+
+1. **عملية PHP جديدة لكل طلب** (محاكاة PHP-FPM) عبر أداة خارج المستودع تستدعي `Kernel::handle` داخل العملية: تسجّل عدد الاستعلامات، مجموع زمن DB، الاستعلامات المكرّرة، ذروة الذاكرة، وزمن الاستجابة.
+2. كاش وجلسات ملفّية معزولة؛ **بارد** (كاش فارغ) مقابل **دافئ** (التكرار الثاني).
+3. **مقارنة HTML ذهبية**: كل صفحة قبل/بعد تُقارَن بايتًا ببايت (مع تطبيع الحقول المتغيّرة في صفحات الإدارة) للتأكد من أن التحسين لم يغيّر المحتوى.
+4. العينة: مستخدم لاعب (`yousef`) ومدير (`admin`) على بيانات QA-D1 (قاعدة صغيرة). الأرقام المطلقة صغيرة بطبيعتها؛ المهم **شكل النمو** (N+1 يتبع حجم البيانات، والثابت لا).
+
+## 2) الجدول: قبل/بعد
+
+| المسار | استعلامات قبل | استعلامات بعد | زمن DB قبل (ms) | زمن DB بعد (ms) | زمن الاستجابة قبل (ms) | زمن الاستجابة بعد (ms) | ذاكرة قبل (MB) | ذاكرة بعد (MB) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **home** `/` | 92 | 37 | 11.27 | 5.36 | 151 | 134 | 45.2 | 45.8 |
+| home (guest) `/` | 8 | 7 | 7.69 | 3.56 | 77 | 60 | 41.7 | 42.4 |
+| puzzles `/puzzles` | 25 | 20 | 6.91 | 3.03 | 128 | 106 | 44.5 | 45.1 |
+| puzzle detail `/puzzles/1` | 24 | 20 | 7.42 | 3.82 | 126 | 128 | 44.2 | 44.9 |
+| **season** `/seasons/aseel` | 521 | 26 | 43.50 | 4.35 | 248 | 124 | 46.2 | 45.3 |
+| **campaign** `/campaigns/aseel-season-01` | 526 | 24 | 47.69 | 4.08 | 260 | 135 | 46.2 | 45.1 |
+| profile (public) `/players/01M4E32T4G2YQZ3BZ2DQ4JV9CG` | 34 | 27 | 7.23 | 4.01 | 115 | 112 | 44.2 | 44.9 |
+| profile edit `/profile` | 20 | 16 | 4.45 | 2.29 | 98 | 96 | 43.8 | 44.5 |
+| friends `/friends` | 29 | 26 | 6.29 | 3.51 | 133 | 110 | 44.1 | 44.8 |
+| messages `/messages` | 36 | 27 | 6.67 | 3.49 | 111 | 108 | 44.0 | 44.6 |
+| **direct chat** `/messages/01M4E32TBZX99H990RPR2B2H32` | 51 | 34 | 8.11 | 4.00 | 121 | 109 | 44.5 | 45.0 |
+| **global chat** `/community/chat` | 61 | 32 | 8.30 | 4.85 | 136 | 141 | 44.7 | 45.2 |
+| **team chat** `/teams/frsan-alsham/chat` | 54 | 32 | 8.75 | 4.04 | 130 | 128 | 44.5 | 45.0 |
+| teams `/teams` | 23 | 18 | 6.03 | 2.69 | 106 | 112 | 45.0 | 45.6 |
+| team detail `/teams/frsan-alsham` | 39 | 34 | 6.17 | 4.22 | 109 | 118 | 44.5 | 45.2 |
+| competitions `/competitions` | 23 | 19 | 5.83 | 2.99 | 102 | 101 | 44.0 | 44.7 |
+| competition `/competitions/demo-live` | 34 | 30 | 6.98 | 4.79 | 128 | 123 | 44.5 | 45.2 |
+| hall of fame `/competitions/hall-of-fame` | 31 | 27 | 6.95 | 3.73 | 126 | 128 | 45.2 | 46.0 |
+| leaderboard `/leaderboard` | 24 | 18 | 7.19 | 3.49 | 131 | 134 | 44.1 | 44.7 |
+| store `/store` | 27 | 22 | 6.27 | 3.10 | 106 | 102 | 44.2 | 44.8 |
+| inventory `/inventory` | 26 | 22 | 4.40 | 3.21 | 97 | 109 | 44.1 | 44.8 |
+| wallet `/wallet` | 26 | 21 | 5.46 | 3.02 | 103 | 97 | 44.4 | 45.0 |
+| notifications `/notifications` | 23 | 19 | 5.56 | 2.96 | 107 | 109 | 44.0 | 44.7 |
+| **progress** `/progress` | 34 | 20 | 6.17 | 3.19 | 107 | 101 | 44.2 | 44.7 |
+| quests `/quests` | 56 | 51 | 8.62 | 6.92 | 138 | 144 | 44.4 | 45.0 |
+| challenges `/challenges` | 22 | 17 | 5.60 | 2.75 | 103 | 102 | 44.1 | 44.6 |
+| championships `/team-championships` | 24 | 20 | 6.14 | 3.60 | 112 | 133 | 44.0 | 44.7 |
+| admin dashboard `/admin` | 6 | 6 | 1.05 | 1.03 | 209 | 192 | 44.2 | 45.0 |
+| admin settings `/admin/settings` | 6 | 6 | 0.94 | 1.02 | 466 | 468 | 48.8 | 49.6 |
+| admin analytics `/admin/analytics` | 7 | 7 | 1.10 | 1.18 | 211 | 194 | 44.6 | 45.3 |
+| **admin operations** `/admin/operations` | 32 | 19 | 3.44 | 2.48 | 198 | 189 | 44.7 | 45.5 |
+| admin users `/admin/users` | 11 | 11 | 1.92 | 1.95 | 704 | 758 | 50.5 | 51.2 |
+| admin puzzles `/admin/puzzles` | 10 | 10 | 2.09 | 2.06 | 525 | 624 | 49.3 | 50.0 |
+| admin chat-reports `/admin/chat-message-reports` | 12 | 12 | 1.64 | 1.75 | 293 | 311 | 48.0 | 48.7 |
+
+**كيف تُقرأ:** قياس **دافئ** (الكاش ممتلئ بعد أول طلب) بالوسيط من 9 تكرارات؛ كل تكرار عملية PHP جديدة؛ النسختان (الأصلي `main@0b862b1` والمعدَّلة) تتناوبان على الجهاز نفسه في اللحظة نفسها لإلغاء انجراف الجهاز. SQLite محلي وبيانات QA صغيرة.
+
+- **الاستعلامات و«زمن DB»** هما الأرقام الحاسمة. تحسّنت بوضوح حيث وُجد N+1 أو تكرار: الموسم 521→26، الحملة 526→24 (≈20 ضعفًا)، الرئيسية 92→37، الدردشة العامة 61→32، دردشة الفريق 54→32، الدردشة المباشرة 51→34، التقدّم 34→20، مركز العمليات 32→19.
+- **زمن الاستجابة** يتحسّن بوضوح فقط حين تنخفض الاستعلامات بالمئات (الموسم 248→124، الحملة 260→135 ms). في الصفحات الأخرى الفروق **ضمن الضجيج** (قِسنا الانحراف المعياري: ≈20ms للصفحات العادية و≈80ms لصفحات الإدارة بـ15 تكرارًا؛ مثلًا `/puzzles`: 132 مقابل 130، و`/admin/puzzles`: 536 مقابل 504) — لا تقرأ أي فرق أقل من ذلك كتحسّن ولا كتراجع.
+- **الذاكرة**: +0.6–0.8MB على الصفحات العادية (فئات وأوساط إضافية تُحمَّل في كل طلب) و−1.1MB على الحملة/الموسم. لم نغيّر شيئًا في صفحات الإدارة سوى ذلك.
+- **صفحات الإدارة** (`/admin/*`): بلا تغيير في الاستعلامات إلا مركز العمليات (32→19). التحليلات `49` استعلامًا باردة و`7` دافئة (كاش التحليلات موجود أصلًا). فهارس E24 تفيد هذه الصفحات عند الكِبر لا على بيانات QA الصغيرة.
+- **الباردة** (أول طلب بكاش فارغ، استعلامات قبل→بعد): home 96→45 · season 526→34 · campaign 531→32 · global chat 65→40 · direct chat 55→42 · team chat 58→40 · progress 38→28 · admin operations 34→21 · admin analytics 49→49. الباردة أعلى من الدافئة بقليل لأن الكاش الجديد (المستويات، الهوية البصرية) يُملأ في أول طلب.
+- **تنبيه صدق:** SQLite داخل العملية يكلّف أقل من 0.1ms للاستعلام؛ على MySQL عبر الشبكة كل استعلام يضيف زمن ذهاب-وإياب (غالبًا 0.3–1ms) فيكون أثر 500 استعلام أكبر بكثير مما يظهر هنا. **هذا تقدير استدلالي لا قياس**.
+
+
+## 3) التحسينات الكودية المنفَّذة
+
+| # | المشكلة (مقيسة) | الإصلاح | الملفات |
+|---|---|---|---|
+| 1 | صفحتا الحملة والموسم: **527 / 522 استعلامًا** (استعلام أو أكثر لكل خطوة + إعادة تحميل الهرم لكل علاقة عكسية) | لقطة قراءة `preloadFor()` بخمسة استعلامات مجمَّعة + ربط العلاقات العكسية بالكائنات المحمَّلة. **القراءة فقط**: مسارات الكتابة لا تستدعيها فتبقى كما كانت | `CampaignProgressService`, `CampaignController`, `SeasonController`, `HomeController` |
+| 2 | الدردشة: تحميل الغرفة لكل رسالة (N+1) | `bindThread()` يربط الغرفة المعروفة مسبقًا بكل رسالة | `ChatMessageService` |
+| 3 | **كتابة صف + عدّ بصمات في كل طلب** لتتبّع الجهاز (حتى الزوار) | بوّابة `Cache::add` ذرّية: مرة كل 60ث لكل (مستخدم، IP، جهاز). fail-open عند عطل الكاش | `FraudDetectionService`, `config/performance.php` |
+| 4 | شريط التنقل يكرّر قراءة التقدّم/المستوى/التجهيز/الحظر/العضوية | كتالوج المستويات في الكاش (يُبطَل عند أي حفظ/حذف)، تمرير `progression` الموجود، وذاكرة طلب GET للتجهيز/الحظر/العضوية | `LevelService`, `LevelDefinition`, `CosmeticLoadoutService`, `BlockService`, `TeamMembershipService`, `RequestMemo` |
+| 5 | إعدادات المنصة: عاصفة قراءات كاش + 3 فحوص `exists()` للملفات في كل صفحة | ذاكرة طلب GET + كاش روابط الهوية البصرية (يُبطَل عند الحفظ) | `PlatformSettingsService`, `PlatformSetting`, `layouts/app.blade.php` |
+| 6 | مهمة تحرير الجواهر المعلّقة: استعلامَا SUM لكل مستخدم (2×N)، و`chunk()` **يتخطّى مستخدمين** لأن الشرط يتغيّر أثناء الترقيم، وأقفال 24 ساعة، وتشغيل مكرّر على خوادم متعددة | `PendingGemReleaseService`: استعلامان مجمَّعان لكل دفعة + `chunkById`، والتحرير الفعلي ما زال **حصرًا** عبر `GemWalletService`. `withoutOverlapping(N)` بدل 24س + `onOneServer()` | `PendingGemReleaseService`, `routes/console.php` |
+| 7 | لوحة الصدارة: مسح كل المحاولات في كل زيارة | تجميع ثم ضمّ `users` للخمسين فقط + Top-N مخزَّن 60ث بحماية تدافع (قفل ذرّي) للنطاق العام فقط؛ نطاق الأصدقاء يُحسب مباشرةً (محدود بمجموعة الأصدقاء). الصفحة لا تعرض «ترتيبي» أصلًا (Top 50 فقط)، فلا يوجد حساب My Rank ليُحسَّن؛ إن أُضيفت الميزة لاحقًا فاحسبها بعدّ اللاعبين الأعلى بالفهرس لا بتحميلهم | `LeaderboardService`, `CachedSnapshot`, `LeaderboardController` |
+| 8 | صفحة الأصدقاء: مسح O(مستخدمين) | معرّفات الأصدقاء أولًا ثم الضمّ | `FriendshipService::friendsQuery` |
+| 9 | مركز العمليات: 32 استعلامًا (15 مكرّرة) لأن القالب يستدعي كل getter عدة مرات | `once()` لكل getter (لكل نسخة صفحة فقط) | `OperationsCenter` |
+| 10 | مهام الطابور بلا حدّ زمن/تراجع | `BoundedRetries`: `timeout=80` < `retry_after=90`، `failOnTimeout`، `backoff` 15/60/180 | `app/Jobs/*`, `Jobs/Concerns/BoundedRetries` |
+| 11 | بثّ Reverb المتزامن يحجز عامل PHP حتى 30ث إن علق Reverb | مهلة اتصال 1ث وطلب 3ث (قابلة للضبط) | `config/broadcasting.php` |
+| 12 | خلف موازن حِمل يرى التطبيق IP الموازن (يفسد حدود المعدّل وبصمات الاحتيال) | `TRUSTED_PROXIES` (افتراضيًا لا وكلاء موثوقة = لا تغيير) | `config/trustedproxy.php` |
+| 13 | لا رؤية للأداء | `X-Request-ID`، سجل الطلبات البطيئة (بلا أجسام/كوكيز/رؤوس/استعلامات)، `Server-Timing` محليًا فقط، `GET /ready` | `RequestObservability`, `HealthController`, `bootstrap/app.php` |
+| 14 | `CACHE_STORE=database` الافتراضي **بلا جدول كاش** → أقفال المجدول و`Cache::add` تنهار أو تُبتلَع | migration يُنشئ `cache` و`cache_locks` (محمية بـ `hasTable`) | `2026_10_18_000001_create_cache_tables` |
+| 15 | استعلامات تمسح جداول كاملة | 5 فهارس مبرَّرة بـ EXPLAIN (القسم 5) | `2026_10_18_000002_add_e24_performance_indexes` |
+| 16 | لا بيانات لقياس الفهارس | `php artisan performance:seed` (local/testing فقط، إضافة فقط، `--purge`) | `PerformanceSeed` |
+| 17 | **كل تبويب مفتوح يحتفظ باتصال WebSocket دائم** حتى لو الصفحة بلا دردشة (وللزوار): `new Echo()` كان ينفَّذ عند تحميل كل صفحة (و pusher-js يتصل لحظة الإنشاء)، فعدد اتصالات Reverb = عدد التبويبات لا عدد من يدردشون | الاتصال صار كسولًا: `window.getEcho()` يُنشئه عند أول اشتراك من غرفة دردشة فقط. سلوك الدردشة كما هو. **يتطلب `npm run build`** | `resources/js/echo.js`, `resources/js/chat.js` |
+
+## 4) كتالوج الكاش (كله للعرض فقط)
+
+لا يُخزَّن في أي كاش مشترك: رصيد، أحقية جائزة، فائز، صلاحية، عضوية، قائمة حظر. كل مدة محدودة (لا `forever`) ولها إبطال صريح حيث يوجد مصدر تعديل.
+
+| المفتاح | المحتوى | النطاق | المدة | الإبطال | عند العطل |
+|---|---|---|---|---|---|
+| `levels.catalog.v1` | تعريفات المستويات (جدول صغير) | عام | 3600ث | `LevelDefinition` saved/deleted | يقرأ القاعدة |
+| `platform_settings.branding_urls.<md5(paths)>` | روابط الشعار/الأيقونات بعد فحص وجود الملف | عام | 600ث | حفظ/حذف `PlatformSetting` (وحذف الملف يدويًا من القرص يظهر خلال ≤ 10 دقائق) | يحسب مباشرةً |
+| `leaderboard.top_solvers.v1.<limit>` | أفضل N حلّالين (id, name, public_id, عدد) | عام | 60ث | انتهاء المدة فقط | يحسب مباشرةً |
+| `sighting:<sha256>` | بوّابة تخفيف تتبّع الجهاز (قيمة 1) | بصمة (مجزّأة) | 60ث | انتهاء المدة | يسجّل كما كان (fail-open) |
+| `<key>:lock` | قفل منع التدافع لـ `CachedSnapshot` | عام | 20ث | يُحرَّر في finally | يحسب مباشرةً |
+| ذاكرة طلب GET | تجهيز/حظر/عضوية/إعدادات داخل الطلب | طلب واحد | عمر الطلب | تنتهي بنهاية الطلب | يقرأ القاعدة |
+
+- ذاكرة الطلب (`RequestMemo`) **ليست كاشًا مشتركًا**: تعيش في `$request->attributes` فقط بين `begin()` و`end()` اللذين يستدعيهما الوسيط حول معالجة الطلب؛ لا تعمل على POST/PATCH/PUT/DELETE ولا خارج طلب ذي مسار.
+  (كشف اختبار `TeamGloryTest` أن النسخة الأولى كانت تبقى نشطة بعد انتهاء آخر GET في عملية الاختبار فتُقرأ عضوية قديمة؛ صُحِّح بحصر النافذة، مع اختبارات تحميه.)
+- كاشات التحليلات الإدارية (`Cache::remember` 5–15 دقيقة عبر `AnalyticsCache`) موجودة مسبقًا ولم تُغيَّر.
+
+## 5) الفهارس
+
+(قياسات PostgreSQL 16 محلية، لا MySQL — تحقّق على staging.)
+
+| الفهرس | الاستعلام | الدليل | كلفة الكتابة |
+|---|---|---|---|
+| `puzzle_attempts(puzzle_id)` | عدّ المحاولات لكل أحجية (قائمة الإدارة) | **17 → 0.5 ms** للاستعلام | على MySQL يحلّ محل فهرس FK الضمني فلا كلفة إضافية |
+| `puzzle_attempts(is_correct, user_id)` | لوحة الصدارة `GROUP BY user_id` | 1.5M صف: **1473 ms مسح جدول → 294 ms** مسح فهرس فقط (بعد `VACUUM`؛ قبل `VACUUM` ظهر 1666 ms بسبب جلب heap — نُقل كما هو بصدق) | إدخال إضافي بمفتاح ضيّق لكل محاولة |
+| `users(created_at)` | «آخر المسجَّلين» في مركز العمليات | كان يرتّب كل المستخدمين لعرض 8 | عند التسجيل فقط |
+| `device_sightings(ip_address, user_id)` | عدّ الحسابات المختلفة لكل IP | فهرس مغطٍّ بدل قراءة كل صفوف الـIP | الكتابة أصلًا خُفّضت ≤ مرة/دقيقة لكل بصمة |
+| `device_sightings(user_id, ip_address, device_hash)` | `updateOrCreate` لبصمة | بحث نقطي | نفسه |
+
+**عمدًا لم يُضَف:** فهارس `created_at` على `puzzle_attempts`/`currency_transactions` (أحرّ جدولين كتابةً) لتحليلات إدارية مخزَّنة أصلًا — لا مبرّر قياسي.
+
+**توصية P1 (لم تُنفَّذ، وثائقية):** فهارس مكرّرة بالبادئة قد تُحذف لتخفيف كلفة الكتابة: `puzzle_attempts(user_id, puzzle_id, …)` مقابل unique الأوسع، `puzzle_attempts_context_lookup_idx`،
+فهرس `morphs` على `notifications` (يغطيه `notifications_inbox_index`)، `device_sightings(ip_address)` الأحادي. **لا تحذفها قبل:** `SHOW INDEX` على MySQL staging، التأكد أنها لا تدعم مفتاحًا أجنبيًا،
+ثم جعل الفهرس `INVISIBLE` (MySQL 8: `ALTER TABLE t ALTER INDEX i INVISIBLE`) ومراقبة الاستعلامات البطيئة أسبوعًا قبل الحذف.
+
+## 6) تغييرات سلوكية مقصودة (يجب أن تعرفها)
+
+1. **تتبّع الجهاز**: `device_sightings.last_seen_at` يتحدّث الآن بدقة ≤ 60 ثانية لكل (مستخدم، IP، جهاز) بدل كل طلب. اضبط `PERF_DEVICE_SIGHTING_THROTTLE=0` للعودة للسلوك القديم.
+2. **علامة `ip_shared`**: لا تُنشأ علامة جديدة لنفس الحساب ما دامت واحدة **غير معالَجة** موجودة (كانت تتكاثر آلاف المرات على IP شبكة مشتركة). بعد أن يعالجها المشرف تُنشأ جديدة إن استمر الوضع.
+3. **تحرير الجواهر المعلّقة**: كان `chunk()` يتخطّى مستخدمين حين يتجاوز المرشَّحون الدفعة (200) لأن المجموعة تتغيّر أثناء الترقيم (أُثبت بتجربة: 4 من 7 فقط حُرِّروا بدفعة 2). الآن يُحرَّر **الجميع** — هذا تصحيح، المعادلة والمبالغ والتحرير عبر `GemWalletService` كما هي.
+4. **أقفال المجدول**: `withoutOverlapping` الافتراضي 24 ساعة صار 30–360 دقيقة بحسب المهمة (أطول بكثير من زمن التشغيل، وأقصر من اليوم)، و`onOneServer()` (يحتاج كاشًا مشتركًا عند تعدّد الخوادم).
+5. **اختبار موجود عُدِّل**: `tests/Feature/UiE23/FlakyFixTest.php` (FX6) كان يفترض تحديث `last_seen_at` عند كل ثانية جديدة؛ صار يضبط فترة التخفيف على ثانية ويتوقع +2 — توثيقًا للسلوك الجديد (البند 1).
+6. **ترتيب الصدارة**: النتيجة نفسها (عدد المحاولات الصحيحة تنازليًا ثم `user_id`). فقط تُعرض من لقطة عمرها ≤ 60ث للقائمة العامة.
+
+## 7) أمان تحت الحِمل
+
+- لم يُعطَّل أي حارس: CSRF، السياسات، حدود المعدّل، رؤوس الأمان، التحقق.
+- لا تُسجَّل كلمات مرور/رموز/كوكيز/أجسام/نصوص دردشة/بيانات محفظة. سجل الطلبات البطيئة: method + اسم المسار (لا الرابط الفعلي) + status + المدة + الذاكرة + معرّف المستخدم الرقمي + عدّاد الاستعلامات محليًا.
+- `X-Request-ID` الوارد يُقبل فقط بصيغة آمنة (`[A-Za-z0-9._-]{8,64}`) وإلا يُولَّد UUID (يمنع حقن أسطر السجل).
+- `/ready` لا يُرجع أسرارًا ولا أسماء مضيفين ولا نص استثناء؛ اختياريًا يُقيَّد برمز في الرأس `X-Health-Token`.
+- مفاتيح الكاش الشخصية تتضمن معرّف المستخدم؛ والكاش المشترك لا يحوي أي بيانات شخصية (اختبار `CacheIsolationTest` يفحص ذلك).
+
+## 8) ما اكتُشف ولم يُصلَح (موثّق، لا تغيير في هذه الحزمة)
+
+| البند | الوصف | الأولوية |
+|---|---|---|
+| `/quests` يكتب عند GET | عرض الصفحة يزامن التقدّم بكتابات؛ يمنع تخزينها مؤقتًا أو توجيهها لنسخة قراءة. الأفضل نقل المزامنة إلى أحداث/مهام | P1 |
+| عدّادات الدردشة غير المقروءة | تُحسب لكل طلب؛ عدّاد مجمَّد في الصف (denormalized) عند ضخامة الرسائل | P2 |
+| التحليلات التنفيذية | `TIMESTAMPDIFF`/`DATE_FORMAT` خاصة بـ MySQL/SQLite؛ جداول ملخّصة يومية عند كِبر البيانات | P2 |
+| قابلية النقل إلى PostgreSQL | `lockForUpdate()->count()` في `PuzzleAttemptService`، وSQL التحليلات، و`DemoQaSeeder` تفشل على PG. غير مؤثر إن بقيت MySQL/SQLite | معلومة |
+| الفهارس المكرّرة | انظر القسم 5 | P1 |
+| حزمة JS واحدة لكل الصفحات | `app.js` يضم Alpine + Echo/Pusher + الدردشة + ثلاثة محرّكات ألعاب (≈125KB غير مضغوط). تقسيمها بـ`import()` الديناميكي (دردشة/ألعاب) يخفف الصفحات العامة، لكنه يغيّر ترتيب تسجيل مكوّنات Alpine فيحتاج اختبار متصفح | P1 |
+| صور بلا `loading="lazy"` | 31 وسم `<img>` في القوالب بلا `loading`؛ الإضافة آمنة فقط للصور خارج الشاشة الأولى (ليست آلية: الشعار/البانر أعلى الصفحة يجب ألّا يُؤجَّل) | P1 |
+
+## 9) كيف تقيس بنفسك
+
+```powershell
+# عدد الاستعلامات وزمنها لصفحة معينة محليًا: رأس Server-Timing (local/testing فقط)
+curl.exe -s -D - -o NUL http://127.0.0.1:8000/leaderboard | findstr /i "server-timing x-request-id"
+
+# بيانات اصطناعية (local/testing فقط) ثم الحذف
+php artisan performance:seed small
+php artisan performance:seed --purge
+
+# الطلبات البطيئة (>1500ms افتراضيًا) في السجل
+Select-String -Path storage\logs\laravel.log -Pattern "slow_request"
+```
+
+## 10) الاختبارات
+
+مجلد `tests/Feature/PerformanceE24/`: تحرير الجواهر (تكافؤ + لا تخطٍّ + idempotent)، كتالوج المستويات (إبطال)، `RequestMemo` (لا تسرّب، لا كتابة، نافذة الطلب)، تخفيف بصمات الجهاز،
+إعدادات المنصة، الصدارة (الترتيب، 50 كحد أقصى، عدم التسرّب بين المشاهدين)، المراقبة و`/ready`، الوكلاء الموثوقة، لقطة تقدّم الحملة (تكافؤ + لا ميراث بين مستخدمين)،
+سقوف الاستعلامات (ثبات العدد مع 2 مقابل 12 عنصرًا)، عزل الكاش بين مستخدمين، وحدود الموثوقية (المهل/التراجع/أقفال المجدول). لا اختبار يعتمد على زمن.
+
+## 11) الرجوع
+
+- كل التحسينات خلف سلوك افتراضي آمن؛ للرجوع: `PERF_DEVICE_SIGHTING_THROTTLE=0`، `PERF_SCHEDULER_ONE_SERVER=false`، `PERF_REQUEST_ID=false`، `PERF_SLOW_REQUEST_MS=0`، `PERF_LEADERBOARD_TTL=0`/`PERF_LEVEL_CATALOG_TTL=0` (0 = بلا كاش).
+- الـ migrations قابلة للتراجع (`php artisan migrate:rollback --step=2`) ومحمية بـ `hasTable`/`hasIndex`.
+
+## 12) اختبار الحِمل المحلي (بديل k6)
+
+**الطريقة:** مولّد Python (خيوط + تسجيل دخول حقيقي بنموذج CSRF) ضد `php -S` بأربعة عمّال، SQLite (WAL)، كاش وجلسات ملفّية، 1000 مستخدم اصطناعي من `performance:seed small`. النسخة الأصلية (`main@0b862b1`) ثم المعدَّلة على الجهاز نفسه.
+رحلة كل مستخدم: صفحات قراءة موزونة (الرئيسية 25% · الأحجيات 20% · الصدارة 10% · الإشعارات 10% · المحفظة 10% · الدردشة العامة 10% · الحملة 10% · الموسم 5%) بفواصل تفكير 0.2–0.8ث. 30 ثانية بعد تسجيل دخول متدرّج.
+
+| الملف | النسخة | طلبات | rps | p50 | p95 | p99 | فشل (5xx/انقطاع) |
+|---|---|---:|---:|---:|---:|---:|---:|
+| smoke · 5 VU | الأصلية | 331 | 8.1 | 85 ms | 131 ms | 186 ms | 0 |
+| smoke · 5 VU | المعدَّلة | 318 | 7.8 | 91 ms | 135 ms | 209 ms | 0 |
+| light · 25 VU | الأصلية | 830 | 20.2 | 532 ms | 895 ms | 1591 ms | 0 |
+| light · 25 VU | المعدَّلة | 814 | 19.9 | 562 ms | 919 ms | 1383 ms | 0 |
+
+**التفسير الصادق:**
+- لا فشل في الحالتين، وكل الاستجابات 200.
+- عند 25 مستخدمًا يتشبّع الجهاز (**نواتان فقط تُشارَكان بين مولّد الحِمل والخادم**) عند ≈20 طلبًا/ثانية؛ أي أن زمن 530–560ms هو **طابور انتظار على المعالج** لا زمن الصفحة (≈90–100ms عند 5 مستخدمين). هذا **قيد بنية تحتية** ولا يقول شيئًا عن سعة الإنتاج.
+- لا فرق قابل للقياس بين النسختين هنا، وهذا متوقّع: مستخدمو الحِمل جدد (بلا تقدّم في الحملة)، فتكلفة صفحاتهم تُهيمن عليها تهيئة PHP وعرض Blade (≈100ms) لا الاستعلامات. أثر تقليل الاستعلامات يظهر في صفحات اللاعب المتقدّم (الحملة/الموسم، §2) وعلى قاعدة بيانات عبر الشبكة، لا في هذا الاختبار.
+- هذه ليست أرقام throughput للإنتاج، ولا تدعم أي ادّعاء عن عدد المستخدمين المتزامنين. القياس الحقيقي يتطلب staging منفصلًا (`tools/load/README.md`).
+- ملفات staging (50/100/500/1000 VU) **أُنشئت ولم تُشغَّل**.
+````
+
+### `docs/scaling-architecture.md`
+
+````markdown
+# بنية التوسّع (E24) — توصيات بنية تحتية
+
+> **هذا الملف توصيات وتوثيق، لا تنفيذ.** ما نُفِّذ كودًا موصوف في `docs/performance-e24.md`. هنا ما يخصّ الخوادم والخدمات حول التطبيق.
+> لا يوجد في الحزمة: Kubernetes، تنسيق Docker، Kafka، RabbitMQ، Elasticsearch، Sharding، Read Replicas، Octane، Horizon، مزوّد APM، Redis Cluster، تكامل CDN، أو أي بيانات اعتماد سحابية.
+> **لم تُضَف أي حزمة Composer.**
+
+## 1) ما الذي نُفِّذ فعلًا مقابل ما هو توصية
+
+| الموضوع | الحالة | أين |
+|---|---|---|
+| إزالة N+1 في الحملة/الموسم/الدردشة/الصدارة/الأصدقاء/مركز العمليات | **كود منفَّذ** | `performance-e24.md` |
+| كاش للعرض فقط (مستويات، هوية بصرية، صدارة) مع إبطال وTTL محدود | **كود منفَّذ** | `performance-e24.md` §4 |
+| جدولا كاش `cache`/`cache_locks` | **كود منفَّذ** (migration) | `2026_10_18_000001` |
+| `onOneServer()` + أقفال محدودة للمجدول | **كود منفَّذ** (يحتاج كاشًا مشتركًا عند تعدّد الخوادم) | `routes/console.php` |
+| مهل/تراجع مهام الطابور | **كود منفَّذ** | `Jobs/Concerns/BoundedRetries` |
+| مهل HTTP نحو Reverb | **كود منفَّذ** | `config/broadcasting.php` |
+| الوكلاء الموثوقون `TRUSTED_PROXIES` | **كود منفَّذ** (افتراضيًا بلا تغيير) | `config/trustedproxy.php` |
+| معرّف الطلب، سجل بطيء، `/ready` | **كود منفَّذ** | `RequestObservability`, `HealthController` |
+| فهارس مبرَّرة بـ EXPLAIN | **كود منفَّذ** (migration؛ تحقّق على MySQL) | `2026_10_18_000002` |
+| Redis للكاش/الجلسات/الطوابير | **توصية** (الإعداد في `.env`، لا يُفرض محليًا) | §3 |
+| عدّة خوادم تطبيق خلف موازن | **توصية** | §2 |
+| Reverb أفقيًا | **توصية** | §7 |
+| وسائط مشتركة (S3 أو قرص مشترك) وCDN | **توصية** | §8 |
+| ميزانية اتصالات قاعدة البيانات، PHP-FPM، OPcache | **توصية** | §5، §6 |
+| Read Replicas، Octane، Horizon، Redis Cluster، Sharding… | **P2 — موثّق ومؤجَّل** | §11 |
+
+## 2) مستويات النشر (اختر بحسب القياس لا بحسب الأمنية)
+
+| المستوى | الشكل | متى |
+|---|---|---|
+| 0 | خادم واحد، MySQL محلي، كاش/جلسات ملفّية أو قاعدة بيانات | تجربة/إطلاق تجريبي صغير |
+| 1 | خادم واحد أقوى + **Redis** (كاش/جلسات/طوابير) + عامل طابور + Reverb | أول نمو حقيقي؛ أرخص تحسين أثرًا |
+| 2 | موازن حِمل + **N** عقد تطبيق (متطابقة، بلا حالة محلية) + Redis مُدار + MySQL مُدار + عمّال طابور + Reverb بتوسّع Redis | حين يتشبّع خادم واحد (قِس!) |
+| 3 | Read Replica، CDN للوسائط، فصل الطوابير بحسب النوع | فقط إن أظهر القياس عنق زجاجة قراءة قاعدة بيانات |
+
+لا تقفز مستويات. ما يحدد الانتقال: **p95 زمن الاستجابة**، تشبّع عمّال FPM، **CPU قاعدة البيانات > ~60% مستمرًا**، عمق الطابور المتزايد، واتصالات القاعدة قرب الحد.
+
+### تقدير العمّال (صيغة، لا وعد)
+عمّال PHP-FPM اللازمون ≈ **ذروة الطلبات/ثانية × متوسط زمن الطلب بالثانية** (+ هامش 30–50%). مثال توضيحي بأرقام افتراضية: 200 طلب/ث × 0.15ث ≈ 30 عاملًا.
+عدد **المتزامنين الفعليين** (لا المسجَّلين) هو ما يحدد الطلبات/ثانية. قِس متوسط الزمن الفعلي على staging قبل الاعتماد على أي مثال.
+
+## 3) Redis (الأساس)
+
+- ثلاثة استخدامات منفصلة منطقيًا: **الكاش** (يقبل الإخلاء)، **الجلسات** (لا إخلاء)، **الطوابير** (لا إخلاء + استمرارية AOF). الأفضل نسخ منفصلة أو على الأقل قواعد `DB` منفصلة وسياسة إخلاء مناسبة:
+  - الكاش: `maxmemory-policy allkeys-lru`.
+  - الجلسات والطوابير: `noeviction` + `appendonly yes`.
+  - **لا تضع الطوابير والكاش في نسخة واحدة بسياسة `allkeys-lru`:** قد تُخلى مهام لم تُنفَّذ.
+- `REDIS_CLIENT=phpredis` (موجود في `.env.example`)، `CACHE_PREFIX` فريد لكل بيئة، كلمة مرور و`bind` خاص (لا منفذ عام).
+- أقفال المجدول (`onOneServer`/`withoutOverlapping`) و`Cache::add` ومحدّد المعدّل (throttle) كلها تمر على **مخزن الكاش الافتراضي**. مع `CACHE_STORE=database` كل طلب مقيَّد بمعدّل يكتب في قاعدة البيانات
+  (المحدّد يستعمل `cache.limiter` إن عُرِّف وإلا الكاش الافتراضي). في الإنتاج متعدد الخوادم استعمل Redis للكاش.
+- **Redis نقطة فشل واحدة** للجلسات: عطله يُسقط تسجيل الدخول. للإنتاج استعمل خدمة مُدارة بنسخة احتياطية/تحويل تلقائي (Sentinel أو مُدار). Redis Cluster مؤجَّل (P2).
+- كل كود E24 الذي يستعمل الكاش **fail-open**: عطل الكاش يعني الحساب مباشرةً من القاعدة (أبطأ لا أعطل). الجلسات والطوابير ليست كذلك.
+
+## 4) الجلسات والطوابير والمجدول
+
+### الجلسات
+- `SESSION_DRIVER=database` يكتب صفًا لكل طلب: عبء مباشر على القاعدة الأهم. الإنتاج: `redis`. لا حاجة إلى sticky sessions مع مخزن مشترك.
+- `SESSION_SECURE_COOKIE=true` خلف HTTPS، و`SESSION_DOMAIN` صحيح.
+
+### الطوابير
+- ملف العمل: `php artisan queue:work redis --max-time=3600 --tries=3` تحت Supervisor/systemd، عدد العمّال بحسب CPU (ابدأ بـ 2–4)، وأعد تشغيلها بعد كل نشر: `php artisan queue:restart`.
+- `retry_after` (90ث افتراضيًا) **يجب أن يبقى أكبر من أطول `timeout`** (المهام: 80ث). اختبار `ReliabilityConfigTest` يفرض ذلك. إن رفعت `timeout` ارفع `retry_after` أولًا.
+- المهام الموجودة دفعات idempotent بمفاتيح دلالية، فإعادة المحاولة آمنة. راقب `failed_jobs` وعمق الطابور.
+- طابور `database` مقبول للبدء فقط؛ فوق ذلك انقل إلى Redis. **Horizon مؤجَّل (P2)**.
+
+### المجدول
+- نفّذ `php artisan schedule:run` كل دقيقة على **عقدة واحدة** (الأبسط). إن شغّلته على عدة عقد فالمطلوب كاش مشترك (Redis) لتعمل `onOneServer()`.
+- ساعات الخوادم يجب أن تكون متزامنة (NTP): `onOneServer` تعتمد على قفل لكل «دقيقة جدولة»؛ انحراف الساعات قد يسمح بتشغيلين.
+- الأقفال المحدودة: 30 دقيقة للمهام كل 5 دقائق، 120 للساعية، 360 لليومية. انهيار العملية لم يعد يجمّد المهمة 24 ساعة.
+- `PERF_SCHEDULER_ONE_SERVER=false` لتعطيل `onOneServer` إن لم يتوفر كاش مشترك بعد (على خادم واحد لا فرق).
+- تأكد بعد النشر: `php artisan schedule:list` (قد يفشل إن كان مخزن الكاش المضبوط غير متاح أو بلا جداوله).
+
+## 5) ميزانية اتصالات قاعدة البيانات
+
+```
+الاتصالات القصوى المطلوبة ≈ (pm.max_children × عدد عقد التطبيق)
+                          + عمّال الطابور
+                          + المجدول (1–2)
+                          + (Reverb نفسه لا يتصل بالقاعدة؛ مصادقة القنوات /broadcasting/auth تمر عبر عمّال FPM وتُحسب فيهم)
+                          + أدوات/إدارة (5–10)
+يجب أن تبقى ≤ ~80% من max_connections.
+```
+
+- مثال: 3 عقد × 20 عاملًا = 60 + 4 عمّال طابور + 2 + 10 = 76 → يحتاج `max_connections` ≥ ~100 على الأقل. افتراضي MySQL 151.
+- لا تزد عمّال FPM دون حساب الاتصالات. إن لم تكفِ: خفّض عمّال FPM، أو أضف **وكيل اتصالات** (ProxySQL / RDS Proxy — P2، غير منفَّذ).
+- لا تُفعِّل الاتصالات الدائمة (`PDO::ATTR_PERSISTENT`) دون فهم أثرها مع FPM.
+- مهل: اضبط `wait_timeout` أقل قليلًا من مهلة موازن الحِمل؛ وراقب `Threads_connected` و`Aborted_connects`.
+- فعّل **slow query log** (`long_query_time=0.5` أثناء الاختبار) لتكتشف الاستعلامات التي لا تظهر محليًا.
+
+## 6) PHP في الإنتاج
+
+```ini
+; OPcache
+opcache.enable=1
+opcache.memory_consumption=256
+opcache.interned_strings_buffer=16
+opcache.max_accelerated_files=20000
+opcache.validate_timestamps=0   ; ثم أعد تحميل php-fpm عند كل نشر
+; realpath
+realpath_cache_size=4096K
+realpath_cache_ttl=600
+```
+
+```ini
+; PHP-FPM pool
+pm = static                   ; أو dynamic مع حدود واضحة
+pm.max_children = <ذاكرة_متاحة / ذروة_ذاكرة_العامل>   ; قِس ذروة العامل الفعلية، لا تخمّن
+pm.max_requests = 500
+request_terminate_timeout = 30s
+```
+
+- بعد كل نشر: `composer install --no-dev --optimize-autoloader`, ثم `php artisan config:cache route:cache view:cache event:cache` (أو `php artisan optimize`).
+  كل `env()` في الكود داخل ملفات `config/*` فقط ليعمل `config:cache`. تحقّق من `php artisan about` بعد النشر.
+- `APP_DEBUG=false` و`LOG_LEVEL=warning` في الإنتاج (سجل `debug` يكلّف I/O).
+- JIT غير مفيد لتطبيق مرتبط بالإدخال/الإخراج مثل هذا؛ اتركه معطّلًا افتراضيًا.
+
+## 7) Reverb (WebSocket) أفقيًا
+
+الإعدادات الفعلية في إصدار 1.12 (من `config/reverb.php`):
+
+- **التوسّع الأفقي**: `REVERB_SCALING_ENABLED=true` (نشر/اشتراك عبر Redis؛ القناة `REVERB_SCALING_CHANNEL`)، وكل خوادم Reverb تتصل بنفس Redis. دون ذلك كل عقدة Reverb معزولة.
+- **حد الاتصالات لكل تطبيق**: `REVERB_APP_MAX_CONNECTIONS` (فارغ = بلا حد). **حدّده** ليحمي الخادم من استنزاف الملفات المفتوحة.
+- **تحديد المعدّل**: `REVERB_APP_RATE_LIMITING_ENABLED` مع `MAX_ATTEMPTS`/`DECAY_SECONDS` (للأحداث الواردة من العميل).
+- `REVERB_APP_PING_INTERVAL` (60ث) و`ACTIVITY_TIMEOUT` (30ث)؛ اضبط مهلة خمول الموازن **أكبر** من فاصل الـping.
+- `REVERB_MAX_REQUEST_SIZE` و`REVERB_APP_MAX_MESSAGE_SIZE` (10000 بايت افتراضيًا).
+- **`allowed_origins` في `config/reverb.php` هو `['*']`**: ضيّقه إلى نطاق موقعك في الإنتاج (ملاحظة موجودة أصلًا في رأس الملف).
+- حد الملفات المفتوحة للعملية (`ulimit -n`/`LimitNOFILE`) يجب أن يتجاوز عدد الاتصالات المتوقعة؛ وفوق ~1000 اتصال متزامن ركّب إضافة حلقة الأحداث `ext-uv` (الحلقة الافتراضية محدودة بـ select).
+- الموازن: يجب أن يمرّر ترقية WebSocket (`Upgrade`/`Connection`)، بمهلة قراءة أطول من فاصل الـping.
+- **ما فعلناه في الكود (الواجهة)**: اتصال WebSocket صار **كسولًا** — يُفتح عند الدخول لغرفة دردشة فقط (`window.getEcho()`)، لا عند تحميل كل صفحة. قبل ذلك كان كل تبويب مفتوح (حتى لزائر في الصفحة الرئيسية) يحتفظ باتصال دائم،
+  فكان عدد اتصالات Reverb = عدد التبويبات المفتوحة. الآن ≈ عدد من داخل غرف الدردشة. هذا يغيّر تقدير السعة جوهريًا؛ لكنه يتطلب `npm run build`.
+- **ما فعلناه في الكود (الخادم)**: البثّ من التطبيق متزامن (`ShouldBroadcastNow`) ويحجز عامل PHP أثناء الاستدعاء؛ ضُبطت مهلة اتصال 1ث وطلب 3ث (`REVERB_HTTP_CONNECT_TIMEOUT`/`REVERB_HTTP_TIMEOUT`)
+  بدل الافتراضي (10/30). فشل البثّ معزول: الرسالة تُحفظ أولًا ولا تضيع.
+- **توصية P1 عند النمو**: نقل البثّ إلى طابور مخصّص (`broadcasts`) كي لا يحجز عمّال الويب مطلقًا؛ المقايضة: تأخير ملّيثوانٍ إضافي وتعقيد ترتيب. لم يُنفَّذ لأنه يغيّر سلوك الإرسال.
+- لا يوجد اختبار حِملي لاتصالات WebSocket في الحزمة؛ اختبرها على staging بأداة مخصّصة قبل الاعتماد على رقم.
+
+## 8) الوسائط والتخزين
+
+- `FILESYSTEM_DISK=local` و`public` قرص محلي: **لا يعمل عبر عدة عقد** (الملف المرفوع على عقدة لا تراه الأخرى). للتعدد: S3 متوافق أو قرص شبكي مشترك، ثم `php artisan storage:link` حيث يلزم.
+- الهوية البصرية (الشعار/الأيقونات) تُفحَص بـ `Storage::disk('public')->exists()` وتُخزَّن روابطها 10 دقائق (يُبطَل الكاش عند حفظ الإعدادات).
+  حذف ملف يدويًا من القرص خارج الإعدادات قد يُبقي رابطه حتى 10 دقائق.
+- رؤوس تخزين مؤقت للأصول الثابتة (`build/` ببصمة Vite): `Cache-Control: public, max-age=31536000, immutable`. ضغط gzip/brotli في الوكيل.
+- **CDN غير منفَّذ (P2)**. إن أُضيف لاحقًا فاجعله للأصول والوسائط العامة فقط، لا للصفحات الشخصية.
+
+## 9) خلف موازن الحِمل
+
+- اضبط `TRUSTED_PROXIES` (قائمة IP/CIDR الموازن) لا `*` إلا إن كان التطبيق غير قابل للوصول إلا عبر الموازن. بدونه: IP الجميع = IP الموازن ⇒ علامات `ip_shared` كاذبة وحدود معدّل مشتركة على الجميع.
+- الموازن يفحص **`/ready`** (جاهزية: قاعدة بيانات + كاش) لإدخال العقدة في الدوران، و**`/up`** (حياة) لإعادة تشغيل العملية. لا تجعل فحص الجاهزية يضرب مسارات ثقيلة.
+- مرّر `X-Forwarded-For`/`X-Forwarded-Proto` وأبقِ `X-Request-ID` (يُقبل بصيغة آمنة فقط) ليتتبّع الطلب عبر الطبقات.
+
+## 10) المراقبة
+
+نُفِّذ داخل التطبيق: `X-Request-ID` في الاستجابة والسجل، سجل `slow_request` (>1500ms، قابل للضبط/أخذ عيّنات)، `Server-Timing` محليًا، `/ready`.
+المطلوب خارجيًا (توصية، غير منفَّذ): تجميع السجلات (JSON/stderr إلى مجمّع)، لوحة مقاييس لـ PHP-FPM status وMySQL وRedis `INFO`، فحوص uptime على `/up` و`/ready`، تنبيهات على:
+p95 زمن الاستجابة، نسبة 5xx، عمق الطابور وعمر أقدم مهمة، `failed_jobs`، اتصالات القاعدة، ذاكرة Redis، ونجاح المجدول. **لا مزوّد APM مدمج** (قرار P2).
+
+## 11) مؤجَّل عمدًا (P2) ولماذا
+
+| البند | لماذا ليس الآن |
+|---|---|
+| Read Replicas | تأخّر النسخ يكسر قراءة-بعد-كتابة (المحفظة/الجوائز)، و`/quests` يكتب أثناء GET. يلزم أولًا فصل القراءات الآمنة بوضوح |
+| Octane | حالة ثابتة في الذاكرة بين الطلبات؛ يلزم تدقيق كل `static`. (`RequestMemo` صُمّم بنافذة begin/end لكنه لم يُختبر تحت Octane) |
+| Horizon | يتطلب Redis وحزمة إضافية؛ لا حزم جديدة في هذه المرحلة |
+| Redis Cluster / Sharding | لا يبرّره الحجم الحالي؛ تعقيد تشغيلي كبير |
+| وكيل اتصالات (ProxySQL / RDS Proxy) | فقط إن لم تكفِ ميزانية الاتصالات (§5) |
+| CDN | أصول عامة فقط، بعد استقرار التخزين المشترك |
+| Kafka / RabbitMQ / Elasticsearch / Microservices / Kubernetes | لا حاجة وظيفية؛ تزيد التعقيد قبل أن يظهر عنق زجاجة يبررها |
+| جداول ملخّصة للتحليلات، عدّاد غير مقروء مجمَّد | تُقاس أولًا على بيانات حقيقية |
+
+## 12) قائمة تحقق قبل الإطلاق على أكثر من خادم
+
+1. `CACHE_STORE=redis`, `SESSION_DRIVER=redis`, `QUEUE_CONNECTION=redis`، نسخ/قواعد منفصلة وسياسات إخلاء صحيحة (§3).
+2. `TRUSTED_PROXIES` مضبوط، و`APP_DEBUG=false`، و`config:cache`/`route:cache`/`view:cache`.
+3. مجدول على عقدة واحدة (أو كاش مشترك + `onOneServer`)، عمّال طابور تحت Supervisor، `queue:restart` بعد كل نشر.
+4. وسائط مشتركة (S3/قرص مشترك) إن تعدّدت العقد.
+5. Reverb: `REVERB_SCALING_ENABLED` عند تعدّد العقد، `max_connections` محدّد، `allowed_origins` مضيَّق، `ulimit` مناسب.
+6. ميزانية اتصالات القاعدة محسوبة (§5) وslow query log مفعّل.
+7. `/ready` و`/up` في إعدادات الموازن، وتنبيهات المراقبة (§10).
+8. اختبار حِملي على staging بنفس الإعدادات (`tools/load/README.md`) **قبل** الاعتماد على أي رقم سعة.
+````
+
+### `tests/Feature/PerformanceE24/CacheIsolationTest.php`
+
+```php
+<?php
+
+use App\Models\LevelDefinition;
+use App\Models\PlayerProgression;
+use App\Models\User;
+use App\Models\Wallet;
+use App\Services\Economy\CurrencyRegistry;
+use Illuminate\Support\Facades\Cache;
+
+/**
+ * E24 - عزل الكاش بين المستخدمين. الكاش الجديد عام فقط للبيانات العامة غير المقرِّرة (كتالوج المستويات، روابط الهوية البصرية، Top-N العامة)؛
+ * كل ما يخص مستخدمًا (تقدّمه، محفظته، اسمه في شريط التنقل) يُقرأ له وحده. هنا نتأكد بالتبديل A→B→A والكاش دافئ (لا flush بين الطلبات).
+ */
+beforeEach(function () {
+    LevelDefinition::factory()->first()->create();
+    LevelDefinition::factory()->create(['level_number' => 2, 'xp_required_total' => 100, 'name' => 'مستوى ثانٍ']);
+    LevelDefinition::factory()->create(['level_number' => 3, 'xp_required_total' => 1000, 'name' => 'مستوى ثالث']);
+});
+
+test('E24: with the level catalog cached, two users alternating get their own level and progress', function () {
+    $a = User::factory()->create(['name' => 'مستخدم ألف']);
+    $b = User::factory()->create(['name' => 'مستخدم باء']);
+    PlayerProgression::factory()->create(['user_id' => $a->id, 'total_xp' => 50, 'current_level' => 1]);
+    PlayerProgression::factory()->create(['user_id' => $b->id, 'total_xp' => 1500, 'current_level' => 3]);
+
+    Cache::flush();
+
+    foreach ([$a, $b, $a, $b] as $i => $user) {
+        $expectedLevel = $user->is($a) ? 1 : 3;
+        $data = $this->actingAs($user)->get(route('progress.show'))->assertOk();
+
+        expect($data->viewData('currentLevel')->level_number)->toBe($expectedLevel, "request #{$i}")
+            ->and($data->viewData('progression')->user_id)->toBe($user->id);
+    }
+});
+
+test('E24: the wallet page shows only the requesting user\'s balances, even when pages are rendered back to back with a warm cache', function () {
+    $currency = app(CurrencyRegistry::class)->defaultEarnedCurrency();
+    $a = User::factory()->create(['name' => 'مستخدم ألف']);
+    $b = User::factory()->create(['name' => 'مستخدم باء']);
+    Wallet::query()->updateOrCreate(['user_id' => $a->id, 'currency_id' => $currency->id], ['pending_balance' => 0, 'available_balance' => 48170, 'lifetime_earned' => 48170, 'lifetime_redeemed' => 0]);
+    Wallet::query()->updateOrCreate(['user_id' => $b->id, 'currency_id' => $currency->id], ['pending_balance' => 0, 'available_balance' => 29630, 'lifetime_earned' => 29630, 'lifetime_redeemed' => 0]);
+
+    foreach ([$a, $b, $a, $b] as $user) {
+        $mine = $user->is($a) ? 48170 : 29630;
+        $other = $user->is($a) ? 29630 : 48170;
+
+        $response = $this->actingAs($user)->get(route('wallet.index'))->assertOk();
+        $html = $response->getContent();
+
+        expect($html)->toContain(number_format($mine))->and($html)->not->toContain(number_format($other));
+    }
+});
+
+test('E24: the navigation bar shows the signed-in user\'s name and never another user\'s after a warm request', function () {
+    $a = User::factory()->create(['name' => 'ألف المتصفِّح']);
+    $b = User::factory()->create(['name' => 'باء المتصفِّح']);
+
+    foreach ([$a, $b, $a] as $user) {
+        $other = $user->is($a) ? $b : $a;
+
+        $this->actingAs($user)->get(route('home'))->assertOk()->assertSee($user->name)->assertDontSee($other->name);
+    }
+
+    // الضيف بعد مستخدمَين: لا اسم ولا بيانات شخصية.
+    auth()->logout();
+    $this->app['auth']->forgetGuards();
+    $this->get(route('home'))->assertOk()->assertDontSee($a->name)->assertDontSee($b->name);
+});
+
+test('E24: nothing personal ends up in the shared cache after a user browses the pages that gained caching', function () {
+    $user = User::factory()->create(['name' => 'اسم سرّي فريد', 'email' => 'unique-secret-person@example.test']);
+    PlayerProgression::factory()->create(['user_id' => $user->id, 'total_xp' => 10]);
+    Cache::flush();
+
+    foreach (['home', 'progress.show', 'leaderboard.index', 'wallet.index'] as $route) {
+        $this->actingAs($user)->get(route($route))->assertOk();
+    }
+
+    $storage = (fn () => $this->storage)->call(Cache::store()->getStore());
+    $keys = array_keys($storage);
+
+    // ليس اختبارًا فارغًا: الكاش الجديد كُتب فعلًا.
+    expect($keys)->toContain(\App\Services\Progression\LevelService::CATALOG_CACHE_KEY)
+        ->and(collect($keys)->contains(fn ($k) => str_starts_with($k, \App\Services\LeaderboardService::CACHE_KEY)))->toBeTrue();
+
+    $needles = [$user->email, $user->name, $user->public_id, (string) $user->password];
+
+    foreach ($storage as $key => $entry) {
+        $blob = $key.'|'.json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR).'|'.serialize($entry['value'] ?? null);
+
+        foreach ($needles as $needle) {
+            expect(str_contains($blob, $needle))->toBeFalse("cache entry {$key} leaks user identity");
+        }
+    }
+});
+```
+
+### `tests/Feature/PerformanceE24/CampaignSnapshotEquivalenceTest.php`
+
+```php
+<?php
+
+use App\GameEngine\Support\AttemptContext;
+use App\Models\Campaign;
+use App\Models\CampaignGate;
+use App\Models\CampaignStage;
+use App\Models\CampaignStep;
+use App\Models\Puzzle;
+use App\Models\PuzzleAttempt;
+use App\Models\User;
+use App\Models\UserCampaignProgress;
+use App\Services\CampaignProgressService;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * E24 - لقطة تقدّم الحملة (CampaignProgressService::preloadFor) يجب أن تعطي **نفس** الحالات بالضبط التي يعطيها الحساب المباشر الأصلي،
+ * لكل خطوة/بوابة/مرحلة، لمستخدمَين مختلفَين (والمستخدم الآخر لا يرث شيئًا من لقطة غيره)، وبعدد استعلامات ثابت.
+ */
+function e24_campaign_fixture(int $stages = 2, int $stepsPerGate = 3): array
+{
+    $campaign = Campaign::factory()->create(['is_active' => true]);
+    $steps = [];
+
+    foreach (range(1, $stages) as $s) {
+        $stage = CampaignStage::factory()->create(['campaign_id' => $campaign->id, 'sort_order' => $s]);
+        $gate = CampaignGate::factory()->create(['campaign_stage_id' => $stage->id, 'sort_order' => 1]);
+
+        foreach (range(1, $stepsPerGate) as $n) {
+            // نمط متنوّع: سرد / أحجية / سرد ... ليغطي المصدرين (UserCampaignProgress وPuzzleAttempt).
+            $factory = CampaignStep::factory()->state(['campaign_gate_id' => $gate->id, 'sort_order' => $n]);
+            $steps[] = ($n % 2 === 0 ? $factory->puzzle() : $factory)->create();
+        }
+    }
+
+    return [$campaign->fresh(), $steps];
+}
+
+/** @return array<string, mixed> كل الحالات المرئية بمفتاح مستقر. */
+function e24_progress_states(CampaignProgressService $svc, User $user, Campaign $campaign): array
+{
+    $campaign->loadMissing('stages.gates.steps');
+    $out = [];
+
+    foreach ($campaign->stages as $stage) {
+        $out["stage:{$stage->id}:unlocked"] = $svc->isStageUnlocked($user, $stage);
+        $out["stage:{$stage->id}:completed"] = $svc->isStageCompleted($user, $stage);
+
+        foreach ($stage->gates as $gate) {
+            $out["gate:{$gate->id}:state"] = $svc->gateState($user, $gate);
+            $out["gate:{$gate->id}:completed"] = $svc->isGateCompleted($user, $gate);
+
+            foreach ($gate->steps as $step) {
+                $out["step:{$step->id}:state"] = $svc->stepState($user, $step);
+                $out["step:{$step->id}:completed"] = $svc->isStepCompleted($user, $step);
+                $out["step:{$step->id}:progress"] = $svc->isStepInProgress($user, $step);
+                $out["step:{$step->id}:unlocked"] = $svc->isStepUnlocked($user, $step);
+            }
+        }
+    }
+
+    $out['campaign:completed'] = $svc->isCampaignCompleted($user, $campaign);
+    $out['campaign:current'] = $svc->currentStepFor($user, $campaign)?->id;
+
+    return $out;
+}
+
+test('E24: the snapshot gives exactly the same states as the direct per-call reads, for two different users', function () {
+    [$campaign, $steps] = e24_campaign_fixture(2, 3);
+    $a = User::factory()->create();
+    $b = User::factory()->create();
+
+    // A: أنهى السرد الأول، وبدأ الأحجية الثانية (محاولة خاطئة)، وحلّ الأحجية الرابعة في المرحلة الثانية فقط.
+    UserCampaignProgress::factory()->create(['user_id' => $a->id, 'campaign_step_id' => $steps[0]->id, 'started_at' => now(), 'completed_at' => now()]);
+    PuzzleAttempt::create(['user_id' => $a->id, 'puzzle_id' => $steps[1]->puzzle_id, 'attempt_number' => 1, 'is_correct' => false, 'context_type' => AttemptContext::TYPE_CAMPAIGN_STEP, 'context_id' => $steps[1]->id]);
+    PuzzleAttempt::create(['user_id' => $a->id, 'puzzle_id' => $steps[1]->puzzle_id, 'attempt_number' => 2, 'is_correct' => true, 'context_type' => AttemptContext::TYPE_CAMPAIGN_STEP, 'context_id' => $steps[1]->id]);
+    // B: بدأ سردًا ولم يكمله فقط.
+    UserCampaignProgress::factory()->create(['user_id' => $b->id, 'campaign_step_id' => $steps[0]->id, 'started_at' => now(), 'completed_at' => null]);
+
+    foreach ([$a, $b] as $user) {
+        $direct = e24_progress_states(new CampaignProgressService, $user, Campaign::find($campaign->id));
+
+        // نفس المثيل ونفس الكائنات المحمَّلة: اللقطة تُستهلك عبر الاستدعاءات نفسها.
+        $snap = new CampaignProgressService;
+        $loaded = Campaign::find($campaign->id);
+        $snap->preloadFor($user, $loaded);
+        $viaSnapshot = e24_progress_states($snap, $user, $loaded);
+
+        expect($viaSnapshot)->toBe($direct);
+    }
+
+    // A تقدّم فعلًا (الاختبار ليس تافهًا): السرد الأول مكتمل والتالي مفتوح.
+    $states = e24_progress_states(new CampaignProgressService, $a, Campaign::find($campaign->id));
+    expect($states["step:{$steps[0]->id}:completed"])->toBeTrue()
+        ->and($states["step:{$steps[1]->id}:completed"])->toBeTrue();
+});
+
+test('E24: a snapshot built for user A is never used for user B (falls back to the direct read)', function () {
+    [$campaign, $steps] = e24_campaign_fixture(1, 2);
+    $a = User::factory()->create();
+    $b = User::factory()->create();
+    UserCampaignProgress::factory()->create(['user_id' => $a->id, 'campaign_step_id' => $steps[0]->id, 'started_at' => now(), 'completed_at' => now()]);
+
+    $svc = new CampaignProgressService;
+    $loaded = Campaign::with('stages.gates.steps')->find($campaign->id);
+    $svc->preloadFor($a, $loaded);
+    $step = $loaded->stages->first()->gates->first()->steps->first();
+
+    expect($svc->isStepCompleted($a, $step))->toBeTrue()
+        ->and($svc->isStepCompleted($b, $step))->toBeFalse(); // B لا يرث إنجاز A
+});
+
+test('E24: forgetSnapshot() makes later reads see a write that happened after the preload', function () {
+    [$campaign, $steps] = e24_campaign_fixture(1, 2);
+    $user = User::factory()->create();
+    $svc = new CampaignProgressService;
+    $loaded = Campaign::with('stages.gates.steps')->find($campaign->id);
+    $svc->preloadFor($user, $loaded);
+    $step = $loaded->stages->first()->gates->first()->steps->first();
+
+    expect($svc->isStepCompleted($user, $step))->toBeFalse();
+
+    UserCampaignProgress::factory()->create(['user_id' => $user->id, 'campaign_step_id' => $step->id, 'started_at' => now(), 'completed_at' => now()]);
+    expect($svc->isStepCompleted($user, $step))->toBeFalse(); // اللقطة قديمة عمدًا
+
+    $svc->forgetSnapshot();
+    expect($svc->isStepCompleted($user, $step))->toBeTrue(); // القراءة المباشرة ترى الكتابة
+});
+
+test('E24: with a snapshot the number of progress queries does not depend on the number of steps', function () {
+    $count = function (int $stepsPerGate): int {
+        [$campaign] = e24_campaign_fixture(2, $stepsPerGate);
+        $user = User::factory()->create();
+        $svc = new CampaignProgressService;
+        $loaded = Campaign::find($campaign->id);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $svc->preloadFor($user, $loaded);
+        e24_progress_states($svc, $user, $loaded);
+        $n = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $n;
+    };
+
+    $small = $count(2);
+    $large = $count(12);
+
+    // الهرم يُحمَّل بـ3 استعلامات eager ثابتة، والتقدّم من اللقطة (5 استعلامات): لا نموّ مع عدد الخطوات (كان استعلامًا أو أكثر لكل خطوة).
+    expect($large)->toBeLessThanOrEqual($small + 2);
+});
+```
+
+### `tests/Feature/PerformanceE24/DeviceSightingThrottleTest.php`
+
+```php
+<?php
+
+use App\Models\DeviceSighting;
+use App\Models\FraudFlag;
+use App\Models\User;
+use App\Services\FraudDetectionService;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * E24 - تتبّع الجهاز كان يكتب في كل طلب. الآن مرة لكل (مستخدم، IP، جهاز) في النافذة، دون فقدان الكشف الأمني.
+ */
+function e24_sightings_touched(callable $fn): int
+{
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $fn();
+    $n = collect(DB::getQueryLog())->filter(fn ($q) => str_contains($q['query'], 'device_sightings'))->count();
+    DB::disableQueryLog();
+
+    return $n;
+}
+
+test('E24: a repeated request from the same user/IP/device within the window does not touch device_sightings', function () {
+    $user = User::factory()->create();
+    $server = ['REMOTE_ADDR' => '10.20.30.40', 'HTTP_USER_AGENT' => 'E24-Agent'];
+
+    $first = e24_sightings_touched(fn () => $this->actingAs($user)->withServerVariables($server)->get('/puzzles')->assertOk());
+    $second = e24_sightings_touched(fn () => $this->actingAs($user)->withServerVariables($server)->get('/puzzles')->assertOk());
+
+    expect($first)->toBeGreaterThan(0)
+        ->and($second)->toBe(0)
+        ->and(DeviceSighting::where('user_id', $user->id)->count())->toBe(1);
+});
+
+test('E24: a different device or IP for the same user is still recorded', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->withServerVariables(['REMOTE_ADDR' => '10.20.30.40', 'HTTP_USER_AGENT' => 'A'])->get('/puzzles')->assertOk();
+    $this->actingAs($user)->withServerVariables(['REMOTE_ADDR' => '10.20.30.40', 'HTTP_USER_AGENT' => 'B'])->get('/puzzles')->assertOk();
+    $this->actingAs($user)->withServerVariables(['REMOTE_ADDR' => '10.20.30.41', 'HTTP_USER_AGENT' => 'A'])->get('/puzzles')->assertOk();
+
+    expect(DeviceSighting::where('user_id', $user->id)->count())->toBe(3);
+});
+
+test('E24: throttle of zero restores the old behavior (every request is recorded)', function () {
+    config(['performance.device_sighting.throttle_seconds' => 0]);
+    $user = User::factory()->create();
+    $server = ['REMOTE_ADDR' => '10.20.30.40', 'HTTP_USER_AGENT' => 'E24-Agent'];
+
+    $this->actingAs($user)->withServerVariables($server)->get('/puzzles');
+    $second = e24_sightings_touched(fn () => $this->actingAs($user)->withServerVariables($server)->get('/puzzles'));
+
+    expect($second)->toBeGreaterThan(0);
+});
+
+test('E24: the shared-IP fraud flag is still raised when five accounts use one IP', function () {
+    $server = ['REMOTE_ADDR' => '10.99.99.99', 'HTTP_USER_AGENT' => 'Shared-Agent'];
+    $users = User::factory()->count(5)->create();
+
+    foreach ($users as $u) {
+        $this->actingAs($u)->withServerVariables($server)->get('/puzzles')->assertOk();
+    }
+
+    expect(FraudFlag::where('reason', 'ip_shared')->where('user_id', $users->last()->id)->exists())->toBeTrue();
+});
+
+test('E24: if the cache is unavailable the sighting is still recorded (fail-open, security tracking is never lost)', function () {
+    $user = User::factory()->create();
+    config(['cache.default' => 'store-that-does-not-exist']);
+
+    app(FraudDetectionService::class)->recordSighting($user, '10.5.5.5', 'UA');
+
+    expect(DeviceSighting::where('user_id', $user->id)->where('ip_address', '10.5.5.5')->count())->toBe(1);
+});
+
+test('E24: the throttle key never contains the raw IP or User-Agent', function () {
+    $user = User::factory()->create();
+    app(FraudDetectionService::class)->recordSighting($user, '203.0.113.77', 'Very-Distinct-UA/1.0');
+
+    $store = Cache::getStore();
+    $keys = array_keys((fn () => $this->storage)->call($store));
+
+    foreach ($keys as $k) {
+        expect($k)->not->toContain('203.0.113.77')->and($k)->not->toContain('Very-Distinct-UA');
+    }
+    expect(collect($keys)->filter(fn ($k) => str_contains($k, 'sighting:'))->count())->toBe(1);
+});
+
+test('E24: an unresolved ip_shared flag is not duplicated, and a new one is raised after an admin resolves it', function () {
+    config(['performance.device_sighting.throttle_seconds' => 0]); // كل طلب يفحص (كالسلوك القديم) كي نثبت منع التكرار نفسه
+    $server = ['REMOTE_ADDR' => '10.77.77.77', 'HTTP_USER_AGENT' => 'Shared-Agent-2'];
+    $users = User::factory()->count(5)->create();
+    $last = $users->last();
+
+    foreach ($users as $u) {
+        $this->actingAs($u)->withServerVariables($server)->get('/puzzles')->assertOk();
+    }
+    $this->actingAs($last)->withServerVariables($server)->get('/puzzles')->assertOk();
+    $this->actingAs($last)->withServerVariables($server)->get('/puzzles')->assertOk();
+
+    expect(FraudFlag::where('user_id', $last->id)->where('reason', 'ip_shared')->count())->toBe(1);
+
+    FraudFlag::where('user_id', $last->id)->where('reason', 'ip_shared')->update(['resolved' => true]);
+    $this->actingAs($last)->withServerVariables($server)->get('/puzzles')->assertOk();
+
+    expect(FraudFlag::where('user_id', $last->id)->where('reason', 'ip_shared')->count())->toBe(2)
+        ->and(FraudFlag::where('user_id', $last->id)->where('reason', 'ip_shared')->where('resolved', false)->count())->toBe(1);
+});
+```
+
+### `tests/Feature/PerformanceE24/FrontendSourceTest.php`
+
+```php
+<?php
+
+/**
+ * E24 - حماية بنيوية للواجهة (فحص مصدر): اتصال Reverb لا يُفتح عند تحميل كل صفحة، بل عند أول اشتراك من غرفة دردشة.
+ * قبل التعديل كان `new Echo(...)` على مستوى الوحدة فيفتح كل تبويب (حتى للزوار) اتصال WebSocket دائمًا.
+ */
+/** يزيل التعليقات كي لا يطابق الفحص نصًا داخل شرح. */
+function e24_strip_js_comments(string $js): string
+{
+    return preg_replace(['#/\*.*?\*/#s', '#(?<!:)//[^\n]*#'], '', $js);
+}
+
+test('E24: the Reverb connection is created lazily - never at module load', function () {
+    $echo = e24_strip_js_comments(file_get_contents(resource_path('js/echo.js')));
+
+    $lazy = strpos($echo, 'window.getEcho');
+    $create = strpos($echo, 'new Echo(');
+
+    expect($lazy)->not->toBeFalse()
+        ->and($create)->not->toBeFalse()
+        ->and($create)->toBeGreaterThan($lazy)             // الإنشاء داخل getEcho
+        ->and(substr_count($echo, 'new Echo('))->toBe(1)
+        ->and($echo)->not->toMatch('/window\.Echo\s*=\s*new\s+Echo/');
+});
+
+test('E24: the chat room asks for the connection only when it has a channel to subscribe to', function () {
+    $chat = e24_strip_js_comments(file_get_contents(resource_path('js/chat.js')));
+
+    $guard = strpos($chat, '!this.cfg.channel || this.subscribedTo === this.cfg.channel');
+    $connect = strpos($chat, 'window.getEcho()');
+
+    expect($guard)->not->toBeFalse()
+        ->and($connect)->not->toBeFalse()
+        ->and($connect)->toBeGreaterThan($guard);           // لا اتصال قبل التحقق من وجود قناة
+});
+```
+
+### `tests/Feature/PerformanceE24/LeaderboardScaleTest.php`
+
+```php
+<?php
+
+require_once __DIR__.'/../Social/SocialTestHelpers.php';
+
+use App\Models\Puzzle;
+use App\Models\PuzzleAttempt;
+use App\Models\User;
+use App\Services\LeaderboardService;
+use App\Support\CachedSnapshot;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * E24 - لوحة الصدارة: نفس المعيار (عدد المحاولات الصحيحة) بتجميع أولًا ثم ضمّ users للخمسين، مع Top-N مخزَّن لمدة قصيرة بلا تسريب بين المشاهدين.
+ */
+function e24_solve(User $user, int $times, bool $correct = true): void
+{
+    foreach (range(1, $times) as $_) {
+        PuzzleAttempt::create(['user_id' => $user->id, 'puzzle_id' => Puzzle::factory()->create()->id, 'attempt_number' => 1, 'is_correct' => $correct]);
+    }
+}
+
+function e24_attempt_queries($test, callable $request): int
+{
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $request();
+    $n = collect(DB::getQueryLog())->filter(fn ($q) => str_contains($q['query'], 'puzzle_attempts'))->count();
+    DB::disableQueryLog();
+
+    return $n;
+}
+
+test('E24: ranking is by correct-attempt count desc, wrong attempts never count, ties are ordered by user id, only 50 are returned', function () {
+    $a = User::factory()->create();
+    $b = User::factory()->create();
+    $c = User::factory()->create();
+    $d = User::factory()->create();
+    e24_solve($a, 3);
+    e24_solve($b, 2);
+    e24_solve($c, 2);
+    e24_solve($d, 5, correct: false); // محاولات خاطئة فقط => خارج اللوحة
+
+    $rows = app(LeaderboardService::class)->topSolvers();
+
+    expect($rows->pluck('id')->all())->toBe([$a->id, $b->id, $c->id])
+        ->and($rows->pluck('solved_count')->map(fn ($v) => (int) $v)->all())->toBe([3, 2, 2]);
+});
+
+test('E24: at most 50 rows even with more solvers', function () {
+    foreach (range(1, 55) as $_) {
+        e24_solve(User::factory()->create(), 1);
+    }
+
+    expect(app(LeaderboardService::class)->topSolvers())->toHaveCount(50);
+});
+
+test('E24: the global board is served from cache within the TTL and refreshed after it', function () {
+    $a = User::factory()->create();
+    e24_solve($a, 1);
+
+    $first = e24_attempt_queries($this, fn () => $this->get(route('leaderboard.index'))->assertOk());
+    $second = e24_attempt_queries($this, fn () => $this->get(route('leaderboard.index'))->assertOk());
+
+    expect($first)->toBeGreaterThan(0)->and($second)->toBe(0);
+
+    e24_solve($a, 2);
+    $this->travel(61)->seconds();
+
+    $this->get(route('leaderboard.index'))->assertOk()->assertSee('3 أحجية محلولة');
+});
+
+test('E24: a zero TTL disables caching (live board on every request)', function () {
+    config(['performance.cache.leaderboard_ttl' => 0]);
+    e24_solve(User::factory()->create(), 1);
+
+    $this->get(route('leaderboard.index'))->assertOk();
+    $second = e24_attempt_queries($this, fn () => $this->get(route('leaderboard.index'))->assertOk());
+
+    expect($second)->toBeGreaterThan(0);
+});
+
+test('E24: cache isolation - viewer-specific data is computed live, never taken from another viewer\'s cached copy', function () {
+    $owner = User::factory()->create(['profile_visibility' => User::VISIBILITY_PRIVATE, 'name' => 'صاحب خاص']);
+    e24_solve($owner, 2);
+    $stranger = User::factory()->create();
+
+    // الزائر أولًا يملأ الكاش: لا رابط للملف الخاص
+    $this->get(route('leaderboard.index'))->assertOk()->assertSee('صاحب خاص')->assertDontSee(route('players.show', $owner), false);
+    // الغريب المسجَّل: لا رابط أيضًا
+    $this->actingAs($stranger)->get(route('leaderboard.index'))->assertOk()->assertDontSee(route('players.show', $owner), false);
+    // صاحب الملف نفسه: يرى رابطه رغم أن النسخة المخزَّنة جُمعت لغيره
+    $this->actingAs($owner)->get(route('leaderboard.index'))->assertOk()->assertSee(route('players.show', $owner), false);
+});
+
+test('E24: the friends scope is live (not cached) and limited to me and my accepted friends', function () {
+    $me = e16User();
+    $friend = e16User(['name' => 'صديقي']);
+    $other = e16User(['name' => 'غريب']);
+    e16Befriend($me, $friend);
+    e24_solve($me, 1);
+    e24_solve($friend, 2);
+    e24_solve($other, 9);
+
+    $ids = app(LeaderboardService::class)->topSolvers([$me->id, $friend->id])->pluck('id')->all();
+    expect($ids)->toBe([$friend->id, $me->id]);
+
+    $this->actingAs($me)->get(route('leaderboard.index', ['scope' => 'friends']))->assertOk()->assertSee('صديقي')->assertDontSee('غريب');
+    e24_solve($me, 5);
+    $this->actingAs($me)->get(route('leaderboard.index', ['scope' => 'friends']))->assertOk()->assertSee('6 أحجية محلولة');
+});
+
+test('E24: the board query count is constant whatever the number of solvers', function () {
+    config(['performance.cache.leaderboard_ttl' => 0]);
+    foreach (range(1, 3) as $_) {
+        e24_solve(User::factory()->create(), 1);
+    }
+    $few = e24_attempt_queries($this, fn () => $this->get(route('leaderboard.index'))->assertOk());
+
+    foreach (range(1, 25) as $_) {
+        e24_solve(User::factory()->create(), 1);
+    }
+    $many = e24_attempt_queries($this, fn () => $this->get(route('leaderboard.index'))->assertOk());
+
+    expect($many)->toBe($few);
+});
+
+// ---------------- CachedSnapshot ----------------
+test('E24: CachedSnapshot computes once per TTL window and serves the stored value afterwards', function () {
+    $calls = 0;
+    $compute = function () use (&$calls) {
+        $calls++;
+
+        return ['n' => $calls];
+    };
+
+    expect(CachedSnapshot::remember('e24.snap', 60, $compute))->toBe(['n' => 1])
+        ->and(CachedSnapshot::remember('e24.snap', 60, $compute))->toBe(['n' => 1])
+        ->and($calls)->toBe(1);
+});
+
+test('E24: CachedSnapshot with TTL 0 never stores', function () {
+    $calls = 0;
+    CachedSnapshot::remember('e24.snap0', 0, function () use (&$calls) { return ++$calls; });
+    CachedSnapshot::remember('e24.snap0', 0, function () use (&$calls) { return ++$calls; });
+
+    expect($calls)->toBe(2)->and(Cache::has('e24.snap0'))->toBeFalse();
+});
+
+test('E24: a compute error propagates, is not cached, and does not leave the lock held', function () {
+    expect(fn () => CachedSnapshot::remember('e24.snap.err', 60, fn () => throw new RuntimeException('boom')))->toThrow(RuntimeException::class, 'boom');
+
+    // القفل أُفرج عنه والقيمة غير مخزَّنة: المحاولة التالية تنجح فورًا
+    expect(CachedSnapshot::remember('e24.snap.err', 60, fn () => 'ok'))->toBe('ok');
+});
+
+test('E24: CachedSnapshot fails open when the cache store is unusable', function () {
+    config(['cache.default' => 'store-that-does-not-exist']);
+
+    expect(CachedSnapshot::remember('e24.snap.open', 60, fn () => 'direct'))->toBe('direct');
+});
+
+test('E24: friendsQuery returns exactly the accepted friends of the user (and nobody else), without scanning users via subqueries', function () {
+    $me = e16User();
+    $f1 = e16User(['name' => 'ألف']);
+    $f2 = e16User(['name' => 'باء']);
+    $pending = e16User();
+    $stranger = e16User();
+    e16Befriend($me, $f1);
+    e16Befriend($f2, $me); // الاتجاه المعاكس
+    e16Svc()->sendRequest($me, $pending);
+
+    $query = e16Svc()->friendsQuery($me);
+
+    expect($query->pluck('id')->all())->toBe([$f1->id, $f2->id])
+        ->and($query->toSql())->not->toContain('friendships')
+        ->and(e16Svc()->friendsQuery($stranger)->count())->toBe(0);
+});
+```
+
+### `tests/Feature/PerformanceE24/LevelCatalogCacheTest.php`
+
+```php
+<?php
+
+use App\Models\LevelDefinition;
+use App\Models\PlayerProgression;
+use App\Models\User;
+use App\Models\UserLevelUnlock;
+use App\Services\Progression\LevelService;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * E24 - كاش كتالوج المستويات للعرض فقط. ترقية المستوى والمكافآت (recalculateFor) تقرأ القاعدة مباشرةً ولا تتأثر بالكاش إطلاقًا.
+ */
+beforeEach(function () {
+    LevelDefinition::factory()->first()->create();
+    LevelDefinition::factory()->create(['level_number' => 2, 'name' => 'ثانٍ', 'xp_required_total' => 100]);
+    LevelDefinition::factory()->create(['level_number' => 3, 'name' => 'ثالث', 'xp_required_total' => 300]);
+    $this->levels = app(LevelService::class);
+});
+
+function e24_progress(User $user, int $xp, int $level): PlayerProgression
+{
+    return PlayerProgression::updateOrCreate(['user_id' => $user->id], ['total_xp' => $xp, 'current_level' => $level]);
+}
+
+test('E24: display methods return the same level/next/percent as before', function () {
+    $user = User::factory()->create();
+    $p = e24_progress($user, 150, 2);
+
+    expect($this->levels->currentLevelFor($user, $p)->level_number)->toBe(2)
+        ->and($this->levels->nextLevelFor($user, $p)->level_number)->toBe(3)
+        ->and($this->levels->progressPercentFor($user, $p))->toBe(25.0)
+        // بلا تمرير التقدّم (سلوك الاستدعاء القديم) النتيجة نفسها
+        ->and($this->levels->currentLevelFor($user)->level_number)->toBe(2)
+        ->and($this->levels->progressPercentFor($user))->toBe(25.0);
+});
+
+test('E24: top level reports 100 percent and no next level; inactive next levels are skipped', function () {
+    $user = User::factory()->create();
+    LevelDefinition::where('level_number', 3)->first()->update(['is_active' => false]);
+    $p = e24_progress($user, 150, 2);
+
+    expect($this->levels->nextLevelFor($user, $p))->toBeNull()
+        ->and($this->levels->progressPercentFor($user, $p))->toBe(100.0);
+});
+
+test('E24: with no level rows at all the current level is the unsaved fallback, never an exception', function () {
+    LevelDefinition::query()->delete();
+    Cache::flush();
+    $user = User::factory()->create();
+
+    $level = $this->levels->currentLevelFor($user);
+
+    expect($level->exists)->toBeFalse()->and($level->level_number)->toBe(1)->and($level->name)->toBe('المستوى الأول');
+});
+
+test('E24: the level table is read at most once for many display calls, and progression once when passed along', function () {
+    $user = User::factory()->create();
+    $p = e24_progress($user, 150, 2);
+    Cache::flush();
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    foreach (range(1, 5) as $_) {
+        $this->levels->currentLevelFor($user, $p);
+        $this->levels->nextLevelFor($user, $p);
+        $this->levels->progressPercentFor($user, $p);
+    }
+    $log = collect(DB::getQueryLog())->pluck('query');
+    DB::disableQueryLog();
+
+    expect($log->filter(fn ($q) => str_contains($q, 'level_definitions'))->count())->toBe(1)
+        ->and($log->filter(fn ($q) => str_contains($q, 'player_progressions'))->count())->toBe(0);
+});
+
+test('E24: saving or deleting a level invalidates the catalog immediately (admin edits are visible at once)', function () {
+    $user = User::factory()->create();
+    $p = e24_progress($user, 150, 2);
+
+    expect($this->levels->nextLevelFor($user, $p)->name)->toBe('ثالث'); // يملأ الكاش
+
+    LevelDefinition::where('level_number', 3)->first()->update(['name' => 'ثالث معدَّل']);
+    expect($this->levels->nextLevelFor($user, $p)->name)->toBe('ثالث معدَّل');
+
+    LevelDefinition::where('level_number', 3)->first()->delete();
+    expect($this->levels->nextLevelFor($user, $p))->toBeNull();
+
+    LevelDefinition::factory()->create(['level_number' => 3, 'name' => 'ثالث جديد', 'xp_required_total' => 400]);
+    expect($this->levels->nextLevelFor($user, $p)->name)->toBe('ثالث جديد');
+});
+
+test('E24: a TTL of zero bypasses the cache entirely', function () {
+    config(['performance.cache.level_catalog_ttl' => 0]);
+    $user = User::factory()->create();
+    $p = e24_progress($user, 10, 1);
+
+    $this->levels->currentLevelFor($user, $p);
+
+    expect(Cache::has(LevelService::CATALOG_CACHE_KEY))->toBeFalse();
+});
+
+test('E24: cache isolation - two users at different levels never see each other\'s level through the shared catalog', function () {
+    $a = User::factory()->create();
+    $b = User::factory()->create();
+    $pa = e24_progress($a, 350, 3);
+    $pb = e24_progress($b, 10, 1);
+
+    expect($this->levels->currentLevelFor($a, $pa)->level_number)->toBe(3)
+        ->and($this->levels->currentLevelFor($b, $pb)->level_number)->toBe(1)
+        ->and($this->levels->nextLevelFor($b, $pb)->level_number)->toBe(2)
+        ->and($this->levels->nextLevelFor($a, $pa))->toBeNull();
+});
+
+test('E24: level-up authority (recalculateFor) reads the database, never the display cache', function () {
+    $user = User::factory()->create();
+    $p = e24_progress($user, 150, 1);
+
+    // نملأ كاش العرض بعتبة المستوى 2 = 100 ثم نغيّرها في القاعدة مباشرةً (دون أحداث النموذج) إلى 500: الكاش قديم عمدًا.
+    expect($this->levels->nextLevelFor($user, $p)->xp_required_total)->toBe(100);
+    DB::table('level_definitions')->where('level_number', 2)->update(['xp_required_total' => 500]);
+
+    $this->levels->recalculateFor($user, $p);
+
+    expect($p->fresh()->current_level)->toBe(1)
+        ->and(UserLevelUnlock::where('user_id', $user->id)->count())->toBe(0);
+});
+```
+
+### `tests/Feature/PerformanceE24/ObservabilityTest.php`
+
+```php
+<?php
+
+use App\Models\User;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * E24 - المراقبة: معرّف الطلب، سجل الطلبات البطيئة (بلا بيانات حساسة)، Server-Timing محليًا، وجاهزية الموازن /ready.
+ */
+test('E24: every response carries an X-Request-ID, generated when the client sends none', function () {
+    $response = $this->get('/up')->assertOk();
+
+    expect($response->headers->get('X-Request-ID'))->toMatch('/^[0-9a-f-]{36}$/');
+});
+
+test('E24: a safe incoming X-Request-ID is echoed back and unsafe ones are replaced', function () {
+    $this->withHeaders(['X-Request-ID' => 'edge-abc_123.XYZ'])->get('/up')->assertHeader('X-Request-ID', 'edge-abc_123.XYZ');
+
+    foreach (["bad id with spaces", "x\r\nInjected: 1", 'short', str_repeat('a', 65), '<script>alert(1)</script>'] as $bad) {
+        $echoed = $this->withHeaders(['X-Request-ID' => $bad])->get('/up')->headers->get('X-Request-ID');
+        expect($echoed)->not->toBe($bad)->and($echoed)->toMatch('/^[0-9a-f-]{36}$/');
+    }
+});
+
+test('E24: the request id is also added to the log context', function () {
+    $this->withHeaders(['X-Request-ID' => 'ctx-req-id-0001'])->get('/up')->assertOk();
+
+    expect(\Illuminate\Support\Facades\Context::get('request_id'))->toBe('ctx-req-id-0001');
+});
+
+test('E24: Server-Timing is emitted in local/testing with query count and time', function () {
+    $user = User::factory()->create();
+    $response = $this->actingAs($user)->get('/puzzles')->assertOk();
+
+    expect($response->headers->get('Server-Timing'))->toMatch('/^app;dur=[\d.]+, db;dur=[\d.]+;desc="\d+ queries"$/');
+});
+
+test('E24: Server-Timing and the DB listener are absent in production', function () {
+    $this->app['env'] = 'production';
+
+    $this->get('/up')->assertOk()->assertHeaderMissing('Server-Timing');
+});
+
+test('E24: a slow request is logged once with safe fields only (no body, query string, cookies or headers)', function () {
+    config(['performance.observability.slow_request_ms' => 1, 'performance.observability.slow_request_sample' => 1.0]);
+    $captured = [];
+    Log::listen(function ($event) use (&$captured) {
+        if ($event->message === 'slow_request') {
+            $captured[] = $event->context;
+        }
+    });
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->withHeaders(['Cookie' => 'secret=cookie-value', 'Authorization' => 'Bearer top-secret'])
+        ->get('/puzzles?token=abc123&q=سري')->assertOk();
+
+    expect($captured)->not->toBeEmpty();
+    $ctx = $captured[0];
+    $dump = json_encode($ctx, JSON_UNESCAPED_UNICODE);
+
+    expect($ctx)->toHaveKeys(['request_id', 'method', 'route', 'status', 'duration_ms', 'peak_memory_mb', 'user_id'])
+        ->and($ctx['method'])->toBe('GET')->and($ctx['status'])->toBe(200)
+        ->and($dump)->not->toContain('abc123')->not->toContain('سري')->not->toContain('cookie-value')->not->toContain('top-secret')->not->toContain('token=');
+});
+
+test('E24: nothing is logged below the threshold, or when the threshold is zero', function () {
+    $captured = 0;
+    Log::listen(function ($event) use (&$captured) {
+        $event->message === 'slow_request' && $captured++;
+    });
+
+    config(['performance.observability.slow_request_ms' => 600000]);
+    $this->get('/up')->assertOk();
+    config(['performance.observability.slow_request_ms' => 0]);
+    $this->get('/up')->assertOk();
+
+    expect($captured)->toBe(0);
+});
+
+test('E24: sampling at zero logs nothing even for slow requests', function () {
+    config(['performance.observability.slow_request_ms' => 1, 'performance.observability.slow_request_sample' => 0.0]);
+    $captured = 0;
+    Log::listen(function ($event) use (&$captured) {
+        $event->message === 'slow_request' && $captured++;
+    });
+
+    $this->get('/up')->assertOk();
+
+    expect($captured)->toBe(0);
+});
+
+test('E24: /ready is 200 with database and cache ok, exposes no secrets or versions, and is not cacheable', function () {
+    $response = $this->getJson('/ready')->assertOk()->assertJsonPath('status', 'ok')->assertJsonPath('checks.database.ok', true)->assertJsonPath('checks.cache.ok', true);
+    $body = $response->getContent();
+
+    expect($response->headers->get('Cache-Control'))->toContain('no-store')
+        ->and($body)->not->toContain(config('app.key'))->not->toContain('localhost')->not->toContain(PHP_VERSION)->not->toContain(app()->version());
+});
+
+test('E24: /ready is 503 when a dependency is down, without leaking the failure detail', function () {
+    config(['cache.default' => 'store-that-does-not-exist']);
+
+    $response = $this->getJson('/ready')->assertStatus(503)->assertJsonPath('status', 'unavailable')->assertJsonPath('checks.database.ok', true)->assertJsonPath('checks.cache.ok', false);
+
+    expect($response->getContent())->not->toContain('store-that-does-not-exist')->not->toContain('InvalidArgumentException');
+});
+
+test('E24: a dependency slower than the budget counts as not ready', function () {
+    $probe = new ReflectionMethod(\App\Http\Controllers\HealthController::class, 'probe');
+    $controller = new \App\Http\Controllers\HealthController;
+
+    $slow = $probe->invoke($controller, function () { usleep(8000); }, 2);
+    $fast = $probe->invoke($controller, function () {}, 5000);
+    $broken = $probe->invoke($controller, function () { throw new RuntimeException('x'); }, 5000);
+
+    expect($slow['ok'])->toBeFalse()->and($fast['ok'])->toBeTrue()->and($broken['ok'])->toBeFalse();
+});
+
+test('E24: /ready with a configured token rejects requests without it', function () {
+    config(['performance.observability.readiness_token' => 's3cret-token']);
+
+    $this->getJson('/ready')->assertForbidden();
+    $this->withHeaders(['X-Health-Token' => 'wrong'])->getJson('/ready')->assertForbidden();
+    $this->withHeaders(['X-Health-Token' => 's3cret-token'])->getJson('/ready')->assertOk();
+});
+
+test('E24: /ready does not start a session, record a device sighting or require authentication', function () {
+    $before = \App\Models\DeviceSighting::count();
+    $response = $this->getJson('/ready')->assertOk();
+
+    expect(\App\Models\DeviceSighting::count())->toBe($before)->and($response->headers->getCookies())->toBeEmpty();
+});
+```
+
+### `tests/Feature/PerformanceE24/PendingGemReleaseTest.php`
+
+```php
+<?php
+
+use App\Models\CurrencyTransaction;
+use App\Models\User;
+use App\Services\Economy\CurrencyRegistry;
+use App\Services\GemWalletService;
+use App\Services\PendingGemReleaseService;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * E24 - مهمة تحرير الجواهر المعلّقة: نفس المعادلة القديمة، لكن بدفعات مجمّعة وبلا تخطٍّ.
+ * التحرير نفسه يمرّ حصرًا عبر GemWalletService (لا يُكتب الرصيد هنا).
+ */
+function e24_user_with_pending(int $amount, ?int $ageDays = null): User
+{
+    $user = User::factory()->create();
+    app(GemWalletService::class)->credit($user, $amount, 'solved_puzzle:e24');
+
+    if ($ageDays !== null) {
+        CurrencyTransaction::where('user_id', $user->id)
+            ->where('type', CurrencyTransaction::TYPE_EARN_PENDING)
+            ->update(['created_at' => now()->subDays($ageDays)]);
+    }
+
+    return $user;
+}
+
+function e24_wallet(User $user): \App\Models\Wallet
+{
+    return $user->wallets()->where('currency_id', app(CurrencyRegistry::class)->defaultEarnedCurrency()->id)->firstOrFail();
+}
+
+test('E24: releases expired pending gems for every candidate even when candidates exceed the chunk size (no skipped users)', function () {
+    $hold = (int) config('gems.pending_hold_days');
+    $users = collect(range(1, 7))->map(fn ($i) => e24_user_with_pending(10 * $i, $hold + 1));
+
+    $stats = app(PendingGemReleaseService::class)->run(chunk: 2);
+
+    expect($stats['candidates'])->toBe(7)
+        ->and($stats['released_users'])->toBe(7)
+        ->and($stats['released_gems'])->toBe(10 * (1 + 2 + 3 + 4 + 5 + 6 + 7));
+
+    foreach ($users as $i => $user) {
+        $wallet = e24_wallet($user);
+        expect($wallet->pending_balance)->toBe(0)
+            ->and($wallet->available_balance)->toBe(10 * ($i + 1));
+    }
+});
+
+test('E24: gems still inside the hold period stay pending', function () {
+    $hold = (int) config('gems.pending_hold_days');
+    $fresh = e24_user_with_pending(25, 0);
+    $old = e24_user_with_pending(40, $hold + 2);
+
+    app(PendingGemReleaseService::class)->run();
+
+    expect(e24_wallet($fresh)->pending_balance)->toBe(25)
+        ->and(e24_wallet($fresh)->available_balance)->toBe(0)
+        ->and(e24_wallet($old)->available_balance)->toBe(40)
+        ->and(e24_wallet($old)->pending_balance)->toBe(0);
+});
+
+test('E24: a user with one old and one recent earn releases only the old amount', function () {
+    $hold = (int) config('gems.pending_hold_days');
+    $user = e24_user_with_pending(10, $hold + 1);
+    app(GemWalletService::class)->credit($user, 5, 'solved_puzzle:recent'); // الآن => ضمن فترة التعليق
+
+    app(PendingGemReleaseService::class)->run();
+
+    expect(e24_wallet($user)->available_balance)->toBe(10)
+        ->and(e24_wallet($user)->pending_balance)->toBe(5);
+});
+
+test('E24: running the release twice is idempotent (second run releases nothing and writes no transaction)', function () {
+    $hold = (int) config('gems.pending_hold_days');
+    $user = e24_user_with_pending(30, $hold + 1);
+
+    $first = app(PendingGemReleaseService::class)->run();
+    $txAfterFirst = CurrencyTransaction::where('user_id', $user->id)->where('type', CurrencyTransaction::TYPE_RELEASE_AVAILABLE)->count();
+    $second = app(PendingGemReleaseService::class)->run();
+
+    expect($first['released_gems'])->toBe(30)
+        ->and($second['released_gems'])->toBe(0)
+        ->and($second['candidates'])->toBe(0)
+        ->and(CurrencyTransaction::where('user_id', $user->id)->where('type', CurrencyTransaction::TYPE_RELEASE_AVAILABLE)->count())->toBe($txAfterFirst)
+        ->and(e24_wallet($user)->available_balance)->toBe(30);
+});
+
+test('E24: the release never exceeds what is actually pending (wallet authority clamps it)', function () {
+    $hold = (int) config('gems.pending_hold_days');
+    $user = e24_user_with_pending(50, $hold + 1);
+    // جزء من المعلّق استُهلك/عُدِّل خارج المهمة: الرصيد المعلّق الفعلي أقل من مجموع earn_pending القديم.
+    e24_wallet($user)->update(['pending_balance' => 20]);
+
+    app(PendingGemReleaseService::class)->run();
+
+    expect(e24_wallet($user)->pending_balance)->toBe(0)
+        ->and(e24_wallet($user)->available_balance)->toBe(20);
+});
+
+test('E24: aggregate queries are per chunk, not per user (2 grouped sums per chunk)', function () {
+    $hold = (int) config('gems.pending_hold_days');
+    foreach (range(1, 6) as $i) {
+        e24_user_with_pending(10, $hold + 1);
+    }
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    app(PendingGemReleaseService::class)->run(chunk: 3);
+    $sums = collect(DB::getQueryLog())->filter(fn ($q) => str_contains(strtolower($q['query']), 'sum(amount)'))->count();
+    DB::disableQueryLog();
+
+    // 6 مستخدمين، دفعتان => استعلاما مجموع لكل دفعة = 4 (كان 12: اثنان لكل مستخدم).
+    expect($sums)->toBe(4);
+});
+
+test('E24: the scheduled task is registered once under its stable name and delegates to the service', function () {
+    $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
+        ->filter(fn ($e) => $e->description === 'release-pending-gems');
+
+    expect($events)->toHaveCount(1)
+        ->and($events->first()->expression)->toBe('0 0 * * *')
+        ->and($events->first()->withoutOverlapping)->toBeTrue();
+});
+```
+
+### `tests/Feature/PerformanceE24/PlatformSettingsPerfTest.php`
+
+```php
+<?php
+
+use App\Models\PlatformSetting;
+use App\Models\User;
+use App\Services\PlatformSettingsService;
+use Illuminate\Cache\Events\CacheHit;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Storage;
+
+/**
+ * E24 - إعدادات المنصة: قراءة الكاش مرة لكل طلب GET بدل عشرات المرات، إبطال فوري عند أي كاتب، وروابط الهوية البصرية بلا فحص ملف لكل صفحة.
+ */
+test('E24: one page render reads the settings cache entry once, not once per setting', function () {
+    $this->get('/')->assertOk(); // يملأ الكاش
+
+    $hits = 0;
+    Event::listen(CacheHit::class, function (CacheHit $e) use (&$hits) {
+        if ($e->key === 'platform_settings.all') {
+            $hits++;
+        }
+    });
+
+    $this->get('/')->assertOk();
+
+    expect($hits)->toBeLessThanOrEqual(1);
+});
+
+test('E24: saving through the service is visible on the very next request', function () {
+    $admin = User::factory()->create();
+    $this->get('/')->assertOk(); // يملأ الكاش بالقيم الافتراضية
+
+    app(PlatformSettingsService::class)->setMany('general', ['site_name' => 'اسم جديد E24'], $admin);
+
+    $this->get('/')->assertOk()->assertSee('اسم جديد E24');
+});
+
+test('E24: writing the model directly (seeder/tinker/other code) also invalidates the cache', function () {
+    $this->get('/')->assertOk();
+
+    PlatformSetting::create(['group' => 'general', 'key' => 'site_name', 'value' => 'كاتب مباشر', 'type' => 'string']);
+    $this->get('/')->assertOk()->assertSee('كاتب مباشر');
+
+    PlatformSetting::where('key', 'site_name')->first()->delete();
+    $this->get('/')->assertOk()->assertDontSee('كاتب مباشر');
+});
+
+test('E24: a missing platform_settings table still degrades to defaults (unchanged behavior)', function () {
+    \Illuminate\Support\Facades\Schema::drop('platform_settings');
+
+    expect(app(PlatformSettingsService::class)->get('general', 'site_name'))->toBe(config('platform.general.site_name.default'));
+});
+
+test('E24: branding URLs resolve only for files that really exist, and a path change is picked up at once', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('branding/logo-a.png', 'x');
+    $svc = app(PlatformSettingsService::class);
+
+    $svc->setMany('branding', ['logo_main' => 'branding/logo-a.png', 'favicon' => 'branding/missing.ico']);
+    $urls = $svc->brandingUrls();
+
+    expect($urls['logo_main'])->toBe(Storage::url('branding/logo-a.png'))
+        ->and($urls['favicon'])->toBeNull()
+        ->and($urls['social_share_image'])->toBeNull();
+
+    Storage::disk('public')->put('branding/logo-b.png', 'y');
+    $svc->setMany('branding', ['logo_main' => 'branding/logo-b.png']);
+
+    expect($svc->brandingUrls()['logo_main'])->toBe(Storage::url('branding/logo-b.png'));
+});
+
+test('E24: the layout renders the cached favicon/logo URLs exactly as the old inline checks did', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('branding/fav.png', 'x');
+    app(PlatformSettingsService::class)->setMany('branding', ['favicon' => 'branding/fav.png']);
+
+    $this->get('/')->assertOk()->assertSee('<link rel="icon" href="'.Storage::url('branding/fav.png').'">', false);
+});
+
+test('E24: with a zero TTL the file check is live (no caching)', function () {
+    config(['performance.cache.branding_urls_ttl' => 0]);
+    Storage::fake('public');
+    $svc = app(PlatformSettingsService::class);
+    $svc->setMany('branding', ['logo_main' => 'branding/late.png']);
+
+    expect($svc->brandingUrls()['logo_main'])->toBeNull();
+
+    Storage::disk('public')->put('branding/late.png', 'x');
+
+    expect($svc->brandingUrls()['logo_main'])->toBe(Storage::url('branding/late.png'));
+});
+```
+
+### `tests/Feature/PerformanceE24/QueryCeilingTest.php`
+
+```php
+<?php
+
+require_once __DIR__.'/../Chat/ChatTestHelpers.php';
+
+use App\Models\Campaign;
+use App\Models\CampaignGate;
+use App\Models\CampaignStage;
+use App\Models\CampaignStep;
+use App\Models\ChatMessage;
+use App\Models\Season;
+use App\Models\User;
+use App\Models\UserCampaignProgress;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * E24 - سقوف الاستعلامات: عدد استعلامات الصفحة **لا يتبع** حجم البيانات المعروضة (لا N+1).
+ * لا نختبر أزمنة (غير حتمية)؛ نختبر ثبات العدد بين حجم صغير وحجم أكبر بكثير، فيفشل الاختبار فور رجوع استعلام لكل عنصر.
+ */
+function e24_count_queries(callable $request): int
+{
+    Cache::flush(); // نفس الحالة الباردة للحالتين (كاش المستويات/الإعدادات…)
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $request();
+    $n = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    return $n;
+}
+
+/** حملة منشورة بمرحلتين وبوابة لكل مرحلة و$steps خطوة لكل بوابة، ولمستخدمٍ تقدّم جزئي. */
+function e24_playable_campaign(User $user, int $steps): array
+{
+    $campaign = Campaign::factory()->create(['is_active' => true]);
+    $season = Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]);
+
+    foreach ([1, 2] as $s) {
+        $stage = CampaignStage::factory()->create(['campaign_id' => $campaign->id, 'sort_order' => $s]);
+        $gate = CampaignGate::factory()->create(['campaign_stage_id' => $stage->id, 'sort_order' => 1]);
+
+        foreach (range(1, $steps) as $n) {
+            $step = ($n % 2 === 0 ? CampaignStep::factory()->puzzle() : CampaignStep::factory())->create(['campaign_gate_id' => $gate->id, 'sort_order' => $n]);
+
+            if ($s === 1 && $n === 1) {
+                UserCampaignProgress::factory()->create(['user_id' => $user->id, 'campaign_step_id' => $step->id, 'started_at' => now(), 'completed_at' => now()]);
+            }
+        }
+    }
+
+    return [$campaign, $season];
+}
+
+test('E24: the campaign page runs the same number of queries for 2 steps per gate as for 12', function () {
+    $small = (function () {
+        $user = User::factory()->create();
+        [$campaign] = e24_playable_campaign($user, 2);
+
+        return e24_count_queries(fn () => $this->actingAs($user)->get(route('campaigns.show', $campaign))->assertOk());
+    })->call($this);
+
+    $large = (function () {
+        $user = User::factory()->create();
+        [$campaign] = e24_playable_campaign($user, 12);
+
+        return e24_count_queries(fn () => $this->actingAs($user)->get(route('campaigns.show', $campaign))->assertOk());
+    })->call($this);
+
+    expect($large)->toBeLessThanOrEqual($small + 2);
+});
+
+test('E24: the season page runs the same number of queries for 2 steps per gate as for 12', function () {
+    $small = (function () {
+        $user = User::factory()->create();
+        [, $season] = e24_playable_campaign($user, 2);
+
+        return e24_count_queries(fn () => $this->actingAs($user)->get(route('seasons.show', $season))->assertOk());
+    })->call($this);
+
+    $large = (function () {
+        $user = User::factory()->create();
+        [, $season] = e24_playable_campaign($user, 12);
+
+        return e24_count_queries(fn () => $this->actingAs($user)->get(route('seasons.show', $season))->assertOk());
+    })->call($this);
+
+    expect($large)->toBeLessThanOrEqual($small + 2);
+});
+
+test('E24: the global chat page runs the same number of queries for 3 messages as for 40 messages from many senders', function () {
+    $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+    $reader = e16User();
+    $thread = chatThreads()->global();
+
+    $seed = function (int $messages) use ($thread) {
+        foreach (range(1, $messages) as $i) {
+            (new ChatMessage)->forceFill(['chat_thread_id' => $thread->id, 'sender_id' => e16User()->id, 'body' => 'رسالة '.$i])->save();
+        }
+    };
+
+    $seed(3);
+    $small = e24_count_queries(fn () => $this->actingAs($reader)->get(route('community.chat'))->assertOk());
+
+    $seed(37);
+    $large = e24_count_queries(fn () => $this->actingAs($reader)->get(route('community.chat'))->assertOk());
+
+    expect($large)->toBeLessThanOrEqual($small + 1);
+});
+
+test('E24: the direct chat page runs the same number of queries for 3 messages as for 40', function () {
+    $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+    [$a, $b] = chatFriends();
+
+    $small = null;
+
+    foreach (range(1, 3) as $i) {
+        chatDm($this, $i % 2 ? $a : $b, $i % 2 ? $b : $a, 'رسالة '.$i)->assertSuccessful();
+    }
+    $small = e24_count_queries(fn () => $this->actingAs($a)->get(route('messages.direct', $b))->assertOk());
+
+    foreach (range(4, 40) as $i) {
+        $thread = chatThreads()->directOrCreate($a, $b);
+        (new ChatMessage)->forceFill(['chat_thread_id' => $thread->id, 'sender_id' => $i % 2 ? $a->id : $b->id, 'body' => 'رسالة '.$i])->save();
+    }
+    $large = e24_count_queries(fn () => $this->actingAs($a)->get(route('messages.direct', $b))->assertOk());
+
+    expect($large)->toBeLessThanOrEqual($small + 1);
+});
+```
+
+### `tests/Feature/PerformanceE24/ReliabilityConfigTest.php`
+
+```php
+<?php
+
+use App\Jobs\Concerns\BoundedRetries;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Queue\ShouldQueue;
+
+/**
+ * E24 - حدود الموثوقية كإعدادات ثابتة (لا أزمنة): تفشل فورًا إن عاد أحد الأخطار الذي أصلحناه.
+ */
+function e24_job_classes(): array
+{
+    $classes = [];
+
+    foreach (glob(app_path('Jobs/*.php')) as $file) {
+        $class = 'App\\Jobs\\'.basename($file, '.php');
+        if (class_exists($class) && is_subclass_of($class, ShouldQueue::class)) {
+            $classes[] = $class;
+        }
+    }
+
+    return $classes;
+}
+
+test('E24: there are queued jobs and every one of them uses the bounded-retry policy', function () {
+    $classes = e24_job_classes();
+
+    expect($classes)->not->toBeEmpty();
+
+    foreach ($classes as $class) {
+        expect(in_array(BoundedRetries::class, class_uses($class), true))->toBeTrue("{$class} must use BoundedRetries");
+    }
+});
+
+test('E24: a job timeout is always below the queue retry_after (no duplicate pickup of a still-running job)', function () {
+    $retryAfters = collect(['database', 'redis', 'beanstalkd'])
+        ->map(fn ($name) => config("queue.connections.{$name}.retry_after"))
+        ->filter()
+        ->all();
+
+    expect($retryAfters)->not->toBeEmpty();
+
+    foreach (e24_job_classes() as $class) {
+        $job = (new ReflectionClass($class))->newInstanceWithoutConstructor();
+
+        expect($job->failOnTimeout)->toBeTrue("{$class} must fail on timeout");
+
+        foreach ($retryAfters as $retryAfter) {
+            expect($job->timeout)->toBeLessThan((int) $retryAfter, "{$class} timeout must be below retry_after");
+        }
+    }
+});
+
+test('E24: job tries are finite and the backoff is non-empty and non-decreasing', function () {
+    foreach (e24_job_classes() as $class) {
+        $job = (new ReflectionClass($class))->newInstanceWithoutConstructor();
+        $backoff = $job->backoff();
+
+        expect($job->tries)->toBeGreaterThanOrEqual(1)->toBeLessThanOrEqual(10)
+            ->and($backoff)->not->toBeEmpty()
+            ->and($backoff)->toBe(collect($backoff)->sort()->values()->all());
+    }
+});
+
+test('E24: the realtime HTTP client to Reverb is bounded so a hung broadcaster cannot hold a PHP worker for 30 seconds', function () {
+    $options = config('broadcasting.connections.reverb.client_options');
+
+    expect((float) $options['connect_timeout'])->toBeGreaterThan(0)->toBeLessThanOrEqual(5)
+        ->and((float) $options['timeout'])->toBeGreaterThan(0)->toBeLessThanOrEqual(10)
+        ->and((float) config('broadcasting.connections.reverb.options.timeout'))->toBeLessThanOrEqual(10);
+});
+
+test('E24: every scheduled task has a bounded overlap lock (never the 24h default) and is single-server by default', function () {
+    $events = collect(app(Schedule::class)->events());
+
+    expect($events)->not->toBeEmpty();
+
+    foreach ($events as $event) {
+        $name = $event->description ?: $event->command;
+
+        expect($event->withoutOverlapping)->toBeTrue("{$name} must use withoutOverlapping")
+            ->and($event->expiresAt)->toBeLessThanOrEqual(720, "{$name} lock must expire within 12h")
+            ->and($event->onOneServer)->toBeTrue("{$name} must be onOneServer()");
+    }
+});
+
+test('E24: performance defaults keep product behavior and never cache forever', function () {
+    expect(config('performance.device_sighting.throttle_seconds'))->toBeGreaterThan(0)
+        ->and(config('performance.scheduler.one_server'))->toBeTrue()
+        ->and(config('performance.observability.request_id'))->toBeTrue()
+        ->and(config('performance.observability.slow_request_ms'))->toBeGreaterThan(0);
+
+    foreach (config('performance.cache') as $key => $ttl) {
+        expect($ttl)->toBeGreaterThan(0, "{$key} must be positive")->toBeLessThanOrEqual(86400, "{$key} must not be effectively forever");
+    }
+});
+```
+
+### `tests/Feature/PerformanceE24/RequestMemoTest.php`
+
+```php
+<?php
+
+use App\Support\RequestMemo;
+use Illuminate\Support\Facades\Route;
+
+/**
+ * E24 - RequestMemo: ذاكرة طلب GET واحد فقط. لا تسرّب بين الطلبات ولا بين المستخدمين، ولا تعمل على الكتابة ولا خارج الطلب.
+ */
+beforeEach(function () {
+    Route::middleware('web')->get('/_e24/memo', function () {
+        $calls = 0;
+        $resolve = function () use (&$calls) {
+            $calls++;
+
+            return 'v'.$calls;
+        };
+
+        return response()->json([RequestMemo::remember('k', $resolve), RequestMemo::remember('k', $resolve), $calls]);
+    });
+
+    Route::middleware('web')->post('/_e24/memo', function () {
+        $calls = 0;
+        $resolve = function () use (&$calls) {
+            $calls++;
+
+            return 'v'.$calls;
+        };
+
+        return response()->json([RequestMemo::remember('k', $resolve), RequestMemo::remember('k', $resolve), $calls]);
+    })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
+    Route::middleware('web')->get('/_e24/memo-user', function () {
+        $user = auth()->user();
+
+        return response()->json(['who' => RequestMemo::remember('who.'.$user->getKey(), fn () => $user->name)]);
+    });
+
+    Route::middleware('web')->get('/_e24/memo-forget', function () {
+        $n = 0;
+        RequestMemo::remember('grp.a', function () use (&$n) { return ++$n; });
+        RequestMemo::remember('grp.b', function () use (&$n) { return ++$n; });
+        RequestMemo::forget('grp.');
+        RequestMemo::remember('grp.a', function () use (&$n) { return ++$n; });
+
+        return response()->json(['n' => $n]);
+    });
+});
+
+test('E24: inside a GET request the resolver runs once', function () {
+    $this->getJson('/_e24/memo')->assertOk()->assertExactJson(['v1', 'v1', 1]);
+});
+
+test('E24: the next request starts with an empty memo (nothing leaks between requests)', function () {
+    $this->getJson('/_e24/memo')->assertExactJson(['v1', 'v1', 1]);
+    $this->getJson('/_e24/memo')->assertExactJson(['v1', 'v1', 1]);
+});
+
+test('E24: a write request (POST) is never memoized - every read hits the source', function () {
+    $this->postJson('/_e24/memo')->assertOk()->assertExactJson(['v1', 'v2', 2]);
+});
+
+test('E24: outside an HTTP route (services called directly, console, queue) nothing is stored', function () {
+    $n = 0;
+    $a = RequestMemo::remember('x', function () use (&$n) { return ++$n; });
+    $b = RequestMemo::remember('x', function () use (&$n) { return ++$n; });
+
+    expect($a)->toBe(1)->and($b)->toBe(2);
+});
+
+test('E24: forget(prefix) drops only the matching keys', function () {
+    $this->getJson('/_e24/memo-forget')->assertOk()->assertExactJson(['n' => 3]);
+});
+
+test('E24: user-scoped keys do not leak between two users served one after the other', function () {
+    $a = \App\Models\User::factory()->create(['name' => 'أولى']);
+    $b = \App\Models\User::factory()->create(['name' => 'ثانية']);
+
+    $this->actingAs($a)->getJson('/_e24/memo-user')->assertExactJson(['who' => 'أولى']);
+    $this->actingAs($b)->getJson('/_e24/memo-user')->assertExactJson(['who' => 'ثانية']);
+});
+
+test('E24: after a GET has been served, services called directly are NOT memoized from that finished request (stale-request guard)', function () {
+    $this->getJson('/_e24/memo')->assertExactJson(['v1', 'v1', 1]);
+
+    // app('request') ما زال مرتبطًا بآخر GET ذي مسار، لكن نافذة الذاكرة أُغلقت بانتهاء المعالجة.
+    $n = 0;
+    $a = RequestMemo::remember('x', function () use (&$n) { return ++$n; });
+    $b = RequestMemo::remember('x', function () use (&$n) { return ++$n; });
+
+    expect($a)->toBe(1)->and($b)->toBe(2);
+});
+
+test('E24: team membership read during a GET is not served stale to a later direct service call', function () {
+    require_once __DIR__.'/../Teams/TeamTestHelpers.php';
+
+    $team = e19Team();
+    $member = e19Member($team);
+    $outsider = e16User();
+
+    $this->actingAs($member)->get(route('teams.show', $team))->assertOk();
+    // بعد الطلب: انضمام جديد يجب أن يُرى فورًا بقراءة الخدمة مباشرةً (كان يعيد عضوية قديمة من ذاكرة الطلب المنتهي).
+    expect(app(\App\Services\Teams\TeamMembershipService::class)->membershipOf($outsider))->toBeNull();
+
+    e19Member($team, $outsider);
+    expect(app(\App\Services\Teams\TeamMembershipService::class)->membershipOf($outsider))->not->toBeNull();
+});
+
+test('E24: a nested request inside a request does not close the outer memo window', function () {
+    $outer = \Illuminate\Http\Request::create('/outer', 'GET');
+    $inner = \Illuminate\Http\Request::create('/inner', 'GET');
+
+    RequestMemo::begin($outer);
+    RequestMemo::begin($inner);
+    RequestMemo::end($inner);
+    RequestMemo::end($outer);
+
+    // لا شيء نشط الآن (لا مسار على الطلبين أصلًا) ولا تسرّب حالة بين الاختبارات.
+    $n = 0;
+    RequestMemo::remember('y', function () use (&$n) { return ++$n; });
+    RequestMemo::remember('y', function () use (&$n) { return ++$n; });
+    expect($n)->toBe(2);
+});
+```
+
+### `tests/Feature/PerformanceE24/TrustedProxyTest.php`
+
+```php
+<?php
+
+use Illuminate\Support\Facades\Route;
+
+/**
+ * E24 - خلف موازن حِمل: بدون TRUSTED_PROXIES لا يُصدَّق X-Forwarded-For (السلوك الحالي)، ومعه يُقرأ عنوان اللاعب الحقيقي.
+ */
+beforeEach(function () {
+    Route::middleware('web')->get('/_e24/ip', fn (\Illuminate\Http\Request $r) => response()->json(['ip' => $r->ip(), 'secure' => $r->isSecure()]));
+});
+
+function e24_trusted_config(?string $env): mixed
+{
+    $previous = getenv('TRUSTED_PROXIES');
+    $env === null ? putenv('TRUSTED_PROXIES') : putenv('TRUSTED_PROXIES='.$env);
+    unset($_ENV['TRUSTED_PROXIES'], $_SERVER['TRUSTED_PROXIES']);
+
+    try {
+        return (require base_path('config/trustedproxy.php'))['proxies'];
+    } finally {
+        $previous === false ? putenv('TRUSTED_PROXIES') : putenv('TRUSTED_PROXIES='.$previous);
+    }
+}
+
+test('E24: the config defaults to null (no behavior change), accepts a wildcard, or a trimmed list', function () {
+    expect(e24_trusted_config(null))->toBeNull()
+        ->and(e24_trusted_config(''))->toBeNull()
+        ->and(e24_trusted_config('*'))->toBe('*')
+        ->and(e24_trusted_config('10.0.0.0/8, 172.16.0.0/12 ,'))->toBe(['10.0.0.0/8', '172.16.0.0/12']);
+});
+
+test('E24: untrusted by default - a spoofed X-Forwarded-For is ignored', function () {
+    $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.5'])->withHeaders(['X-Forwarded-For' => '203.0.113.9'])
+        ->getJson('/_e24/ip')->assertJsonPath('ip', '10.0.0.5');
+});
+
+test('E24: with the proxy trusted, the real client address and scheme are used', function () {
+    config(['trustedproxy.proxies' => '*']);
+
+    $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.5'])->withHeaders(['X-Forwarded-For' => '203.0.113.9', 'X-Forwarded-Proto' => 'https'])
+        ->getJson('/_e24/ip')->assertJsonPath('ip', '203.0.113.9')->assertJsonPath('secure', true);
+});
+
+test('E24: a proxy that is not in the trusted list is still ignored', function () {
+    config(['trustedproxy.proxies' => ['192.168.50.0/24']]);
+
+    $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.5'])->withHeaders(['X-Forwarded-For' => '203.0.113.9'])
+        ->getJson('/_e24/ip')->assertJsonPath('ip', '10.0.0.5');
+});
+```
+
+### `tools/load/README.md`
+
+````markdown
+# أدوات الاختبار الحِملي (E24)
+
+سكربتات [k6](https://k6.io) لقياس كلفة التصفح على النسخة **المحلية أو staging مخصّص**. هذه أدوات قياس، وليست إثباتًا لسعة الإنتاج.
+
+> **تحذير:** لا تشغّل هذه السكربتات على الإنتاج الحقيقي إطلاقًا. `lib.js` يرفض أي مضيف لا يبدو محليًا
+> (`localhost` / `127.0.0.1` / `*.test` / `*.local`) ما لم تضف `-e ALLOW_NON_LOCAL=yes` صراحةً لبيئة staging مخصّصة.
+
+## الحالة الصادقة لما نُفِّذ
+
+- السكربتات **كُتبت وفُحصت صياغتها** (`node --check`) فقط.
+- **لم تُشغَّل** ضمن عمل E24 لأن k6 غير متاح في بيئة التطوير السحابية المعزولة (لا يمكن تنزيل الملف التنفيذي).
+- لذلك لا توجد أرقام k6. أُجري بدلًا منها اختبار محلي صغير بمولّد مؤقت (5 و25 مستخدمًا)؛ نتائجه وقيوده في `docs/performance-e24.md` §12. القياسات الموثّقة في `docs/performance-e24.md` هي
+  قياسات **طلب واحد لكل عملية PHP** (عدد الاستعلامات، زمن قاعدة البيانات، الذاكرة) وهي صالحة للمقارنة قبل/بعد فقط.
+- أي نتيجة تحصل عليها من جهازك ستكون **محكومة بجهازك** (CPU/قرص/SQLite) وليست مؤشرًا على الإنتاج.
+
+## المتطلبات
+
+1. تثبيت k6: <https://grafana.com/docs/k6/latest/set-up/install-k6/> (على Windows: `winget install k6`).
+2. تطبيق يعمل محليًا مع بيانات اصطناعية:
+
+```powershell
+php artisan migrate
+php artisan performance:seed small      # 1000 مستخدم perf1..perf1000@perf.ahjiyat.test (local/testing فقط، إضافة فقط)
+php artisan serve                       # أو الاستضافة المحلية المعتادة
+```
+
+3. للحذف بعد الانتهاء (يحذف ما زرعه الأمر فقط ولا يمسّ بيانات QA):
+
+```powershell
+php artisan performance:seed --purge
+```
+
+## التشغيل
+
+```powershell
+# دخان للضيوف (5 VU، دقيقة): الصفحات العامة + /up + /ready
+k6 run -e BASE_URL=http://127.0.0.1:8000 tools/load/smoke.js
+
+# رحلات مستخدمين مسجّلين (قراءة فقط)
+k6 run -e PROFILE=smoke -e BASE_URL=http://127.0.0.1:8000 tools/load/journeys.js   # 5 VU
+k6 run -e PROFILE=light -e BASE_URL=http://127.0.0.1:8000 tools/load/journeys.js   # 25 VU
+```
+
+الملفات `s50` / `s100` / `s500` / `s1000` **معدّة ولم تُشغَّل**، وهي مخصّصة لبيئة staging مستقلة ومراقَبة
+(راجع «ما قبل أي اختبار كبير» أدناه). لا تُشغَّل على جهاز تطوير.
+
+## ما تقيسه
+
+- `page_ms{page:...}`: زمن الصفحة بحسب نوعها (home / puzzles / leaderboard / notifications / wallet / chat).
+- `app_5xx`: نسبة استجابات 5xx (أي 5xx فشل حقيقي).
+- `login_ok`: نجاح تسجيل الدخول عبر النموذج الحقيقي (CSRF حقيقي).
+- العتبات (thresholds) تقريبية للنسخة المحلية؛ ليست التزامات خدمة.
+
+## ما لا تفعله عمدًا
+
+- لا تحلّ أحجيات ولا تمنح جواهر ولا تشتري ولا ترسل رسائل: هذه كتابات تغيّر الاقتصاد/الاحتيال، وخارج نطاق «كلفة التصفح».
+- لا تعطّل أي حماية (CSRF، حدود المعدّل، رؤوس الأمان). تسجيل الدخول الناجح لا يستهلك حد المحاولات الفاشلة.
+- لا تحاكي اتصالات WebSocket (Reverb): اختبرها بأداة مخصّصة على staging (انظر `docs/scaling-architecture.md`).
+
+## ما قبل أي اختبار كبير (staging)
+
+1. بيئة staging **منفصلة** بقاعدة بيانات منفصلة وبيانات اصطناعية (`performance:seed medium --allow-large`)، بنفس إعدادات الإنتاج المقصودة
+   (Redis للكاش/الجلسات/الطوابير، PHP-FPM بعدد عمّال محدد، OPcache مفعّل، `APP_DEBUG=false`).
+2. مراقبة أثناء الاختبار: CPU/ذاكرة الخوادم، عدد اتصالات قاعدة البيانات مقابل `max_connections`، الاستعلامات البطيئة، عمق الطابور،
+   ذاكرة Redis، وأخطاء `/ready`.
+3. مولّد الحِمل نفسه لا يجب أن يكون عنق الزجاجة (CPU/شبكة). فوق ~500 VU استعمل أكثر من مولّد.
+4. ابدأ بـ smoke ثم light ثم ارفع تدريجيًا؛ أوقف عند أول ارتفاع في 5xx أو في عمق الطابور أو في اتصالات قاعدة البيانات.
+5. سجّل النتائج باسم الجهاز والإعدادات. رقم بلا إعدادات لا قيمة له.
+
+## تفسير النتائج بإنصاف
+
+- «500 VU» ليس «500 مستخدم متزامن حقيقي»: مستخدم حقيقي يتوقف للتفكير (think time)؛ هذه السكربتات تحاكيه بنوم عشوائي 1–6 ثوانٍ.
+- مليون مستخدم **مسجّل** لا يعني مليون **متزامن**؛ المتزامنون عادةً نسبة ضئيلة. السعة تُقدَّر من المتزامنين وطلبات الثانية، لا من المسجّلين.
+- نجاح اختبار محلي لا يثبت سعة الإنتاج، وفشله على جهاز ضعيف لا يثبت ضعف التطبيق.
+````
+
+### `tools/load/journeys.js`
+
+```javascript
+// E24 - رحلات مستخدمين مسجّلين (قراءة فقط): الرئيسية، الأحجيات، لوحة الصدارة، الإشعارات، المحفظة، الدردشة العامة (قراءة).
+// لا تنفّذ أي كتابة تغيّر الاقتصاد (لا حل أحجيات، لا مكافآت، لا شراء) - الهدف قياس كلفة التصفح لا تضخيم البيانات.
+// المتطلبات: php artisan performance:seed small  (يزرع perf1..perfN@perf.ahjiyat.test) ثم تشغيل التطبيق محليًا.
+// تشغيل:  k6 run -e PROFILE=light -e BASE_URL=http://127.0.0.1:8000 tools/load/journeys.js
+// الملفات: smoke(5) | light(25) | s50 | s100 | s500 | s1000.  ما فوق light يُشغَّل على staging مخصّص فقط (انظر README).
+import { sleep } from 'k6';
+import { assertSafeTarget, login, visit, USERS } from './lib.js';
+
+const PROFILES = {
+  smoke: [{ duration: '20s', target: 5 }, { duration: '40s', target: 5 }, { duration: '10s', target: 0 }],
+  light: [{ duration: '30s', target: 25 }, { duration: '2m', target: 25 }, { duration: '20s', target: 0 }],
+  s50: [{ duration: '1m', target: 50 }, { duration: '5m', target: 50 }, { duration: '30s', target: 0 }],
+  s100: [{ duration: '2m', target: 100 }, { duration: '5m', target: 100 }, { duration: '1m', target: 0 }],
+  s500: [{ duration: '5m', target: 500 }, { duration: '10m', target: 500 }, { duration: '2m', target: 0 }],
+  s1000: [{ duration: '10m', target: 1000 }, { duration: '10m', target: 1000 }, { duration: '3m', target: 0 }],
+};
+
+const profile = __ENV.PROFILE || 'smoke';
+
+export const options = {
+  scenarios: { journeys: { executor: 'ramping-vus', startVUs: 0, stages: PROFILES[profile] || PROFILES.smoke, gracefulRampDown: '30s' } },
+  thresholds: {
+    http_req_failed: ['rate<0.02'],
+    app_5xx: ['rate<0.005'],
+    login_ok: ['rate>0.98'],
+    'page_ms{page:home}': ['p(95)<1500'],
+    'page_ms{page:puzzles}': ['p(95)<1500'],
+    'page_ms{page:leaderboard}': ['p(95)<1500'],
+  },
+};
+
+export function setup() {
+  assertSafeTarget();
+}
+
+let loggedIn = false;
+
+export default function () {
+  if (!loggedIn) {
+    // مستخدم ثابت لكل VU (يتوزّع على المستخدمين المزروعين)؛ كوكيز الجلسة تبقى طوال الاختبار.
+    loggedIn = login(((__VU - 1) % USERS) + 1);
+    if (!loggedIn) {
+      sleep(5);
+      return;
+    }
+  }
+
+  const roll = Math.random();
+  visit('/', 'home');
+  sleep(1 + Math.random() * 3);
+
+  if (roll < 0.35) {
+    visit('/puzzles', 'puzzles');
+  } else if (roll < 0.55) {
+    visit('/leaderboard', 'leaderboard');
+  } else if (roll < 0.70) {
+    visit('/notifications', 'notifications');
+  } else if (roll < 0.82) {
+    visit('/wallet', 'wallet');
+  } else {
+    visit('/community/chat', 'chat');
+  }
+
+  sleep(2 + Math.random() * 4);
+}
+```
+
+### `tools/load/lib.js`
+
+```javascript
+// E24 - مساعدات مشتركة لسكربتات k6. لا تحوي أي سرّ؛ كلمة مرور المستخدمين الاصطناعيين معروفة لأنها لبيانات performance:seed فقط.
+import http from 'k6/http';
+import { check } from 'k6';
+import { Rate, Trend } from 'k6/metrics';
+
+export const BASE = (__ENV.BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
+export const PASSWORD = __ENV.PERF_PASSWORD || 'perf-seed-not-a-real-password';
+export const USERS = parseInt(__ENV.PERF_USERS || '1000', 10); // يجب ألا يتجاوز عدد من زرعهم performance:seed
+
+export const app5xx = new Rate('app_5xx');
+export const loginOk = new Rate('login_ok');
+export const pageMs = new Trend('page_ms', true);
+
+/**
+ * حارس أمان: لا يعمل ضد مضيف يبدو إنتاجيًا. المسموح تلقائيًا: localhost / 127.0.0.1 / *.test / *.local / *.localhost.
+ * أي مضيف آخر (staging) يتطلب ALLOW_NON_LOCAL=yes صراحةً. لا تشغّل أبدًا على الإنتاج الحقيقي.
+ */
+export function assertSafeTarget() {
+  const host = BASE.replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
+  const local = host === 'localhost' || host === '127.0.0.1' || /\.(test|local|localhost)$/.test(host);
+
+  if (!local && __ENV.ALLOW_NON_LOCAL !== 'yes') {
+    throw new Error(`Refusing to load-test ${host}: not a local/test host. Set ALLOW_NON_LOCAL=yes only for a dedicated staging environment (never production).`);
+  }
+}
+
+export function userEmail(n) {
+  return `perf${n}@perf.ahjiyat.test`;
+}
+
+/** تسجيل دخول عبر النموذج الحقيقي (CSRF حقيقي) - الكوكيز تُحفظ تلقائيًا لكل VU. */
+export function login(n) {
+  const page = http.get(`${BASE}/login`);
+  const m = page.body && page.body.match(/name="_token"\s+value="([^"]+)"/);
+
+  if (!m) {
+    loginOk.add(false);
+    return false;
+  }
+
+  const res = http.post(`${BASE}/login`, { _token: m[1], email: userEmail(n), password: PASSWORD }, { redirects: 5 });
+  const ok = check(res, { 'login ends on an authenticated page': (r) => r.status === 200 && !/name="password"/.test(r.body || '') });
+  loginOk.add(ok);
+
+  return ok;
+}
+
+/** GET مع تسجيل زمن الصفحة وفحص 5xx (أي 5xx فشل حقيقي حتى لو سمحت عتبة الأخطاء العامة). */
+export function visit(path, tag) {
+  const res = http.get(`${BASE}${path}`, { tags: { page: tag || path } });
+  pageMs.add(res.timings.duration, { page: tag || path });
+  app5xx.add(res.status >= 500);
+  check(res, { [`${tag || path} is 2xx/3xx`]: (r) => r.status < 400 });
+
+  return res;
+}
+```
+
+### `tools/load/smoke.js`
+
+```javascript
+// E24 - اختبار دخان للضيوف: 5 مستخدمين افتراضيين لدقيقة. يتحقق من أن الصفحات العامة وفحصَي الحياة/الجاهزية تعمل بلا 5xx.
+// تشغيل:  k6 run -e BASE_URL=http://127.0.0.1:8000 tools/load/smoke.js
+import { sleep } from 'k6';
+import { assertSafeTarget, visit } from './lib.js';
+
+export const options = {
+  scenarios: { smoke: { executor: 'constant-vus', vus: Number(__ENV.VUS || 5), duration: __ENV.DURATION || '1m' } },
+  thresholds: {
+    http_req_failed: ['rate<0.01'],
+    app_5xx: ['rate==0'],
+    http_req_duration: ['p(95)<2000'], // عتبة تقريبية للنسخة المحلية؛ ليست التزامًا للإنتاج
+  },
+};
+
+export function setup() {
+  assertSafeTarget();
+}
+
+export default function () {
+  visit('/', 'home');
+  visit('/puzzles', 'puzzles');
+  visit('/leaderboard', 'leaderboard');
+  visit('/up', 'up');
+  visit('/ready', 'ready');
+  sleep(1 + Math.random() * 2); // زمن تفكير واقعي
+}
+```
+
+## B) ملفات معدَّلة (patch دقيق لكل ملف؛ النسخة الكاملة داخل الـzip)
+
+### `app/Filament/Pages/OperationsCenter.php`
+
+```diff
+diff --git a/app/Filament/Pages/OperationsCenter.php b/app/Filament/Pages/OperationsCenter.php
+index dba1c44..1ea1553 100644
+--- a/app/Filament/Pages/OperationsCenter.php
++++ b/app/Filament/Pages/OperationsCenter.php
+@@ -9,6 +9,9 @@
+ use Filament\Pages\Page;
+ 
+ /**
++ * E24: كل getter هنا يُستدعى من القالب مرتين إلى خمس مرات بالعرض الواحد (شرط ثم قيمة…) وكان يعيد الاستعلام نفسه كل مرة (32 استعلامًا، 15 مكرّرة).
++ * once() تحفظ النتيجة لكل نسخة صفحة (أي لكل طلب/تحديث Livewire) فقط؛ لا أثر بين الطلبات ولا بين المشرفين. الصلاحيات تُقيَّم كما كانت داخل الإغلاق.
++ *
+  * "ما الذي يحتاج تدخل Admin الآن؟" - ليست Analytics، فقط طوابير إجراءات
+  * ونشاط حديث. كل قسم يحترم صلاحيته الخاصة.
+  */
+@@ -40,80 +43,100 @@ public function mount(): void
+ 
+     public function getPendingRedemptionsCount(): ?int
+     {
+-        return auth()->user()?->can('redemptions.view')
+-            ? RedemptionRequest::where('status', RedemptionRequest::STATUS_PENDING)->count()
+-            : null;
++        return once(function () {
++            return auth()->user()?->can('redemptions.view')
++                ? RedemptionRequest::where('status', RedemptionRequest::STATUS_PENDING)->count()
++                : null;
++        });
+     }
+ 
+     /** E10 (بند 138): طلبات شراء متجر يدوية بانتظار إنجاز الإدارة. */
+     public function getPendingStoreFulfillmentCount(): ?int
+     {
+-        return auth()->user()?->can('store.purchases.view')
+-            ? \App\Models\StorePurchase::where('status', \App\Models\StorePurchase::STATUS_PENDING_FULFILLMENT)->count()
+-            : null;
++        return once(function () {
++            return auth()->user()?->can('store.purchases.view')
++                ? \App\Models\StorePurchase::where('status', \App\Models\StorePurchase::STATUS_PENDING_FULFILLMENT)->count()
++                : null;
++        });
+     }
+ 
+     /** E20: مباريات فرق مقبولة تجاوزت مهلتها بلا اعتماد، وبطولات انتهت بلا اعتماد (يعالجها الأمر الدوري؛ ظهورها هنا يعني تأخره). */
+     public function getOverdueTeamCompetitionCount(): ?int
+     {
+-        $user = auth()->user();
++        return once(function () {
++            $user = auth()->user();
+ 
+-        if (! ($user?->can('team_challenges.view') || $user?->can('team_championships.view'))) {
+-            return null;
+-        }
++            if (! ($user?->can('team_challenges.view') || $user?->can('team_championships.view'))) {
++                return null;
++            }
+ 
+-        return \App\Models\TeamChallenge::query()->where('status', 'accepted')->where('play_ends_at', '<=', now()->subHour())->count()
+-            + \App\Models\TeamChampionship::query()->where('status', 'published')->where('ends_at', '<=', now()->subHour())->count();
++            return \App\Models\TeamChallenge::query()->where('status', 'accepted')->where('play_ends_at', '<=', now()->subHour())->count()
++                + \App\Models\TeamChampionship::query()->where('status', 'published')->where('ends_at', '<=', now()->subHour())->count();
++        });
+     }
+ 
+     /** E18: منح جوائز تنافسية فاشلة (تحتاج إعادة محاولة بالإدارة). */
+     public function getFailedCompetitiveGrantsCount(): ?int
+     {
+-        return auth()->user()?->can('competitive_events.rewards.view')
+-            ? \App\Models\CompetitiveRewardGrant::query()->where('status', \App\Models\CompetitiveRewardGrant::STATUS_FAILED)->count()
+-            : null;
++        return once(function () {
++            return auth()->user()?->can('competitive_events.rewards.view')
++                ? \App\Models\CompetitiveRewardGrant::query()->where('status', \App\Models\CompetitiveRewardGrant::STATUS_FAILED)->count()
++                : null;
++        });
+     }
+ 
+     public function getOpenFraudFlagsCount(): ?int
+     {
+-        return auth()->user()?->can('fraud.view')
+-            ? FraudFlag::where('resolved', false)->count()
+-            : null;
++        return once(function () {
++            return auth()->user()?->can('fraud.view')
++                ? FraudFlag::where('resolved', false)->count()
++                : null;
++        });
+     }
+ 
+     public function getFrozenUsersCount(): ?int
+     {
+-        return auth()->user()?->can('users.view')
+-            ? User::where('is_frozen', true)->count()
+-            : null;
++        return once(function () {
++            return auth()->user()?->can('users.view')
++                ? User::where('is_frozen', true)->count()
++                : null;
++        });
+     }
+ 
+     public function getUnverifiedUsersCount(): ?int
+     {
+-        return auth()->user()?->can('users.view')
+-            ? User::whereNull('email_verified_at')->count()
+-            : null;
++        return once(function () {
++            return auth()->user()?->can('users.view')
++                ? User::whereNull('email_verified_at')->count()
++                : null;
++        });
+     }
+ 
+     public function getRecentUsers()
+     {
+-        return auth()->user()?->can('users.view')
+-            ? User::latest()->limit(8)->get(['id', 'name', 'email', 'created_at'])
+-            : collect();
++        return once(function () {
++            return auth()->user()?->can('users.view')
++                ? User::latest()->limit(8)->get(['id', 'name', 'email', 'created_at'])
++                : collect();
++        });
+     }
+ 
+     public function getRecentFraudFlags()
+     {
+-        return auth()->user()?->can('fraud.view')
+-            ? FraudFlag::with('user:id,name')->where('resolved', false)->latest()->limit(8)->get()
+-            : collect();
++        return once(function () {
++            return auth()->user()?->can('fraud.view')
++                ? FraudFlag::with('user:id,name')->where('resolved', false)->latest()->limit(8)->get()
++                : collect();
++        });
+     }
+ 
+     public function getRecentOperationalActions()
+     {
+-        return auth()->user()?->can('operations.dashboard_view')
+-            ? OperationalAuditLog::with('actor:id,name')->latest()->limit(10)->get()
+-            : collect();
++        return once(function () {
++            return auth()->user()?->can('operations.dashboard_view')
++                ? OperationalAuditLog::with('actor:id,name')->latest()->limit(10)->get()
++                : collect();
++        });
+     }
+ 
+     protected static array $actionLabels = [
+```
+
+### `app/Http/Controllers/Api/ProgressController.php`
+
+```diff
+diff --git a/app/Http/Controllers/Api/ProgressController.php b/app/Http/Controllers/Api/ProgressController.php
+index be196d6..fafd1cd 100644
+--- a/app/Http/Controllers/Api/ProgressController.php
++++ b/app/Http/Controllers/Api/ProgressController.php
+@@ -14,13 +14,13 @@ public function show(Request $request)
+     {
+         $user = $request->user();
+         $progression = $this->levels->progressionFor($user);
+-        $nextLevel = $this->levels->nextLevelFor($user);
++        $nextLevel = $this->levels->nextLevelFor($user, $progression);
+ 
+         return [
+             'current_level' => $progression->current_level,
+             'total_xp' => $progression->total_xp,
+             'next_level_xp' => $nextLevel?->xp_required_total,
+-            'progress_percent' => $this->levels->progressPercentFor($user),
++            'progress_percent' => $this->levels->progressPercentFor($user, $progression),
+             'achievement_count' => $user->achievementProgress()->whereNotNull('unlocked_at')->count(),
+         ];
+     }
+```
+
+### `app/Http/Controllers/CampaignController.php`
+
+```diff
+diff --git a/app/Http/Controllers/CampaignController.php b/app/Http/Controllers/CampaignController.php
+index eb95fee..42e90a4 100644
+--- a/app/Http/Controllers/CampaignController.php
++++ b/app/Http/Controllers/CampaignController.php
+@@ -35,6 +35,12 @@ public function show(Campaign $campaign)
+         $campaign->load('stages.gates.steps');
+ 
+         $user = Auth::user();
++
++        // E24: صفحة قراءة. لقطة تقدّم واحدة (5 استعلامات) + ربط العلاقات العكسية بدل استعلام/إعادة تحميل لكل خطوة وبوابة ومرحلة.
++        if ($user) {
++            $this->progress->preloadFor($user, $campaign);
++        }
++
+         $currentStep = $user ? $this->progress->currentStepFor($user, $campaign) : null;
+ 
+         $stagesView = $campaign->stages->sortBy('sort_order')->map(function ($stage) use ($user) {
+```
+
+### `app/Http/Controllers/HomeController.php`
+
+```diff
+diff --git a/app/Http/Controllers/HomeController.php b/app/Http/Controllers/HomeController.php
+index 86dc860..6832203 100644
+--- a/app/Http/Controllers/HomeController.php
++++ b/app/Http/Controllers/HomeController.php
+@@ -50,9 +50,10 @@ public function index()
+ 
+         if (auth()->check()) {
+             $myProgression = $this->levels->progressionFor(auth()->user());
+-            $myCurrentLevel = $this->levels->currentLevelFor(auth()->user());
+-            $myNextLevel = $this->levels->nextLevelFor(auth()->user());
+-            $myProgressPercent = $this->levels->progressPercentFor(auth()->user());
++            // E24: التقدّم يُقرأ مرة واحدة ويُمرَّر (كان يُعاد جلبه 6 مرات مع كل استدعاء).
++            $myCurrentLevel = $this->levels->currentLevelFor(auth()->user(), $myProgression);
++            $myNextLevel = $this->levels->nextLevelFor(auth()->user(), $myProgression);
++            $myProgressPercent = $this->levels->progressPercentFor(auth()->user(), $myProgression);
+ 
+             // E13 (بند 374): للعرض فقط - لا إنشاء صفوف تقدُّم جديدة من لوحة التحكم.
+             $dailyPeriod = $this->periods->dailyContext();
+@@ -79,6 +80,9 @@ public function index()
+                 $user = auth()->user();
+                 $campaign = $featuredSeason->campaign;
+ 
++                // E24: صفحة قراءة. لقطة تقدّم واحدة بدل استعلام لكل خطوة (كانت أكبر مصدر لاستعلامات الرئيسية).
++                $this->progress->preloadFor($user, $campaign);
++
+                 $featuredSeasonCurrentStep = $this->progress->currentStepFor($user, $campaign);
+ 
+                 $totalSteps = $campaign->stages->sum(fn ($s) => $s->gates->sum(fn ($g) => $g->steps->count()));
+```
+
+### `app/Http/Controllers/LeaderboardController.php`
+
+```diff
+diff --git a/app/Http/Controllers/LeaderboardController.php b/app/Http/Controllers/LeaderboardController.php
+index 63fd05e..7134513 100644
+--- a/app/Http/Controllers/LeaderboardController.php
++++ b/app/Http/Controllers/LeaderboardController.php
+@@ -4,14 +4,14 @@
+ 
+ use App\Models\StoreItem;
+ use App\Models\User;
++use App\Services\LeaderboardService;
+ use App\Models\UserCosmeticLoadout;
+ use App\Services\Social\FriendshipService;
+ use Illuminate\Support\Facades\Auth;
+-use Illuminate\Support\Facades\DB;
+ 
+ class LeaderboardController extends Controller
+ {
+-    public function index(FriendshipService $friendships)
++    public function index(FriendshipService $friendships, LeaderboardService $leaderboard)
+     {
+         $viewer = Auth::user();
+ 
+@@ -19,16 +19,8 @@ public function index(FriendshipService $friendships)
+         $scope = ($viewer !== null && request()->query('scope') === 'friends') ? 'friends' : 'global';
+         $friendScopeIds = $scope === 'friends' ? [...$friendships->friendIds($viewer), $viewer->id] : null;
+ 
+-        $topUsers = User::query()
+-            ->select('users.id', 'users.name', 'users.public_id', 'users.profile_visibility')
+-            ->selectRaw('COUNT(puzzle_attempts.id) as solved_count')
+-            ->join('puzzle_attempts', 'puzzle_attempts.user_id', '=', 'users.id')
+-            ->where('puzzle_attempts.is_correct', true)
+-            ->when($friendScopeIds !== null, fn ($q) => $q->whereIn('users.id', $friendScopeIds))
+-            ->groupBy('users.id', 'users.name', 'users.public_id', 'users.profile_visibility')
+-            ->orderByDesc('solved_count')
+-            ->limit(50)
+-            ->get();
++        // E24: الاستعلام الثقيل (O(كل المحاولات)) انتقل إلى LeaderboardService مع Top-N مخزَّن لفترة قصيرة؛ المعيار والعدد 50 كما كانا.
++        $topUsers = $leaderboard->topSolvers($friendScopeIds, 50);
+ 
+         $loadoutsByUser = UserCosmeticLoadout::whereIn('user_id', $topUsers->pluck('id'))
+             ->with('storeItem')
+```
+
+### `app/Http/Controllers/PlayerProgressionController.php`
+
+```diff
+diff --git a/app/Http/Controllers/PlayerProgressionController.php b/app/Http/Controllers/PlayerProgressionController.php
+index 1c266d5..8a596ef 100644
+--- a/app/Http/Controllers/PlayerProgressionController.php
++++ b/app/Http/Controllers/PlayerProgressionController.php
+@@ -16,9 +16,9 @@ public function show()
+         $user = Auth::user();
+ 
+         $progression = $this->levels->progressionFor($user);
+-        $currentLevel = $this->levels->currentLevelFor($user);
+-        $nextLevel = $this->levels->nextLevelFor($user);
+-        $progressPercent = $this->levels->progressPercentFor($user);
++        $currentLevel = $this->levels->currentLevelFor($user, $progression);
++        $nextLevel = $this->levels->nextLevelFor($user, $progression);
++        $progressPercent = $this->levels->progressPercentFor($user, $progression);
+ 
+         $allLevels = LevelDefinition::where('is_active', true)->orderBy('level_number')->get();
+ 
+```
+
+### `app/Http/Controllers/SeasonController.php`
+
+```diff
+diff --git a/app/Http/Controllers/SeasonController.php b/app/Http/Controllers/SeasonController.php
+index aa7e0de..080cb7d 100644
+--- a/app/Http/Controllers/SeasonController.php
++++ b/app/Http/Controllers/SeasonController.php
+@@ -47,6 +47,11 @@ public function show(Season $season)
+         $season->load('campaign.stages.gates.steps.puzzle');
+         $campaign = $season->campaign;
+ 
++        // E24: صفحة قراءة. لقطة تقدّم واحدة (5 استعلامات) + ربط العلاقات العكسية بدل استعلام/إعادة تحميل لكل خطوة وبوابة ومرحلة.
++        if ($user) {
++            $this->progress->preloadFor($user, $campaign);
++        }
++
+         $campaignAvailable = $this->progress->isCampaignAvailable($campaign);
+         $currentStep = $user ? $this->progress->currentStepFor($user, $campaign) : null;
+         $currentStepMissionNumber = $currentStep ? $this->progress->missionNumberFor($campaign, $currentStep) : null;
+```
+
+### `app/Jobs/ComputeTeamRankings.php`
+
+```diff
+diff --git a/app/Jobs/ComputeTeamRankings.php b/app/Jobs/ComputeTeamRankings.php
+index 863b4e8..231d451 100644
+--- a/app/Jobs/ComputeTeamRankings.php
++++ b/app/Jobs/ComputeTeamRankings.php
+@@ -13,6 +13,7 @@
+ class ComputeTeamRankings implements ShouldQueue
+ {
+     use Dispatchable, InteractsWithQueue, Queueable;
++    use \App\Jobs\Concerns\BoundedRetries;
+ 
+     public int $tries = 3;
+ 
+```
+
+### `app/Jobs/DispatchCampaignAvailableChunk.php`
+
+```diff
+diff --git a/app/Jobs/DispatchCampaignAvailableChunk.php b/app/Jobs/DispatchCampaignAvailableChunk.php
+index d021618..8e279a6 100644
+--- a/app/Jobs/DispatchCampaignAvailableChunk.php
++++ b/app/Jobs/DispatchCampaignAvailableChunk.php
+@@ -23,6 +23,7 @@
+ class DispatchCampaignAvailableChunk implements ShouldQueue
+ {
+     use Dispatchable, InteractsWithQueue, Queueable;
++    use \App\Jobs\Concerns\BoundedRetries;
+ 
+     public int $tries = 3;
+ 
+```
+
+### `app/Jobs/DispatchCompetitiveResultChunk.php`
+
+```diff
+diff --git a/app/Jobs/DispatchCompetitiveResultChunk.php b/app/Jobs/DispatchCompetitiveResultChunk.php
+index 0e3c3cf..69e35d6 100644
+--- a/app/Jobs/DispatchCompetitiveResultChunk.php
++++ b/app/Jobs/DispatchCompetitiveResultChunk.php
+@@ -15,6 +15,7 @@
+ class DispatchCompetitiveResultChunk implements ShouldQueue
+ {
+     use Dispatchable, InteractsWithQueue, Queueable;
++    use \App\Jobs\Concerns\BoundedRetries;
+ 
+     public int $tries = 3;
+ 
+```
+
+### `app/Jobs/DispatchSeasonStartedChunk.php`
+
+```diff
+diff --git a/app/Jobs/DispatchSeasonStartedChunk.php b/app/Jobs/DispatchSeasonStartedChunk.php
+index 867c423..fce5d44 100644
+--- a/app/Jobs/DispatchSeasonStartedChunk.php
++++ b/app/Jobs/DispatchSeasonStartedChunk.php
+@@ -20,6 +20,7 @@
+ class DispatchSeasonStartedChunk implements ShouldQueue
+ {
+     use Dispatchable, InteractsWithQueue, Queueable;
++    use \App\Jobs\Concerns\BoundedRetries;
+ 
+     public int $tries = 3;
+ 
+```
+
+### `app/Jobs/DispatchTeamChampionshipNotificationsChunk.php`
+
+```diff
+diff --git a/app/Jobs/DispatchTeamChampionshipNotificationsChunk.php b/app/Jobs/DispatchTeamChampionshipNotificationsChunk.php
+index babb912..fc3f83a 100644
+--- a/app/Jobs/DispatchTeamChampionshipNotificationsChunk.php
++++ b/app/Jobs/DispatchTeamChampionshipNotificationsChunk.php
+@@ -19,6 +19,7 @@
+ class DispatchTeamChampionshipNotificationsChunk implements ShouldQueue
+ {
+     use Dispatchable, InteractsWithQueue, Queueable;
++    use \App\Jobs\Concerns\BoundedRetries;
+ 
+     public int $tries = 3;
+ 
+```
+
+### `app/Jobs/DistributeCompetitiveRewardsChunk.php`
+
+```diff
+diff --git a/app/Jobs/DistributeCompetitiveRewardsChunk.php b/app/Jobs/DistributeCompetitiveRewardsChunk.php
+index 30977e2..bff1d96 100644
+--- a/app/Jobs/DistributeCompetitiveRewardsChunk.php
++++ b/app/Jobs/DistributeCompetitiveRewardsChunk.php
+@@ -17,6 +17,7 @@
+ class DistributeCompetitiveRewardsChunk implements ShouldQueue
+ {
+     use Dispatchable, InteractsWithQueue, Queueable;
++    use \App\Jobs\Concerns\BoundedRetries;
+ 
+     public int $tries = 3;
+ 
+```
+
+### `app/Jobs/EvaluateCompetitiveAchievementsChunk.php`
+
+```diff
+diff --git a/app/Jobs/EvaluateCompetitiveAchievementsChunk.php b/app/Jobs/EvaluateCompetitiveAchievementsChunk.php
+index 94208e4..162166d 100644
+--- a/app/Jobs/EvaluateCompetitiveAchievementsChunk.php
++++ b/app/Jobs/EvaluateCompetitiveAchievementsChunk.php
+@@ -15,6 +15,7 @@
+ class EvaluateCompetitiveAchievementsChunk implements ShouldQueue
+ {
+     use Dispatchable, InteractsWithQueue, Queueable;
++    use \App\Jobs\Concerns\BoundedRetries;
+ 
+     public int $tries = 3;
+ 
+```
+
+### `app/Models/LevelDefinition.php`
+
+```diff
+diff --git a/app/Models/LevelDefinition.php b/app/Models/LevelDefinition.php
+index f381108..5e51796 100644
+--- a/app/Models/LevelDefinition.php
++++ b/app/Models/LevelDefinition.php
+@@ -20,6 +20,10 @@ protected static function booted(): void
+         static::deleting(function (LevelDefinition $level) {
+             app(\App\Services\Progression\LevelDefinitionInvariantGuard::class)->enforceDeletable($level);
+         });
++
++        // E24: كاش كتالوج المستويات (للعرض فقط) يُبطَل فور أي حفظ/حذف.
++        static::saved(fn () => \App\Services\Progression\LevelService::forgetCatalog());
++        static::deleted(fn () => \App\Services\Progression\LevelService::forgetCatalog());
+     }
+ 
+     protected $fillable = [
+```
+
+### `app/Models/PlatformSetting.php`
+
+```diff
+diff --git a/app/Models/PlatformSetting.php b/app/Models/PlatformSetting.php
+index e4946ea..d22616a 100644
+--- a/app/Models/PlatformSetting.php
++++ b/app/Models/PlatformSetting.php
+@@ -18,6 +18,13 @@ class PlatformSetting extends Model
+ 
+     protected $fillable = ['group', 'key', 'value', 'type', 'updated_by'];
+ 
++    protected static function booted(): void
++    {
++        // E24: أي كاتب (الخدمة، سكربت، Seeder، Tinker) يُبطل كاش الإعدادات؛ في نشر متعدد الخوادم يكون الكاش مشتركًا (Redis) فيصل الإبطال للجميع.
++        static::saved(fn () => app(\App\Services\PlatformSettingsService::class)->forgetCache());
++        static::deleted(fn () => app(\App\Services\PlatformSettingsService::class)->forgetCache());
++    }
++
+     public function updatedBy(): BelongsTo
+     {
+         return $this->belongsTo(User::class, 'updated_by');
+```
+
+### `app/Services/CampaignProgressService.php`
+
+```diff
+diff --git a/app/Services/CampaignProgressService.php b/app/Services/CampaignProgressService.php
+index fafbd07..0755819 100644
+--- a/app/Services/CampaignProgressService.php
++++ b/app/Services/CampaignProgressService.php
+@@ -26,6 +26,90 @@ class CampaignProgressService
+ 
+     public const STATE_NOT_QUALIFIED = 'not_qualified';
+ 
++    /**
++     * E24: لقطة قراءة لتقدّم مستخدم واحد داخل حملة واحدة. تُبنى صراحةً بـpreloadFor() من صفحات **القراءة** فقط (الموسم/الحملة/الرئيسية)؛
++     * كل مسارات الكتابة (الإكمال/المحاولة/الجلسة) لا تستدعيها فتبقى تقرأ القاعدة مباشرةً كما كانت. اللقطة تحمل نفس المصادر الأصلية بالضبط
++     * (UserCampaignProgress وPuzzleAttempt وGameSession وCampaignGateQualification) بخمسة استعلامات مجمَّعة بدل استعلام لكل خطوة.
++     *
++     * @var array{user: int, completed: array<int,bool>, started: array<int,bool>, solved: array<string,bool>, attempted: array<string,bool>, sessions: array<int,list<GameSession>>, ranks: array<int,int|null>}|null
++     */
++    protected ?array $snapshot = null;
++
++    /**
++     * يحمّل الهرم (إن لزم)، ويربط العلاقات العكسية (stage->campaign / gate->stage / step->gate) بالكائنات المحمَّلة نفسها بدل أن يعيد Eloquent
++     * تحميل الحملة وهرمها كاملًا لكل استدعاء (كان السبب الجذري لـ500+ استعلام بصفحة الموسم)، ثم يبني لقطة التقدّم.
++     */
++    public function preloadFor(User $user, Campaign $campaign): void
++    {
++        $campaign->loadMissing('stages.gates.steps');
++
++        $stepIds = [];
++        $gateIds = [];
++
++        foreach ($campaign->stages as $stage) {
++            $stage->setRelation('campaign', $campaign);
++
++            foreach ($stage->gates as $gate) {
++                $gate->setRelation('stage', $stage);
++                $gateIds[] = $gate->id;
++
++                foreach ($gate->steps as $step) {
++                    $step->setRelation('gate', $gate);
++                    $stepIds[] = $step->id;
++                }
++            }
++        }
++
++        $snapshot = ['user' => (int) $user->id, 'completed' => [], 'started' => [], 'solved' => [], 'attempted' => [], 'sessions' => [], 'ranks' => []];
++
++        if ($stepIds !== []) {
++            foreach (UserCampaignProgress::where('user_id', $user->id)->whereIn('campaign_step_id', $stepIds)->get(['campaign_step_id', 'started_at', 'completed_at']) as $row) {
++                $id = (int) $row->campaign_step_id;
++                // نفس شرطي exists الأصليين: «مكتمل» = completed_at غير فارغ؛ «بدأ ولم يكتمل» = started_at غير فارغ وcompleted_at فارغ (لصف واحد على الأقل).
++                if ($row->completed_at !== null) {
++                    $snapshot['completed'][$id] = true;
++                }
++                if ($row->started_at !== null && $row->completed_at === null) {
++                    $snapshot['started'][$id] = true;
++                }
++            }
++
++            $contextType = AttemptContext::TYPE_CAMPAIGN_STEP;
++
++            foreach (PuzzleAttempt::where('user_id', $user->id)->where('context_type', $contextType)->whereIn('context_id', $stepIds)->distinct()->get(['puzzle_id', 'context_id', 'is_correct']) as $row) {
++                $key = ((int) $row->puzzle_id).':'.((int) $row->context_id);
++                $snapshot['attempted'][$key] = true;
++                if ($row->is_correct) {
++                    $snapshot['solved'][$key] = true;
++                }
++            }
++
++            foreach (GameSession::where('user_id', $user->id)->where('context_type', $contextType)->whereIn('context_id', $stepIds)->where('status', GameSession::STATUS_ACTIVE)->get() as $session) {
++                $snapshot['sessions'][(int) $session->puzzle_id.':'.(int) $session->context_id][] = $session;
++            }
++        }
++
++        if ($gateIds !== []) {
++            foreach (CampaignGateQualification::where('user_id', $user->id)->whereIn('campaign_gate_id', $gateIds)->get(['campaign_gate_id', 'rank']) as $row) {
++                $snapshot['ranks'][(int) $row->campaign_gate_id] = $row->rank;
++            }
++        }
++
++        $this->snapshot = $snapshot;
++    }
++
++    /** يُسقط اللقطة (يعيد القراءة المباشرة). يُستدعى قبل أي كتابة تقع بعد preloadFor على المثيل نفسه. */
++    public function forgetSnapshot(): void
++    {
++        $this->snapshot = null;
++    }
++
++    /** @return array<string,mixed>|null اللقطة إن كانت لهذا المستخدم، وإلا null (قراءة مباشرة). */
++    protected function snapshotFor(User $user): ?array
++    {
++        return $this->snapshot !== null && $this->snapshot['user'] === (int) $user->id ? $this->snapshot : null;
++    }
++
+     // ===================================================================
+     // Campaign Availability
+     // ===================================================================
+@@ -64,6 +148,10 @@ public function isStepCompleted(User $user, CampaignStep $step): bool
+ 
+     protected function isProgressStepCompleted(User $user, CampaignStep $step): bool
+     {
++        if (($snapshot = $this->snapshotFor($user)) !== null) {
++            return isset($snapshot['completed'][(int) $step->id]);
++        }
++
+         return UserCampaignProgress::where('user_id', $user->id)
+             ->where('campaign_step_id', $step->id)
+             ->whereNotNull('completed_at')
+@@ -76,6 +164,10 @@ protected function isPuzzleStepCompleted(User $user, CampaignStep $step): bool
+             return false;
+         }
+ 
++        if (($snapshot = $this->snapshotFor($user)) !== null) {
++            return isset($snapshot['solved'][((int) $step->puzzle_id).':'.((int) $step->id)]);
++        }
++
+         return $user->hasSolvedPuzzle($step->puzzle, $this->contextFor($step));
+     }
+ 
+@@ -94,11 +186,13 @@ public function isStepInProgress(User $user, CampaignStep $step): bool
+             // إكمال. reflection تصميم أبسط عمداً (D2): إجراء واحد (Submit) =
+             // إكمال مباشر - لا حالة "بدأ لكن لم يُرسل" مُتتبَّعة، فتبقى Available
+             // حتى الإرسال، بلا تعقيد إضافي غير مطلوب صراحة بالمواصفة.
+-            CampaignStep::KIND_NARRATIVE => UserCampaignProgress::where('user_id', $user->id)
+-                ->where('campaign_step_id', $step->id)
+-                ->whereNotNull('started_at')
+-                ->whereNull('completed_at')
+-                ->exists(),
++            CampaignStep::KIND_NARRATIVE => ($snapshot = $this->snapshotFor($user)) !== null
++                ? isset($snapshot['started'][(int) $step->id])
++                : UserCampaignProgress::where('user_id', $user->id)
++                    ->where('campaign_step_id', $step->id)
++                    ->whereNotNull('started_at')
++                    ->whereNull('completed_at')
++                    ->exists(),
+             CampaignStep::KIND_PUZZLE => $this->isPuzzleStepInProgress($user, $step),
+             default => false,
+         };
+@@ -110,6 +204,16 @@ protected function isPuzzleStepInProgress(User $user, CampaignStep $step): bool
+             return false;
+         }
+ 
++        if (($snapshot = $this->snapshotFor($user)) !== null) {
++            $key = ((int) $step->puzzle_id).':'.((int) $step->id);
++
++            if (isset($snapshot['attempted'][$key])) {
++                return true;
++            }
++
++            return collect($snapshot['sessions'][$key] ?? [])->contains(fn (GameSession $session) => ! $session->isExpired());
++        }
++
+         $context = $this->contextFor($step);
+ 
+         $hasAttempt = PuzzleAttempt::where('user_id', $user->id)
+@@ -162,6 +266,10 @@ protected function isGateQualificationSatisfied(User $user, CampaignGate $gate):
+             return true;
+         }
+ 
++        if (($snapshot = $this->snapshotFor($user)) !== null) {
++            return array_key_exists((int) $gate->id, $snapshot['ranks']);
++        }
++
+         return CampaignGateQualification::where('campaign_gate_id', $gate->id)
+             ->where('user_id', $user->id)
+             ->exists();
+@@ -300,6 +408,12 @@ public function missionNumberFor(Campaign $campaign, CampaignStep $step): int
+     /** ترتيب المستخدم إن كان مؤهَّلاً فعلياً بهذه البوابة (First-N)، أو null. */
+     public function qualifiedRankFor(User $user, CampaignGate $gate): ?int
+     {
++        if (($snapshot = $this->snapshotFor($user)) !== null) {
++            $rank = $snapshot['ranks'][(int) $gate->id] ?? null;
++
++            return $rank === null ? null : (int) $rank;
++        }
++
+         return CampaignGateQualification::where('campaign_gate_id', $gate->id)
+             ->where('user_id', $user->id)
+             ->value('rank');
+```
+
+### `app/Services/Chat/ChatMessageService.php`
+
+```diff
+diff --git a/app/Services/Chat/ChatMessageService.php b/app/Services/Chat/ChatMessageService.php
+index bda21c8..f60cbda 100644
+--- a/app/Services/Chat/ChatMessageService.php
++++ b/app/Services/Chat/ChatMessageService.php
+@@ -136,15 +136,28 @@ public function page(ChatThread $thread, User $viewer, ?int $before = null, ?int
+ 
+         if ($after !== null) {
+             $rows = $query->where('id', '>', $after)->orderBy('id')->limit($limit + 1)->get();
++            $this->bindThread($rows, $thread);
+ 
+             return ['messages' => $rows->take($limit)->values(), 'has_more' => $rows->count() > $limit];
+         }
+ 
+         $rows = $query->when($before !== null, fn ($q) => $q->where('id', '<', $before))->orderByDesc('id')->limit($limit + 1)->get();
++        $this->bindThread($rows, $thread);
+ 
+         return ['messages' => $rows->take($limit)->reverse()->values(), 'has_more' => $rows->count() > $limit];
+     }
+ 
++    /**
++     * E24: كل رسائل الصفحة تنتمي إلى الغرفة نفسها المعروفة مسبقًا؛ ربطها بالعلاقة يمنع ChatMessagePresenter::public() من تحميل الغرفة
++     * استعلامًا لكل رسالة (N+1: 16 استعلامًا لـ16 رسالة بالغرفة العامة، ويتضاعف مع حجم الصفحة).
++     *
++     * @param  Collection<int, ChatMessage>  $rows
++     */
++    protected function bindThread(Collection $rows, ChatThread $thread): void
++    {
++        $rows->each(fn (ChatMessage $m) => $m->setRelation('thread', $thread));
++    }
++
+     /** يعلّم الغرفة مقروءة حتى أحدث رسالة (أو المعرّف المحدَّد). رتيب (لا يتراجع) وIdempotent. لمن يملك القراءة فقط. */
+     public function markRead(User $user, ChatThread $thread, ?int $upTo = null): void
+     {
+```
+
+### `app/Services/FraudDetectionService.php`
+
+```diff
+diff --git a/app/Services/FraudDetectionService.php b/app/Services/FraudDetectionService.php
+index b81dad5..3de4512 100644
+--- a/app/Services/FraudDetectionService.php
++++ b/app/Services/FraudDetectionService.php
+@@ -6,6 +6,7 @@
+ use App\Models\FraudFlag;
+ use App\Models\GemTransaction;
+ use App\Models\User;
++use Illuminate\Support\Facades\Cache;
+ use Illuminate\Support\Facades\Request as RequestFacade;
+ 
+ class FraudDetectionService
+@@ -14,6 +15,11 @@ public function recordSighting(?User $user, string $ip, string $userAgent): void
+     {
+         $deviceHash = hash('sha256', $userAgent);
+ 
++        // E24: كان هذا يكتب صفًا ويعدّ بصمات الـIP في كل طلب (حتى الزوار). الآن مرة واحدة كل فترة قصيرة لكل (مستخدم، IP، جهاز).
++        if (! $this->dueForSighting($user?->id, $ip, $deviceHash)) {
++            return;
++        }
++
+         DeviceSighting::updateOrCreate(
+             ['user_id' => $user?->id, 'ip_address' => $ip, 'device_hash' => $deviceHash],
+             ['last_seen_at' => now()]
+@@ -24,6 +30,25 @@ public function recordSighting(?User $user, string $ip, string $userAgent): void
+         }
+     }
+ 
++    /**
++     * بوّابة تخفيف (Cache::add ذرّية): true = سجِّل الآن. أي فشل في الكاش => true (fail-open) فلا نفقد التتبّع الأمني.
++     * المفتاح مجزّأ (لا IP ولا User-Agent خام في مفتاح الكاش).
++     */
++    protected function dueForSighting(?int $userId, string $ip, string $deviceHash): bool
++    {
++        $ttl = (int) config('performance.device_sighting.throttle_seconds', 60);
++
++        if ($ttl <= 0) {
++            return true;
++        }
++
++        try {
++            return Cache::add('sighting:'.hash('sha256', ($userId ?? 'guest').'|'.$ip.'|'.$deviceHash), 1, $ttl);
++        } catch (\Throwable) {
++            return true;
++        }
++    }
++
+     protected function checkSharedIpAcrossAccounts(User $user, string $ip): void
+     {
+         $distinctUsers = DeviceSighting::where('ip_address', $ip)
+@@ -31,7 +56,9 @@ protected function checkSharedIpAcrossAccounts(User $user, string $ip): void
+             ->distinct('user_id')
+             ->count('user_id');
+ 
+-        if ($distinctUsers >= 5) {
++        // E24: كانت كل بصمة (كل طلب سابقًا) تُنشئ علامة جديدة؛ على IP شبكة مشتركة (≥5 حسابات) يعني آلاف العلامات المكرّرة لحساب واحد.
++        // لا نُكرّر علامة ip_shared **غير المعالَجة** لنفس الحساب؛ بعد أن يعالجها المشرف تُنشأ جديدة إن استمر الوضع.
++        if ($distinctUsers >= 5 && ! FraudFlag::query()->where('user_id', $user->id)->where('reason', 'ip_shared')->where('resolved', false)->exists()) {
+             $this->flag($user, 'ip_shared', 'medium', "نفس الـ IP استخدم من {$distinctUsers} حسابات مختلفة.");
+         }
+     }
+```
+
+### `app/Services/PlatformSettingsService.php`
+
+```diff
+diff --git a/app/Services/PlatformSettingsService.php b/app/Services/PlatformSettingsService.php
+index 51e4e56..64bd264 100644
+--- a/app/Services/PlatformSettingsService.php
++++ b/app/Services/PlatformSettingsService.php
+@@ -4,7 +4,9 @@
+ 
+ use App\Models\PlatformSetting;
+ use App\Models\User;
++use App\Support\RequestMemo;
+ use Illuminate\Support\Facades\Cache;
++use Illuminate\Support\Facades\Storage;
+ 
+ /**
+  * الواجهة الوحيدة المسموحة للتعامل مع الإعدادات - لا View/Controller يستعلم
+@@ -16,6 +18,10 @@ class PlatformSettingsService
+ {
+     protected const CACHE_KEY = 'platform_settings.all';
+ 
++    protected const MEMO_KEY = 'platform_settings.all';
++
++    protected const BRANDING_MEMO_KEY = 'platform_settings.branding_urls';
++
+     public function get(string $group, string $key, mixed $fallback = null): mixed
+     {
+         $definition = config("platform.{$group}.{$key}");
+@@ -69,6 +75,42 @@ public function setMany(string $group, array $values, ?User $updatedBy = null):
+     public function forgetCache(): void
+     {
+         Cache::forget(self::CACHE_KEY);
++        RequestMemo::forget('platform_settings.');
++    }
++
++    /**
++     * E24: روابط ملفات الهوية البصرية **الموجودة فعلًا** بالقرص العام (الشعار، الأيقونة، صورة المشاركة). كان القالب يفحص `exists()` ثلاث مرات في كل صفحة (طلب شبكة HEAD لكل ملف على S3).
++     * المفتاح يتضمّن بصمة المسارات الحالية، فتتجدد النتيجة فور تغيير أي مسار حتى بلا إبطال صريح، والمدة (TTL) تحدّ حالة حذف الملف يدويًا من القرص. الخرج مطابق لما كان يحسبه القالب.
++     *
++     * @return array{logo_main: ?string, favicon: ?string, social_share_image: ?string}
++     */
++    public function brandingUrls(): array
++    {
++        $paths = [
++            'logo_main' => $this->get('branding', 'logo_main'),
++            'favicon' => $this->get('branding', 'favicon'),
++            'social_share_image' => $this->get('branding', 'social_share_image'),
++        ];
++
++        $resolve = function () use ($paths): array {
++            $disk = Storage::disk('public');
++
++            return array_map(fn ($path) => $path && $disk->exists($path) ? Storage::url($path) : null, $paths);
++        };
++
++        $ttl = (int) config('performance.cache.branding_urls_ttl', 600);
++
++        if ($ttl <= 0) {
++            return $resolve();
++        }
++
++        return RequestMemo::remember(self::BRANDING_MEMO_KEY, function () use ($paths, $resolve, $ttl) {
++            try {
++                return Cache::remember('platform_settings.branding_urls.'.md5(json_encode($paths)), $ttl, $resolve);
++            } catch (\Throwable) {
++                return $resolve();
++            }
++        });
+     }
+ 
+     public function defaults(): array
+@@ -77,6 +119,13 @@ public function defaults(): array
+     }
+ 
+     protected function allRaw(): array
++    {
++        // E24: get() تُستدعى عشرات المرات بالصفحة الواحدة (القالب يطلب كل المجموعات)؛ كانت كل مرة قراءة كاش كاملة (فكّ تسلسل المصفوفة كلها / استعلام مع CACHE_STORE=database).
++        // الآن تُقرأ مرة لكل طلب GET (RequestMemo) وتبقى قراءة الكاش المباشرة كما كانت لباقي الطلبات (POST/الأوامر/الطوابير).
++        return RequestMemo::remember(self::MEMO_KEY, fn () => $this->loadAllRaw());
++    }
++
++    protected function loadAllRaw(): array
+     {
+         try {
+             return Cache::rememberForever(self::CACHE_KEY, function () {
+```
+
+### `app/Services/PlayerIdentity/CosmeticLoadoutService.php`
+
+```diff
+diff --git a/app/Services/PlayerIdentity/CosmeticLoadoutService.php b/app/Services/PlayerIdentity/CosmeticLoadoutService.php
+index e6f89c5..e5f56dc 100644
+--- a/app/Services/PlayerIdentity/CosmeticLoadoutService.php
++++ b/app/Services/PlayerIdentity/CosmeticLoadoutService.php
+@@ -34,14 +34,17 @@ public function unequipItemIfNecessary(User $user, StoreItem $item): void
+ 
+     public function loadoutFor(User $user): array
+     {
+-        $rows = $user->cosmeticLoadouts()->with('storeItem')->get()->keyBy('slot');
++        // E24: التنقل ولوحة الرئيسية وصفحة الملف كلها تقرأ التجهيز نفسه في الطلب الواحد؛ تُقرأ مرة واحدة لكل طلب GET (انظر RequestMemo: لا أثر على POST ولا بين الطلبات).
++        return \App\Support\RequestMemo::remember('loadout.'.$user->getKey(), function () use ($user) {
++            $rows = $user->cosmeticLoadouts()->with('storeItem')->get()->keyBy('slot');
+ 
+-        $result = [];
+-        foreach (StoreItem::COSMETIC_SLOTS as $slot) {
+-            $result[$slot] = $rows->get($slot)?->storeItem;
+-        }
++            $result = [];
++            foreach (StoreItem::COSMETIC_SLOTS as $slot) {
++                $result[$slot] = $rows->get($slot)?->storeItem;
++            }
+ 
+-        return $result;
++            return $result;
++        });
+     }
+ 
+     public function equippedForSlot(User $user, string $slot): ?StoreItem
+```
+
+### `app/Services/Progression/LevelService.php`
+
+```diff
+diff --git a/app/Services/Progression/LevelService.php b/app/Services/Progression/LevelService.php
+index 720300c..da89bd5 100644
+--- a/app/Services/Progression/LevelService.php
++++ b/app/Services/Progression/LevelService.php
+@@ -7,11 +7,49 @@
+ use App\Models\User;
+ use App\Models\UserLevelUnlock;
+ 
++use Illuminate\Support\Collection;
++use Illuminate\Support\Facades\Cache;
+ use Illuminate\Support\Facades\DB;
+ class LevelService
+ {
++    /** E24: كتالوج المستويات للعرض فقط. recalculateFor (مصدر الحقيقة لترقية المستوى/المكافآت) يقرأ القاعدة مباشرةً دومًا ولا يمرّ بالكاش. */
++    public const CATALOG_CACHE_KEY = 'levels.catalog.v1';
++
+     public function __construct(protected ProgressionRewardService $rewards) {}
+ 
++    /** يُبطل كاش كتالوج المستويات (يُستدعى من أحداث LevelDefinition). فشل الكاش لا يكسر الحفظ. */
++    public static function forgetCatalog(): void
++    {
++        try {
++            Cache::forget(self::CATALOG_CACHE_KEY);
++        } catch (\Throwable) {
++            // لا شيء: انتهاء الصلاحية (TTL) يحدّ أي تأخّر.
++        }
++    }
++
++    /**
++     * كل المستويات مرتّبة برقمها (جدول صغير تحرّره الإدارة). يُخزَّن مصفوفات سمات لا كائنات (لا تبعية على تسلسل الأصناف عند النشر) وبمدة محدودة.
++     *
++     * @return Collection<int, LevelDefinition>
++     */
++    protected function catalog(): Collection
++    {
++        $load = fn () => LevelDefinition::query()->orderBy('level_number')->get();
++        $ttl = (int) config('performance.cache.level_catalog_ttl', 3600);
++
++        if ($ttl <= 0) {
++            return $load();
++        }
++
++        try {
++            $rows = Cache::remember(self::CATALOG_CACHE_KEY, $ttl, fn () => $load()->map(fn (LevelDefinition $l) => $l->getAttributes())->all());
++        } catch (\Throwable) {
++            return $load();
++        }
++
++        return LevelDefinition::hydrate($rows);
++    }
++
+     public function recalculateFor(User $user, PlayerProgression $progression): void
+     {
+         $highestEligible = LevelDefinition::where('is_active', true)
+@@ -58,30 +96,29 @@ public function progressionFor(User $user): PlayerProgression
+      * 404 (اكتشاف انحدار حقيقي كسر PublicProfileTest/ProfilePrivacyTest
+      * من E11 - أُصلِح هنا).
+      */
+-    public function currentLevelFor(User $user): LevelDefinition
++    public function currentLevelFor(User $user, ?PlayerProgression $progression = null): LevelDefinition
+     {
+-        $progression = $this->progressionFor($user);
++        $progression ??= $this->progressionFor($user);
++        $catalog = $this->catalog();
+ 
+-        return LevelDefinition::where('level_number', $progression->current_level)->first()
+-            ?? LevelDefinition::where('level_number', 1)->first()
++        return $catalog->firstWhere('level_number', $progression->current_level)
++            ?? $catalog->firstWhere('level_number', 1)
+             ?? new LevelDefinition(['level_number' => 1, 'name' => 'المستوى الأول', 'xp_required_total' => 0]);
+     }
+ 
+-    public function nextLevelFor(User $user): ?LevelDefinition
++    public function nextLevelFor(User $user, ?PlayerProgression $progression = null): ?LevelDefinition
+     {
+-        $progression = $this->progressionFor($user);
++        $progression ??= $this->progressionFor($user);
+ 
+-        return LevelDefinition::where('is_active', true)
+-            ->where('level_number', '>', $progression->current_level)
+-            ->orderBy('level_number')
+-            ->first();
++        return $this->catalog()
++            ->first(fn (LevelDefinition $l) => $l->is_active && $l->level_number > $progression->current_level);
+     }
+ 
+-    public function progressPercentFor(User $user): float
++    public function progressPercentFor(User $user, ?PlayerProgression $progression = null): float
+     {
+-        $progression = $this->progressionFor($user);
+-        $current = $this->currentLevelFor($user);
+-        $next = $this->nextLevelFor($user);
++        $progression ??= $this->progressionFor($user);
++        $current = $this->currentLevelFor($user, $progression);
++        $next = $this->nextLevelFor($user, $progression);
+ 
+         if ($next === null) {
+             return 100.0;
+@@ -97,4 +134,4 @@ public function progressPercentFor(User $user): float
+ 
+         return round(min(100, max(0, ($progressedInLevel / $range) * 100)), 1);
+     }
+-}
+\ No newline at end of file
++}
+```
+
+### `app/Services/Social/BlockService.php`
+
+```diff
+diff --git a/app/Services/Social/BlockService.php b/app/Services/Social/BlockService.php
+index d625788..11f9ca3 100644
+--- a/app/Services/Social/BlockService.php
++++ b/app/Services/Social/BlockService.php
+@@ -31,9 +31,10 @@ public function hiddenIds(User $user): array
+     {
+         $id = $user->getKey();
+ 
+-        return UserBlock::query()->where('blocker_id', $id)->pluck('blocked_id')
++        // E24: الدردشة (الشارة، الشريط الجانبي، الصفحة) تسأل عن القائمة نفسها بالطلب الواحد؛ تُحفظ لطلب GET واحد فقط (انظر RequestMemo).
++        return \App\Support\RequestMemo::remember('blocks.hidden.'.$id, fn () => UserBlock::query()->where('blocker_id', $id)->pluck('blocked_id')
+             ->merge(UserBlock::query()->where('blocked_id', $id)->pluck('blocker_id'))
+-            ->unique()->values()->all();
++            ->unique()->values()->all());
+     }
+ 
+     /**
+```
+
+### `app/Services/Social/FriendshipService.php`
+
+```diff
+diff --git a/app/Services/Social/FriendshipService.php b/app/Services/Social/FriendshipService.php
+index dfd3837..05bec3a 100644
+--- a/app/Services/Social/FriendshipService.php
++++ b/app/Services/Social/FriendshipService.php
+@@ -116,14 +116,12 @@ public function friendsCount(User $user): int
+     /** استعلام لاعبي الأصدقاء المقبولين فقط (حقول آمنة)، للترقيم. */
+     public function friendsQuery(User $user): Builder
+     {
+-        $id = $user->getKey();
+-
+         return User::query()
+             ->select('users.id', 'users.name', 'users.public_id', 'users.profile_visibility')
+-            ->where(function ($q) use ($id) {
+-                $q->whereIn('users.id', Friendship::query()->accepted()->where('requester_id', $id)->select('addressee_id'))
+-                    ->orWhereIn('users.id', Friendship::query()->accepted()->where('addressee_id', $id)->select('requester_id'));
+-            })
++            // E24: كان OR بين استعلامين فرعيين IN فيفحص المحرّك كل جدول users (O(المستخدمين)) في كل زيارة لصفحة الأصدقاء.
++            // نجلب معرّفات الأصدقاء أولًا (استعلام صغير على فهارس friendships) ثم نبحث بالمفتاح الأساسي: التكلفة O(الأصدقاء) والمجموعة هي نفسها بالضبط.
++            // (EXPLAIN على Postgres بـ5000 مستخدم: الأصل Filter + hashed SubPlan فوق Index Only Scan كامل لـusers، البديل Nested Loop بمفتاح أساسي لكل صديق.)
++            ->whereIn('users.id', $this->friendIds($user))
+             ->orderBy('users.name')->orderBy('users.id');
+     }
+ 
+```
+
+### `app/Services/Teams/TeamMembershipService.php`
+
+```diff
+diff --git a/app/Services/Teams/TeamMembershipService.php b/app/Services/Teams/TeamMembershipService.php
+index 51e5767..019db4b 100644
+--- a/app/Services/Teams/TeamMembershipService.php
++++ b/app/Services/Teams/TeamMembershipService.php
+@@ -25,7 +25,11 @@ public function __construct(protected BlockService $blocks, protected Operationa
+ 
+     public function membershipOf(User $user): ?TeamMembership
+     {
+-        return TeamMembership::query()->where('user_id', $user->getKey())->first();
++        // E24: التنقل والشريط الجانبي والمتحكّم والقالب تسأل عن العضوية نفسها بالصفحة الواحدة؛ تُحفظ لطلب GET واحد فقط (انظر RequestMemo).
++        return \App\Support\RequestMemo::remember(
++            'team.membership.'.$user->getKey(),
++            fn () => TeamMembership::query()->where('user_id', $user->getKey())->first(),
++        );
+     }
+ 
+     public function roleIn(User $user, Team $team): ?string
+```
+
+### `bootstrap/app.php`
+
+```diff
+diff --git a/bootstrap/app.php b/bootstrap/app.php
+index 39231f3..835a260 100644
+--- a/bootstrap/app.php
++++ b/bootstrap/app.php
+@@ -1,11 +1,14 @@
+ <?php
+ 
++use App\Http\Controllers\HealthController;
+ use App\Http\Middleware\EnsureAccountIsNotFrozen;
++use App\Http\Middleware\RequestObservability;
+ use App\Http\Middleware\SecurityHeaders;
+ use App\Http\Middleware\TrackDeviceFingerprint;
+ use Illuminate\Foundation\Application;
+ use Illuminate\Foundation\Configuration\Exceptions;
+ use Illuminate\Foundation\Configuration\Middleware;
++use Illuminate\Support\Facades\Route;
+ 
+ return Application::configure(basePath: dirname(__DIR__))
+     ->withRouting(
+@@ -13,10 +16,17 @@
+         api: __DIR__.'/../routes/api.php',
+         commands: __DIR__.'/../routes/console.php',
+         health: '/up',
++        // E24: جاهزية الموازن /ready خارج مجموعتَي web/api عمدًا (بلا جلسة ولا CSRF ولا تتبّع جهاز): فحص خفيف بلا آثار جانبية.
++        then: function () {
++            Route::get('/ready', [HealthController::class, 'ready'])->name('health.ready');
++        },
+     )
+     // E21: قنوات البثّ الخاصة + مسار /broadcasting/auth (وسيط web، يتطلب مستخدمًا مصادَقًا)
+     ->withBroadcasting(__DIR__.'/../routes/channels.php')
+     ->withMiddleware(function (Middleware $middleware) {
++        // E24: معرّف طلب + سجل الطلبات البطيئة + Server-Timing محليًا (عالميّ، فيشمل web وapi وكل الاستثناءات).
++        $middleware->prepend(RequestObservability::class);
++
+         $middleware->web(append: [
+             TrackDeviceFingerprint::class,
+             SecurityHeaders::class,
+```
+
+### `config/broadcasting.php`
+
+```diff
+diff --git a/config/broadcasting.php b/config/broadcasting.php
+index 8d77bcf..bfde87e 100644
+--- a/config/broadcasting.php
++++ b/config/broadcasting.php
+@@ -18,8 +18,14 @@
+                 'port' => env('REVERB_PORT', 443),
+                 'scheme' => env('REVERB_SCHEME', 'https'),
+                 'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
++                // E24: البثّ المتزامن (ShouldBroadcastNow) يحجز عامل PHP-FPM أثناء استدعاء Reverb. الافتراضي في Laravel/Pusher: اتصال 10ث وطلب 30ث،
++                // فخادم Reverb المعلّق (لا مرفوض) كان يُبقي كل رسالة دردشة مرسَلة عالقة حتى 30 ثانية ويستنزف العمّال. الآن: حدود قصيرة؛ فشل البثّ معزول أصلًا ولا يفقد الرسالة.
++                'timeout' => (float) env('REVERB_HTTP_TIMEOUT', 3),
++            ],
++            'client_options' => [
++                'connect_timeout' => (float) env('REVERB_HTTP_CONNECT_TIMEOUT', 1),
++                'timeout' => (float) env('REVERB_HTTP_TIMEOUT', 3),
+             ],
+-            'client_options' => [],
+         ],
+ 
+         'log' => ['driver' => 'log'],
+```
+
+### `docs/production-deployment.md`
+
+```diff
+diff --git a/docs/production-deployment.md b/docs/production-deployment.md
+index 345bdd1..f08cf7a 100644
+--- a/docs/production-deployment.md
++++ b/docs/production-deployment.md
+@@ -71,7 +71,7 @@ ## الطوابير (Cron/Supervisor)
+ `QUEUE_CONNECTION=database` كافٍ حاليًا - لا Job فعلية بـ`ShouldQueue` بعد.
+ 
+ [program:ahjiyat-worker]
+-command=php /path/to/project/artisan queue:work --sleep=3 --tries=3 --timeout=90
++command=php /path/to/project/artisan queue:work --sleep=3 --tries=3 --timeout=80
+ autostart=true
+ autorestart=true
+ numprocs=1
+@@ -274,3 +274,18 @@ ## الدردشة اللحظية (E21)
+ - **الطابور:** الدردشة **لا تحتاج عامل طابور** (البثّ فوري `ShouldBroadcastNow` بعد commit). عامل الطابور (`php artisan queue:work`) ما زال لازمًا لبقية المنصة (إشعارات الأحداث والبطولات). فشل Reverb لا يفقد رسالة ولا يملأ `failed_jobs`.
+ - `npm run build` **ضروري** (صفحات وأصناف جديدة + Echo).
+ - **مراقبة:** لوحة الإدارة: «بلاغات الدردشة» و«كتم الدردشة». لا يوجد (عمدًا) عرض لكل الرسائل الخاصة.
++
++## الأداء والتوسّع والمراقبة (E24)
++
++التفاصيل: `docs/performance-e24.md` (ما نُفِّذ كودًا وقياساته) و`docs/scaling-architecture.md` (توصيات بنية تحتية لم تُنفَّذ).
++
++**ما يتغيّر في النشر:**
++1. `php artisan migrate --force` يضيف migrationَين: جدولا `cache`/`cache_locks` (لـ`CACHE_STORE=database`) وخمسة فهارس. على جداول كبيرة (`puzzle_attempts`) قد يستغرق إنشاء الفهرس وقتًا وقفلًا؛ شغّله في نافذة هادئة أو بوضع الصيانة.
++2. `npm run build` **ضروري**: اتصال WebSocket صار كسولًا (يُفتح عند غرفة دردشة فقط).
++3. متغيرات اختيارية جديدة في `.env.example` (قسم E24): `TRUSTED_PROXIES`، `PERF_*`، `REVERB_HTTP_*`. الافتراضات لا تغيّر السلوك سوى ما ورد في «تغييرات سلوكية» بـ`performance-e24.md` §6.
++4. الطابور: اجعل `queue:work --timeout=80` (أقل من `retry_after`=90). مهام الطابور لها الآن `timeout=80` و`backoff` 15/60/180 و`failOnTimeout`.
++5. المجدول: المهام الثماني محمية الآن بـ`withoutOverlapping(30–360 دقيقة)` و`onOneServer()`. على خادم واحد لا أثر؛ على عدة خوادم يلزم كاش مشترك (Redis).
++6. موازن الحِمل: `GET /ready` (جاهزية: قاعدة بيانات + كاش، 503 إن تعطّل أحدهما) و`GET /up` (حياة). عند وجود موازن اضبط `TRUSTED_PROXIES` وإلا رأى التطبيق IP الموازن.
++7. مراقبة: `X-Request-ID` في كل استجابة، وسجل `slow_request` (>1500ms) في السجلات. ابحث عنه: `grep slow_request storage/logs/laravel.log`.
++
++**اختبار دخان بعد النشر:** `GET /up` → 200، `GET /ready` → 200، صفحة الصدارة، غرفة الدردشة العامة (الإرسال والاستقبال اللحظي إن كان Reverb يعمل)، `php artisan schedule:list`.
+```
+
+### `resources/js/chat.js`
+
+```diff
+diff --git a/resources/js/chat.js b/resources/js/chat.js
+index b9a1099..77ad6a9 100644
+--- a/resources/js/chat.js
++++ b/resources/js/chat.js
+@@ -68,12 +68,19 @@ export default function chatRoom(cfg) {
+ 
+         // ---------- بثّ لحظي (اختياري)
+         subscribe() {
+-            if (!window.Echo || !this.cfg.channel || this.subscribedTo === this.cfg.channel) {
++            if (!this.cfg.channel || this.subscribedTo === this.cfg.channel) {
++                return;
++            }
++
++            // E24: الاتصال بـReverb يُفتح هنا عند الحاجة فقط (انظر echo.js) لا عند تحميل كل صفحة.
++            const echo = typeof window.getEcho === 'function' ? window.getEcho() : window.Echo;
++
++            if (!echo) {
+                 return;
+             }
+ 
+             this.subscribedTo = this.cfg.channel;
+-            window.Echo.private(this.cfg.channel)
++            echo.private(this.cfg.channel)
+                 .listen('.message.sent', (event) => this.receive(event, true))
+                 .listen('.message.updated', (event) => this.receive(event, false));
+         },
+```
+
+### `resources/js/echo.js`
+
+```diff
+diff --git a/resources/js/echo.js b/resources/js/echo.js
+index d38b890..b438c39 100644
+--- a/resources/js/echo.js
++++ b/resources/js/echo.js
+@@ -9,16 +9,33 @@ window.Pusher = Pusher;
+ 
+ const key = import.meta.env.VITE_REVERB_APP_KEY;
+ 
+-if (key) {
+-    const scheme = import.meta.env.VITE_REVERB_SCHEME ?? 'https';
++let instance = null;
+ 
+-    window.Echo = new Echo({
+-        broadcaster: 'reverb',
+-        key,
+-        wsHost: import.meta.env.VITE_REVERB_HOST,
+-        wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,
+-        wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
+-        forceTLS: scheme === 'https',
+-        enabledTransports: ['ws', 'wss'],
+-    });
+-}
++/**
++ * E24: الاتصال الفعلي بـReverb يُفتح عند **أول طلب** (غرفة دردشة تشترك) لا عند تحميل كل صفحة.
++ * قبل ذلك كان `new Echo(...)` ينفَّذ في كل تحميل صفحة (حتى للزوار وصفحات لا علاقة لها بالدردشة) فيفتح كل تبويب اتصال WebSocket دائمًا؛
++ * عدد اتصالات Reverb = عدد التبويبات المفتوحة لا عدد من يدردشون، وهو أول ما يُنهك الخادم عند النمو.
++ * سلوك الدردشة نفسه لم يتغيّر: غرفة الدردشة تستدعي getEcho() عند init فتتصل وتشترك كما كانت.
++ */
++window.getEcho = () => {
++    if (!key) {
++        return null;
++    }
++
++    if (instance === null) {
++        const scheme = import.meta.env.VITE_REVERB_SCHEME ?? 'https';
++
++        instance = new Echo({
++            broadcaster: 'reverb',
++            key,
++            wsHost: import.meta.env.VITE_REVERB_HOST,
++            wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,
++            wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
++            forceTLS: scheme === 'https',
++            enabledTransports: ['ws', 'wss'],
++        });
++        window.Echo = instance; // للتوافق مع أي كود يقرأ window.Echo بعد الاتصال
++    }
++
++    return instance;
++};
+```
+
+### `resources/views/layouts/app.blade.php`
+
+```diff
+diff --git a/resources/views/layouts/app.blade.php b/resources/views/layouts/app.blade.php
+index f70a5a2..62810cb 100644
+--- a/resources/views/layouts/app.blade.php
++++ b/resources/views/layouts/app.blade.php
+@@ -15,10 +15,11 @@
+     $fontSizeMap = ['small' => '15px', 'normal' => '16px', 'large' => '17.5px'];
+     $radiusMap = ['compact' => '.6rem', 'rounded' => '1rem', 'soft' => '1.5rem'];
+ 
+-    $exists = fn(?string $path) => $path && \Illuminate\Support\Facades\Storage::disk('public')->exists($path);
+-    $logoUrl = $exists($branding['logo_main']) ? \Illuminate\Support\Facades\Storage::url($branding['logo_main']) : null;
+-    $faviconUrl = $exists($branding['favicon']) ? \Illuminate\Support\Facades\Storage::url($branding['favicon']) : null;
+-    $ogImageUrl = $exists($branding['social_share_image']) ? \Illuminate\Support\Facades\Storage::url($branding['social_share_image']) : null;
++    // E24: فحص وجود ملفات الهوية (3 طلبات HEAD لكل صفحة على S3) صار مخزَّنًا بمدة قصيرة داخل الخدمة بدل القالب.
++    $brandingUrls = $settings->brandingUrls();
++    $logoUrl = $brandingUrls['logo_main'];
++    $faviconUrl = $brandingUrls['favicon'];
++    $ogImageUrl = $brandingUrls['social_share_image'];
+ 
+     $metaTitle = $seo['meta_title'] ?: $general['site_name'];
+     $metaDescription = $seo['meta_description'] ?: $general['short_description'];
+```
+
+### `routes/console.php`
+
+```diff
+diff --git a/routes/console.php b/routes/console.php
+index 836b0c4..dae2846 100644
+--- a/routes/console.php
++++ b/routes/console.php
+@@ -1,54 +1,43 @@
+ <?php
+ 
+-use App\Models\GemTransaction;
+-use App\Models\User;
+-use App\Services\GemWalletService;
++use App\Services\PendingGemReleaseService;
++use Illuminate\Console\Scheduling\Event;
+ use Illuminate\Support\Facades\Schedule;
+ 
++/*
++ * E24: كل المهام المجدولة تمرّ من هنا بنفس القاعدتين:
++ *  - withoutOverlapping($minutes): كان الافتراضي 24 ساعة، فانهيار عملية أثناء التشغيل (OOM/نشر/قتل) كان يجمّد مهمة ساعية يومًا كاملًا.
++ *    القيم أدناه أطول بكثير من زمن التشغيل الطبيعي (أمان ضد التداخل) وأقصر من اليوم (تعافٍ تلقائي).
++ *  - onOneServer(): عند تشغيل المجدول على أكثر من خادم (نشر أفقي) ينفّذ خادم واحد فقط كل تشغيل. يحتاج كاشًا مشتركًا (Redis/قاعدة بيانات)؛ على خادم واحد بلا أي أثر.
++ *    يُعطَّل بـ PERF_SCHEDULER_ONE_SERVER=false إن لم يتوفّر كاش مشترك بعد.
++ */
++$guard = function (Event $event, int $lockMinutes): Event {
++    $event->withoutOverlapping($lockMinutes);
++
++    return config('performance.scheduler.one_server', true) ? $event->onOneServer() : $event;
++};
++
+ // تحويل الجواهر المعلقة إلى متاحة يومياً بعد انتهاء فترة التعليق (config('gems.pending_hold_days'))
+-Schedule::call(function () {
+-    $walletService = app(GemWalletService::class);
+-    $holdDays = config('gems.pending_hold_days');
+-
+-    User::whereHas('wallet', fn ($q) => $q->where('pending_balance', '>', 0))
+-        ->with('wallet')
+-        ->chunk(200, function ($users) use ($walletService, $holdDays) {
+-            foreach ($users as $user) {
+-                $releasable = GemTransaction::where('user_id', $user->id)
+-                    ->where('type', GemTransaction::TYPE_EARN_PENDING)
+-                    ->where('created_at', '<=', now()->subDays($holdDays))
+-                    ->sum('amount');
+-
+-                $alreadyReleased = GemTransaction::where('user_id', $user->id)
+-                    ->where('type', GemTransaction::TYPE_RELEASE_AVAILABLE)
+-                    ->sum('amount');
+-
+-                $toRelease = $releasable - $alreadyReleased;
+-
+-                if ($toRelease > 0) {
+-                    $walletService->releasePendingToAvailable($user, (int) $toRelease, 'pending_hold_expired');
+-                }
+-            }
+-        });
+-})->daily()->name('release-pending-gems')->withoutOverlapping();
++// المنطق في PendingGemReleaseService: استعلامات مجمّعة لكل دفعة، والتحرير الفعلي حصرًا عبر GemWalletService.
++$guard(Schedule::call(fn () => app(PendingGemReleaseService::class)->run())->daily()->name('release-pending-gems'), 360);
+ 
+ // تذكيرات "ينتهي قريبًا" للمواسم والحملات المستقلة (قراءة فقط) - ساعيًا، وقبل تذكيرات العودة بنفس الساعة (ترتيب التسجيل)
+ // كي يسبق ينتهي-قريبًا تذكير المهام الأدنى أولوية. غيابه لا يكسر شيئًا: لا تصل التذكيرات فقط.
+-Schedule::command('notifications:dispatch-lifecycle-reminders')->hourly()->name('notifications-lifecycle-reminders')->withoutOverlapping();
++$guard(Schedule::command('notifications:dispatch-lifecycle-reminders')->hourly()->name('notifications-lifecycle-reminders'), 120);
+ 
+ // E15: تذكيرات العودة (تحذير السلسلة + مهام اليوم) - ساعيًا. غيابه لا يكسر شيئًا: لا تصل التذكيرات فقط.
+-Schedule::command('competitive:process-lifecycle')->hourly()->name('competitive-process-lifecycle')->withoutOverlapping();
++$guard(Schedule::command('competitive:process-lifecycle')->hourly()->name('competitive-process-lifecycle'), 120);
+ 
+ // E19: دعوات الفرق، عدّادات الأعضاء، وترتيب الفرق المتأخر (بعد اعتماد المنافسات).
+-Schedule::command('teams:process-lifecycle')->hourly()->name('teams-process-lifecycle')->withoutOverlapping();
++$guard(Schedule::command('teams:process-lifecycle')->hourly()->name('teams-process-lifecycle'), 120);
+ 
+-Schedule::command('notifications:dispatch-reengagement')->hourly()->name('notifications-reengagement')->withoutOverlapping();
++$guard(Schedule::command('notifications:dispatch-reengagement')->hourly()->name('notifications-reengagement'), 120);
+ 
+ // E15: تنظيف المقروء القديم يوميًا - صحة النظام لا تعتمد عليه.
+-Schedule::command('notifications:prune')->daily()->name('notifications-prune')->withoutOverlapping();
++$guard(Schedule::command('notifications:prune')->daily()->name('notifications-prune'), 360);
+ 
+ // التقاط بدء المواسم الناتج عن مرور الوقت. غيابه لا يكسر شيئًا: البدء بالحفظ الإداري يُلتقَط فورًا بخطافات النماذج.
+-Schedule::command('seasons:sync-live-state')->everyFiveMinutes()->name('seasons-sync-live-state')->withoutOverlapping();
++$guard(Schedule::command('seasons:sync-live-state')->everyFiveMinutes()->name('seasons-sync-live-state'), 30);
+ 
+ // التقاط إتاحة الحملات الناتجة عن مرور الوقت. غيابه لا يكسر شيئًا: الإتاحة بالحفظ الإداري تُلتقَط فورًا بخطاف النموذج.
+-Schedule::command('campaigns:sync-availability')->everyFiveMinutes()->name('campaigns-sync-availability')->withoutOverlapping();
++$guard(Schedule::command('campaigns:sync-availability')->everyFiveMinutes()->name('campaigns-sync-availability'), 30);
+```
+
+### `tests/Feature/UiE23/FlakyFixTest.php`
+
+```diff
+diff --git a/tests/Feature/UiE23/FlakyFixTest.php b/tests/Feature/UiE23/FlakyFixTest.php
+index 55534d0..b057a1b 100644
+--- a/tests/Feature/UiE23/FlakyFixTest.php
++++ b/tests/Feature/UiE23/FlakyFixTest.php
+@@ -53,7 +53,9 @@
+     expect($visible)->not->toContain('7391')->not->toContain('7,391')->not->toContain('سبب-سري-للاختبار');
+ });
+ 
+-test('FX6: second flaky test, root cause reproduced - the device-sighting touch issues one UPDATE only when the clock moves to a new second, so a time-dependent query count is not an N+1', function () {
++test('FX6: second flaky test, root cause reproduced - the device-sighting touch is time-dependent (E24: once per throttle window, here 1s), so a time-dependent query count is not an N+1', function () {
++    // E24: التتبّع صار مرة لكل نافذة (الافتراضي 60 ثانية) بدل كل طلب؛ نضيّق النافذة إلى ثانية هنا كي يبقى السبب الجذري (استعلام تابع للزمن) قابلًا للإثبات بـ travel(2).
++    config(['performance.device_sighting.throttle_seconds' => 1]);
+     $this->freezeTime();
+     $this->get(route('leaderboard.index'))->assertOk();   // تسخين: ينشئ صفّ البصمة
+ 
+@@ -71,7 +73,8 @@
+     $this->travel(2)->seconds();
+     [$nextSecond, $nextSecondTouched] = $count();
+ 
+-    expect($sameSecondTouched)->toBeFalse()->and($nextSecondTouched)->toBeTrue()->and($nextSecond)->toBe($sameSecond + 1);
++    // بعد انتهاء النافذة يعود استعلام القراءة (select) + الكتابة (update) معًا => +2 (قبل E24 كان +1 لأن القراءة كانت تُنفَّذ في كل طلب).
++    expect($sameSecondTouched)->toBeFalse()->and($nextSecondTouched)->toBeTrue()->and($nextSecond)->toBe($sameSecond + 2);
+ });
+ 
+ test('FX7: the leaderboard query-count test freezes time, and it still asserts the constant query count - the N+1 guard is not weakened', function () {
+```
+
+## C) Migrations (محتوى كامل)
+
+### `database/migrations/2026_10_18_000001_create_cache_tables.php`
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * E24: جدولا الكاش (database cache store). config/cache.php و.env.example يعتمدان CACHE_STORE=database افتراضيًا
+ * لكن المشروع لم يكن يملك migration لهما، فكل Cache::* (قفل المجدول withoutOverlapping/onOneServer، Cache::add، الإعدادات) كان ينهار أو يُبتلَع بصمت.
+ * محمية بـ hasTable: آمنة على قاعدة أنشأتها أداة أخرى. لا تمسّ بيانات. مع Redis/file لا تُستعمل (وجودها غير مؤذٍ).
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! Schema::hasTable('cache')) {
+            Schema::create('cache', function (Blueprint $table) {
+                $table->string('key')->primary();
+                $table->mediumText('value');
+                // فهرس لحذف المنتهي (delete where expiration <= now) الذي يجريه مخزن الكاش دوريًا.
+                $table->integer('expiration')->index();
+            });
+        }
+
+        if (! Schema::hasTable('cache_locks')) {
+            Schema::create('cache_locks', function (Blueprint $table) {
+                $table->string('key')->primary();
+                $table->string('owner');
+                $table->integer('expiration')->index();
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('cache_locks');
+        Schema::dropIfExists('cache');
+    }
+};
+```
+
+### `database/migrations/2026_10_18_000002_add_e24_performance_indexes.php`
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * E24 - فهارس مُبرَّرة بـ EXPLAIN (PostgreSQL 16 محليًا كبديل تقريبي؛ الإنتاج المتوقع MySQL 8 - انظر docs/performance-e24.md).
+ * كل فهرس مرتبط باستعلام فعلي وبسبب كلفة الكتابة:
+ *
+ *  puzzle_attempts(puzzle_id)          - عدّ المحاولات لكل أحجية (قائمة الإدارة attempts_count، إحصاءات الأحجية). كل الفهارس القائمة تبدأ بـ user_id فكان البحث بـ puzzle_id يمسح الجدول (على MySQL يوجد فهرس FK ضمني
+ *                                         وهذا الفهرس الصريح يحلّ محلّه تلقائيًا فلا كلفة كتابة إضافية؛ على PostgreSQL لا يوجد فهرس للمفتاح الأجنبي أصلًا).
+ *  puzzle_attempts(is_correct, user_id)- لوحة الصدارة: GROUP BY user_id لصفوف is_correct=1 كمسح فهرس مغطٍّ (1.5M صف: 1473ms مسح جدول كامل -> 294ms GroupAggregate بمسح فهرس فقط بعد VACUUM؛ قياس PostgreSQL محلي لا MySQL).
+ *                                         كلفة الكتابة: إدخال إضافي بمفتاح ضيّق لكل محاولة (معدّل محدود بسرعة اللعب)؛ تُعوَّض بأن النتيجة مخزَّنة مؤقتًا ولا يُحسب إلا مرة بالدقيقة.
+ *  users(created_at)                   - «آخر المسجَّلين» في مركز العمليات (ORDER BY created_at DESC LIMIT 8 كان يمسح ويرتّب كل المستخدمين) وتحليلات التسجيل بنافذة زمنية. الكتابة: عند التسجيل فقط.
+ *  device_sightings(ip_address, user_id)         - عدّ الحسابات المختلفة لكل IP (كشف مشاركة IP): فهرس مغطٍّ بدل قراءة كل صفوف الـIP (IP شبكة مشتركة قد يضم آلاف الحسابات).
+ *  device_sightings(user_id, ip_address, device_hash) - updateOrCreate لبصمة (مستخدم، IP، جهاز): بحث نقطي بدل فلترة كل صفوف الـIP. الكتابة صارت ≤ مرة/دقيقة لكل بصمة (E24 throttle).
+ *
+ * غير مشمول عمدًا (موثّق): حذف الفهارس المكرّرة بالبادئة (puzzle_attempts user_id+puzzle_id، context_lookup، device_sightings.ip_address، notifications morph) توصية P1 بعد التحقق على MySQL staging
+ * لتعلّقها بقيود المفاتيح الأجنبية؛ لا فهارس created_at على puzzle_attempts/currency_transactions لتحليلات إدارية مخزَّنة (كلفة كتابة على أحَرّ جدولين بلا مبرّر قياس).
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('puzzle_attempts', function (Blueprint $table) {
+            if (! Schema::hasIndex('puzzle_attempts', 'puzzle_attempts_puzzle_id_index')) {
+                $table->index('puzzle_id', 'puzzle_attempts_puzzle_id_index');
+            }
+            if (! Schema::hasIndex('puzzle_attempts', 'puzzle_attempts_correct_user_index')) {
+                $table->index(['is_correct', 'user_id'], 'puzzle_attempts_correct_user_index');
+            }
+        });
+
+        Schema::table('users', function (Blueprint $table) {
+            if (! Schema::hasIndex('users', 'users_created_at_index')) {
+                $table->index('created_at', 'users_created_at_index');
+            }
+        });
+
+        Schema::table('device_sightings', function (Blueprint $table) {
+            if (! Schema::hasIndex('device_sightings', 'device_sightings_ip_user_index')) {
+                $table->index(['ip_address', 'user_id'], 'device_sightings_ip_user_index');
+            }
+            if (! Schema::hasIndex('device_sightings', 'device_sightings_user_ip_device_index')) {
+                $table->index(['user_id', 'ip_address', 'device_hash'], 'device_sightings_user_ip_device_index');
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('device_sightings', function (Blueprint $table) {
+            $table->dropIndex('device_sightings_user_ip_device_index');
+            $table->dropIndex('device_sightings_ip_user_index');
+        });
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropIndex('users_created_at_index');
+        });
+
+        Schema::table('puzzle_attempts', function (Blueprint $table) {
+            $table->dropIndex('puzzle_attempts_correct_user_index');
+            $table->dropIndex('puzzle_attempts_puzzle_id_index');
+        });
+    }
+};
+```
+
+## D) تغييرات `.env.example`
+
+### `.env.example`
+
+```diff
+diff --git a/.env.example b/.env.example
+index fcc1c66..7d1a581 100644
+--- a/.env.example
++++ b/.env.example
+@@ -78,3 +78,39 @@ AWS_BUCKET=
+ AWS_USE_PATH_STYLE_ENDPOINT=false
+ 
+ VITE_APP_NAME="${APP_NAME}"
++
++# ==============================================================================
++# E24: الأداء / التوسّع / الموثوقية / المراقبة  (كلها اختيارية؛ الافتراضات تحفظ سلوك المنتج كما هو)
++# ==============================================================================
++# CACHE_STORE=database يتطلب جدولَي cache وcache_locks (تنشئهما migration 2026_10_18_000001 بعد php artisan migrate).
++# توصية الإنتاج متعدد الخوادم (توصية بنية تحتية، غير مفروضة محليًا): CACHE_STORE=redis و SESSION_DRIVER=redis و QUEUE_CONNECTION=redis
++# مع REDIS_CLIENT=phpredis؛ أبقِ الجلسات/الكاش/الطوابير على قواعد Redis (DB) منفصلة. المجدول onOneServer يحتاج كاشًا مشتركًا بين الخوادم.
++# DB_QUEUE_RETRY_AFTER=90          # يجب أن يظل أكبر من timeout أي Job (80ث) كي لا تُلتقط مهمة ما زالت تعمل
++# REDIS_QUEUE_RETRY_AFTER=90
++
++# خلف موازن حِمل/وكيل عكسي: بدونها يرى التطبيق IP الوكيل بدل IP العميل (يفسد حدود المعدّل وبصمات الاحتيال).
++# فارغ/غير معرَّف = لا وكلاء موثوقة (آمن افتراضيًا)؛ "*" = كل الوكلاء (فقط إن كان التطبيق غير قابل للوصول إلا عبر الموازن)؛ أو قائمة IP/CIDR مفصولة بفواصل.
++# TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12
++
++# المجدول: نفّذ كل مهمة على خادم واحد فقط عند تعدّد الخوادم (يحتاج كاشًا مشتركًا). على خادم واحد لا أثر له.
++# PERF_SCHEDULER_ONE_SERVER=true
++
++# تتبّع الجهاز (الاحتيال): مرة كل N ثانية لكل (مستخدم، IP، جهاز) بدل كل طلب. 0 = السلوك القديم (كل طلب).
++# PERF_DEVICE_SIGHTING_THROTTLE=60
++
++# مدد الكاش للعرض فقط (ثوانٍ، محدودة دائمًا). لا تُخزَّن بيانات صلاحيات أو أرصدة أو مكافآت.
++# PERF_LEVEL_CATALOG_TTL=3600
++# PERF_BRANDING_URLS_TTL=600
++# PERF_LEADERBOARD_TTL=60
++
++# المراقبة: معرّف الطلب X-Request-ID، وسجل الطلبات البطيئة (لا أجسام/كوكيز/رؤوس/سلسلة استعلام). 0 = تعطيل السجل البطيء.
++# PERF_REQUEST_ID=true
++# PERF_SLOW_REQUEST_MS=1500
++# PERF_SLOW_REQUEST_SAMPLE=1.0
++# فحص الجاهزية GET /ready (قاعدة البيانات + الكاش) ومهلته؛ الرمز اختياري (الرأس X-Health-Token). GET /up الأصلي للحياة فقط.
++# PERF_READINESS_TIMEOUT_MS=1500
++# PERF_READINESS_TOKEN=
++
++# مهل اتصال PHP -> Reverb للبثّ المتزامن (ثوانٍ). قصيرة كي لا يحجز Reverb المعلّق عامل PHP-FPM ثلاثين ثانية.
++# REVERB_HTTP_CONNECT_TIMEOUT=1
++# REVERB_HTTP_TIMEOUT=3
+```
+

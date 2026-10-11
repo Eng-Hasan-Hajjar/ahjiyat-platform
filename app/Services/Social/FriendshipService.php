@@ -116,14 +116,12 @@ class FriendshipService
     /** استعلام لاعبي الأصدقاء المقبولين فقط (حقول آمنة)، للترقيم. */
     public function friendsQuery(User $user): Builder
     {
-        $id = $user->getKey();
-
         return User::query()
             ->select('users.id', 'users.name', 'users.public_id', 'users.profile_visibility')
-            ->where(function ($q) use ($id) {
-                $q->whereIn('users.id', Friendship::query()->accepted()->where('requester_id', $id)->select('addressee_id'))
-                    ->orWhereIn('users.id', Friendship::query()->accepted()->where('addressee_id', $id)->select('requester_id'));
-            })
+            // E24: كان OR بين استعلامين فرعيين IN فيفحص المحرّك كل جدول users (O(المستخدمين)) في كل زيارة لصفحة الأصدقاء.
+            // نجلب معرّفات الأصدقاء أولًا (استعلام صغير على فهارس friendships) ثم نبحث بالمفتاح الأساسي: التكلفة O(الأصدقاء) والمجموعة هي نفسها بالضبط.
+            // (EXPLAIN على Postgres بـ5000 مستخدم: الأصل Filter + hashed SubPlan فوق Index Only Scan كامل لـusers، البديل Nested Loop بمفتاح أساسي لكل صديق.)
+            ->whereIn('users.id', $this->friendIds($user))
             ->orderBy('users.name')->orderBy('users.id');
     }
 

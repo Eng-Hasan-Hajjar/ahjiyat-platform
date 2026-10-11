@@ -4,14 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\StoreItem;
 use App\Models\User;
+use App\Services\LeaderboardService;
 use App\Models\UserCosmeticLoadout;
 use App\Services\Social\FriendshipService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class LeaderboardController extends Controller
 {
-    public function index(FriendshipService $friendships)
+    public function index(FriendshipService $friendships, LeaderboardService $leaderboard)
     {
         $viewer = Auth::user();
 
@@ -19,16 +19,8 @@ class LeaderboardController extends Controller
         $scope = ($viewer !== null && request()->query('scope') === 'friends') ? 'friends' : 'global';
         $friendScopeIds = $scope === 'friends' ? [...$friendships->friendIds($viewer), $viewer->id] : null;
 
-        $topUsers = User::query()
-            ->select('users.id', 'users.name', 'users.public_id', 'users.profile_visibility')
-            ->selectRaw('COUNT(puzzle_attempts.id) as solved_count')
-            ->join('puzzle_attempts', 'puzzle_attempts.user_id', '=', 'users.id')
-            ->where('puzzle_attempts.is_correct', true)
-            ->when($friendScopeIds !== null, fn ($q) => $q->whereIn('users.id', $friendScopeIds))
-            ->groupBy('users.id', 'users.name', 'users.public_id', 'users.profile_visibility')
-            ->orderByDesc('solved_count')
-            ->limit(50)
-            ->get();
+        // E24: الاستعلام الثقيل (O(كل المحاولات)) انتقل إلى LeaderboardService مع Top-N مخزَّن لفترة قصيرة؛ المعيار والعدد 50 كما كانا.
+        $topUsers = $leaderboard->topSolvers($friendScopeIds, 50);
 
         $loadoutsByUser = UserCosmeticLoadout::whereIn('user_id', $topUsers->pluck('id'))
             ->with('storeItem')
