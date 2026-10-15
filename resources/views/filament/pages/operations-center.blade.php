@@ -53,6 +53,50 @@
             </x-filament::section>
         @endif
 
+        {{-- E25: صحة النظام (قراءة فقط) --}}
+        @if (($signals = $this->getSystemSignals()) !== null)
+            <x-filament::section>
+                <x-slot name="heading">صحة النظام (قراءة فقط)</x-slot>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1rem; margin-bottom:1rem;">
+                    <x-filament::section>
+                        <div style="font-size:1.4rem; font-weight:900;" dir="ltr">{{ $signals['release'] ?? 'غير مضبوط' }}</div>
+                        <div style="color:#94a3b8;">الإصدار (APP_RELEASE) · البيئة: <span dir="ltr">{{ $signals['environment'] }}</span></div>
+                        @if ($signals['debug'])
+                            <div style="color:#fb7185; font-weight:800;">APP_DEBUG مفعَّلة!</div>
+                        @endif
+                        @if ($signals['maintenance'])
+                            <div style="color:#f59e0b; font-weight:800;">وضع الصيانة مفعَّل</div>
+                        @endif
+                    </x-filament::section>
+                    <x-filament::section>
+                        <div style="font-size:1.4rem; font-weight:900; color:{{ $signals['scheduler']['status'] === 'ok' ? '#34d399' : ($signals['scheduler']['status'] === 'unknown' ? '#94a3b8' : '#f59e0b') }};">{{ $this->schedulerLabel($signals['scheduler']['status']) }}</div>
+                        <div style="color:#94a3b8;">المجدول @if ($signals['scheduler']['age_seconds'] !== null)· آخر نبضة منذ {{ $signals['scheduler']['age_seconds'] }} ث @endif</div>
+                    </x-filament::section>
+                    <x-filament::section>
+                        <div style="font-size:1.4rem; font-weight:900;">{{ $signals['queue']['pending'] ?? '—' }} <span style="font-size:.9rem; color:#94a3b8;">منتظرة</span></div>
+                        <div style="color:#94a3b8;">الطابور (<span dir="ltr">{{ $signals['queue']['driver'] }}</span>)
+                            @if ($signals['queue']['oldest_age_seconds'] !== null)· أقدمها منذ {{ intdiv($signals['queue']['oldest_age_seconds'], 60) }} د @endif
+                            · فاشلة: {{ $signals['queue']['failed'] ?? '—' }}</div>
+                    </x-filament::section>
+                    <x-filament::section>
+                        <div style="font-size:1rem; font-weight:800;" dir="ltr">DB {{ $signals['readiness']['database']['ok'] ? 'OK' : 'DOWN' }} · {{ $signals['readiness']['database']['ms'] }}ms</div>
+                        <div style="font-size:1rem; font-weight:800;" dir="ltr">Cache {{ $signals['readiness']['cache']['ok'] ? 'OK' : 'DOWN' }} · {{ $signals['readiness']['cache']['ms'] }}ms</div>
+                        <div style="color:#94a3b8;">الجاهزية (قراءة فقط)</div>
+                    </x-filament::section>
+                </div>
+
+                <div style="color:#94a3b8; font-size:.85rem; margin-bottom:.5rem;" dir="ltr">
+                    cache={{ $signals['drivers']['cache'] }} · session={{ $signals['drivers']['session'] }} · queue={{ $signals['drivers']['queue'] }} · broadcast={{ $signals['drivers']['broadcast'] }} · mail={{ $signals['drivers']['mail'] }}
+                </div>
+
+                @foreach ($signals['queue_warnings'] as $warning)
+                    <div style="color:#f59e0b; font-size:.85rem;">⚠ {{ $warning }}</div>
+                @endforeach
+
+                <div style="color:#64748b; font-size:.75rem; margin-top:.5rem;">لقطة مخزَّنة 30 ثانية · {{ \Illuminate\Support\Carbon::parse($signals['generated_at'])->diffForHumans() }}</div>
+            </x-filament::section>
+        @endif
+
         {{-- أمان الحسابات --}}
         @if ($this->getFrozenUsersCount() !== null)
             <x-filament::section>

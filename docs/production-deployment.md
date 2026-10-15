@@ -1,6 +1,15 @@
 
 # دليل النشر للإنتاج
 
+> **تحديث E25 — اقرأ هذا أولًا.** هذا الملف سجل تاريخي لمراحل المشروع ويبقى مرجعًا للتفاصيل، لكن **المرجع التشغيلي الحالي** هو: [release-engineering](release-engineering.md) (النشر والترحيلات والتراجع)، [first-production-deploy](first-production-deploy.md) (أول نشر)، [environment-variables](environment-variables.md) (عقد البيئة)، [operations-runbook](operations-runbook.md) (الطابور والمجدول وReverb وRedis والصيانة). ما تغيّر:
+> - **لا `git pull` على الخادم**: انشر artifact/مجلد إصدار بمعرّف ثم بدّل رابط `current`؛ التسلسل الآلي في `tools/deploy/deploy.sh` (يدعم `--dry-run`).
+> - **`CACHE_STORE=file` لخادم واحد فقط.** المجدول (`withoutOverlapping`/`onOneServer`) ونبضة المجدول وعدّادات الأداء تحتاج كاشًا يدعم الأقفال ومشتركًا بين الخوادم (`database` أو `redis`). `queue:restart` و`reverb:restart` يتطلبان كاشًا غير `array`.
+> - **عامل الطابور إلزامي بالإنتاج**، ويعمل تحت مشرف (Supervisor/systemd) بـ`--timeout=80` (أقل من `retry_after`=90).
+> - المجدول يضم الآن مهام كثيرة + **نبضة** (heartbeat) تُظهر حالته في مركز العمليات و`/ready` اختياريًا.
+> - الأوامر الهدّامة (`db:wipe`, `migrate:fresh|refresh|reset|rollback`) **ممنوعة آليًا بالإنتاج**، و`db:seed` الكامل محظور بالإنتاج (يزرع حسابات تجريبية بكلمات معروفة).
+> - قبل كل نشر: `php artisan release:preflight`، وبعده: `php artisan production:check` و`php artisan release:smoke --expect-release=<id>`.
+
+
 توثيق محايد الاستضافة - يعمل على أي VPS Linux قياسي. ملحق Ubuntu+Nginx بالنهاية كمثال فقط.
 
 ## متطلبات الخادم (من composer.json/package.json الفعليين)

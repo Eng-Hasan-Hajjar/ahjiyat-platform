@@ -6,6 +6,8 @@ use App\Models\FraudFlag;
 use App\Models\OperationalAuditLog;
 use App\Models\RedemptionRequest;
 use App\Models\User;
+use App\Services\Operations\OperationalSignals;
+use App\Support\SchedulerHeartbeat;
 use Filament\Pages\Page;
 
 /**
@@ -137,6 +139,31 @@ class OperationsCenter extends Page
                 ? OperationalAuditLog::with('actor:id,name')->latest()->limit(10)->get()
                 : collect();
         });
+    }
+
+    /**
+     * E25: إشارات تشغيلية للقراءة فقط (الإصدار، أسماء المشغّلات، نبض المجدول، الطابور، جاهزية القاعدة/الكاش) - بلا أسرار ولا مضيفين ولا بيانات اعتماد.
+     * تُعرض لمن يملك system.audit_view (الصلاحية النظامية الوحيدة القائمة، ويملكها المدير الأعلى تلقائيًا). اللقطة مخزّنة 30ث في OperationalSignals فلا تثقل الصفحة.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getSystemSignals(): ?array
+    {
+        return once(function () {
+            return auth()->user()?->can('system.audit_view')
+                ? app(OperationalSignals::class)->snapshot()
+                : null;
+        });
+    }
+
+    public function schedulerLabel(string $status): string
+    {
+        return match ($status) {
+            SchedulerHeartbeat::OK => 'سليم',
+            SchedulerHeartbeat::STALE => 'متأخر',
+            SchedulerHeartbeat::DOWN => 'متوقف',
+            default => 'غير معروف (لا نبضة بعد)',
+        };
     }
 
     protected static array $actionLabels = [

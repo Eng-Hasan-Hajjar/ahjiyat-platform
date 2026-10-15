@@ -4,11 +4,14 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Models\Wallet;
+use Database\Seeders\Concerns\RefusesProduction;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
 {
+    use RefusesProduction;
+
     /**
      * كلمة مرور كل المستخدمين التجريبيين (بدون استثناء) عشان تسهيل تسجيل الدخول أثناء الاختبار.
      */
@@ -16,6 +19,9 @@ class UserSeeder extends Seeder
 
     public function run(): void
     {
+        // E25: مستخدمون تجريبيون بكلمة مرور معروفة (password) - ممنوع بالإنتاج.
+        $this->refuseInProduction('UserSeeder');
+
         $users = [
 
             // ===== حسابات "بطلة" - مؤهلة بالكامل للاستبدال، مفيدة لاختبار كل الواجهات =====

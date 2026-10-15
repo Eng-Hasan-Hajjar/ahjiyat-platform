@@ -6,8 +6,11 @@ use App\Models\User;
 use App\Services\AuthorizationSafetyService;
 use App\Services\Teams\TeamService;
 use Illuminate\Cache\RateLimiting\Limit;
+use App\Support\ReleaseInfo;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -40,6 +43,22 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->registerRateLimiters();
+        $this->registerOperationalGuards();
+    }
+
+    /**
+     * E25: حواجز التشغيل بالإنتاج.
+     *  - الأوامر الهدّامة (db:wipe, migrate:fresh|refresh|reset|rollback) ممنوعة بالإنتاج: الترحيلات بالإنتاج تتقدّم للأمام فقط (forward-fix) والتراجع عن القاعدة غير آمن بعد كتابات الإصدار الجديد.
+     *    استثناء واعٍ ومؤقت بمتغير بيئة لتلك العملية وحدها: OPS_ALLOW_DESTRUCTIVE_COMMANDS=true (انظر docs/release-engineering.md). لا يُضاف إلى .env الدائم.
+     *  - معرّف الإصدار (إن ضُبط) يُضاف لسياق كل سطر سجل (release) بجانب request_id من E24، لربط أي خطأ بالإصدار الذي أنتجه. لا أسرار فيه.
+     */
+    protected function registerOperationalGuards(): void
+    {
+        DB::prohibitDestructiveCommands($this->app->isProduction() && ! config('operations.allow_destructive_commands', false));
+
+        if (($release = ReleaseInfo::short()) !== null) {
+            Log::shareContext(['release' => $release]);
+        }
     }
 
     /**

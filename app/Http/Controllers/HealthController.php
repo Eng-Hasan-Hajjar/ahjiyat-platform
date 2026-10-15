@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ReleaseInfo;
+use App\Support\SchedulerHeartbeat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -12,6 +14,8 @@ use Illuminate\Support\Facades\DB;
  * تفحص قاعدة البيانات (SELECT 1) والكاش (كتابة/قراءة قصيرة) وتقيس زمن كلٍّ؛ تُعدّ «بطيئة=غير جاهزة» إن تجاوزت performance.observability.readiness_timeout_ms.
  * لا أسرار ولا أسماء مضيفين ولا إصدارات ولا نص استثناء: فقط ok/زمن بالميلي ثانية. 200 عند الجاهزية، 503 وإلا.
  * اختياريًا يُقيَّد برمز (PERF_READINESS_TOKEN) في الرأس X-Health-Token.
+ * E25: يضيف "release" (معرّف الإصدار المختصر، فقط إذا ضُبط APP_RELEASE/RELEASE_SHA بصيغة آمنة) - لا شيء آخر عن النظام.
+ * ويضيف "scheduler" إلى الفحوص فقط إذا فعّلت OPS_READY_FAILS_ON_SCHEDULER (افتراضيًا معطّل: تأخر المجدول لا يُسقط الجاهزية؛ يفشل فقط عند حالة down بعد عتبة down_after_seconds، لا عند unknown بعد نشر جديد).
  * ملاحظة: مهلة اتصال القاعدة الفعلية تُضبط في الاتصال (انظر docs/scaling-architecture.md)؛ هنا نُبلّغ فقط عن البطء.
  */
 class HealthController extends Controller
@@ -38,9 +42,22 @@ class HealthController extends Controller
             }, $limit),
         ];
 
+        if (config('operations.scheduler.ready_fails_on_down', false)) {
+            $status = app(SchedulerHeartbeat::class)->status();
+            $checks['scheduler'] = ['ok' => $status !== SchedulerHeartbeat::DOWN, 'status' => $status];
+        }
+
         $ready = collect($checks)->every(fn (array $c) => $c['ok']);
 
-        return response()->json(['status' => $ready ? 'ok' : 'unavailable', 'checks' => $checks], $ready ? 200 : 503, $this->headers());
+        $payload = ['status' => $ready ? 'ok' : 'unavailable'];
+
+        if (($release = ReleaseInfo::short()) !== null) {
+            $payload['release'] = $release;
+        }
+
+        $payload['checks'] = $checks;
+
+        return response()->json($payload, $ready ? 200 : 503, $this->headers());
     }
 
     /** @return array{ok: bool, ms: float} */

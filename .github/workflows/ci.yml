@@ -1,0 +1,84 @@
+# E25 - تحقّق CI صغير (اختياري). لا نشر، ولا أسرار، ولا بيانات اعتماد إنتاج. الغرض: كشف الكسر مبكرًا في كل PR/دفع.
+# ما يفعله: تثبيت التبعيات من ملفات القفل، بناء الواجهة، فحص صياغة PHP، ثم مجموعات اختبار حرجة محددة (ليست المجموعة الكاملة كي يبقى الزمن معقولًا).
+# ما لا يفعله عمدًا: لا deploy، لا migrate على بيئة حقيقية، لا composer/npm update، لا أسرار GitHub. تدقيق التبعيات (composer/npm audit) للإبلاغ فقط ولا يفشل البناء.
+# توصية لاحقة (P2): تثبيت إجراءات GitHub على SHA كامل بدل الوسوم.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_ENV: testing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, bcmath, pdo_sqlite, sqlite3, gd, zip, fileinfo
+          coverage: none
+          tools: composer:v2
+
+      - name: Composer cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install PHP dependencies (من composer.lock)
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare environment (بلا أسرار حقيقية)
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+          touch database/testing.sqlite
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install & build frontend (من package-lock.json)
+        run: |
+          npm ci
+          npm run build
+
+      - name: PHP syntax check
+        run: |
+          errors=$(find app bootstrap config database routes tests -name '*.php' -print0 | xargs -0 -n1 -P4 php -l 2>&1 | grep -v '^No syntax errors detected' || true)
+          if [ -n "$errors" ]; then echo "$errors"; exit 1; fi
+
+      - name: Shell scripts syntax check
+        run: |
+          for f in tools/deploy/*.sh tools/backup/*.sh; do bash -n "$f"; done
+
+      - name: Targeted regression suites (E25 + production + operations + E24 performance)
+        run: |
+          php artisan test --compact \
+            tests/Feature/OperationsE25 \
+            tests/Feature/Production \
+            tests/Feature/Operations \
+            tests/Feature/PerformanceE24
+
+      - name: Composer audit (تقرير فقط)
+        continue-on-error: true
+        run: composer audit --no-interaction
+
+      - name: npm audit (تقرير فقط)
+        continue-on-error: true
+        run: npm audit --audit-level=high
