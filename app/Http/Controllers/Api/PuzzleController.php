@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SolvePuzzleRequest;
+use App\GameEngine\GameTypeRegistry;
 use App\Models\Puzzle;
 use App\Models\PuzzleCategory;
 use App\Services\PuzzleAttemptService;
@@ -27,13 +28,29 @@ class PuzzleController extends Controller
             ->paginate(20);
     }
 
-    public function show(Puzzle $puzzle)
+    public function show(Puzzle $puzzle, GameTypeRegistry $games)
     {
-        return $puzzle->only([
+        // E26: (1) غير المفعّلة 404 كالقائمة. (2) game_config الخام كان يسرّب ترتيب الإجابة الصحيح للترتيب (عناصر بالترتيب الصحيح) وأزواج بطاقات الذاكرة؛
+        // نُعيد حمولة النوع العامة فقط (publicPayload: عناصر مخلوطة برموز معتمة، بلا solution_data/hotspots) ونحتفظ بالمفتاح game_config للتوافق.
+        abort_unless($puzzle->is_active, 404);
+
+        return array_merge($puzzle->only([
             'id', 'title', 'type', 'difficulty', 'prompt', 'choices',
             'image_path', 'max_attempts', 'time_limit_seconds', 'gem_reward',
-            'game_type', 'game_config', 'renderer',
+            'game_type', 'renderer',
+        ]), [
+            'game_config' => $this->publicGamePayload($puzzle, $games),
         ]);
+    }
+
+    /** حمولة النوع العامة؛ نوع غير مسجَّل (بيانات قديمة) = لا حمولة بدل خطأ 500. */
+    protected function publicGamePayload(Puzzle $puzzle, GameTypeRegistry $games): ?array
+    {
+        try {
+            return $games->definitionFor($puzzle->game_type)->publicPayload($puzzle);
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
     }
 
     public function attempt(SolvePuzzleRequest $request, Puzzle $puzzle)

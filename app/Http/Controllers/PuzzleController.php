@@ -33,6 +33,9 @@ class PuzzleController extends Controller
     {
         $user = Auth::user();
 
+        // E26: أحجية غير مفعّلة (مسودة/مسحوبة) لا تُعرض للعامة؛ المسؤول يعاينها. 404 لا 403 كي لا يُكشف وجودها.
+        abort_unless($puzzle->is_active || ($user && $user->can('admin.access')), 404);
+
         $attemptsUsed = $user
             ? $puzzle->attempts()->where('user_id', $user->id)->count()
             : 0;

@@ -282,7 +282,7 @@ test('a sequence puzzle submission still works correctly inside a campaign step'
 
     $this->actingAs($user)
         ->post(route('campaigns.steps.attempt', [$step->gate->stage->campaign, $step]), [
-            'submission' => json_encode(['order' => [0, 1, 2]]),
+            'submission' => json_encode(['order' => \App\GameEngine\Support\SequenceTokens::expectedOrder($puzzle)]),
         ])
         ->assertRedirect()
         ->assertSessionHas('success');

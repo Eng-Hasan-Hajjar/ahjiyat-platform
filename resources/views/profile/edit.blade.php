@@ -52,6 +52,15 @@
                         </span>
                     @endunless
                 </div>
+                <div>
+                    <label for="current_password" class="block text-sm font-bold text-slate-300 mb-2">كلمة المرور الحالية</label>
+                    <input id="current_password" type="password" name="current_password" autocomplete="current-password"
+                           class="input-gem">
+                    <span class="text-xs text-slate-500 font-semibold mt-1.5 block">مطلوبة فقط عند تغيير البريد الإلكتروني.</span>
+                    @error('current_password')
+                        <span class="text-xs text-rose font-semibold mt-1.5 block">{{ $message }}</span>
+                    @enderror
+                </div>
 
                 <button type="submit" class="btn-gem w-full justify-center !mt-6">
                     حفظ التعديلات

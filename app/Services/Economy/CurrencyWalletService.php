@@ -269,6 +269,15 @@ class CurrencyWalletService
         }
     }
 
+    /**
+     * E26: قفل صف المحفظة داخل معاملة قائمة (SELECT ... FOR UPDATE). يستعمله المستدعي ليُسلسل «قراءة السقف اليومي ثم الإيداع»: بدونه تقرأ عدة طلبات متزامنة
+     * (أحجيات مختلفة) المجموع نفسه قبل أي إيداع فتتجاوز كلها السقف اليومي معًا. يجب استدعاؤه داخل DB::transaction.
+     */
+    public function lockWallet(User $user, Currency $currency): Wallet
+    {
+        return $this->lockedWallet($user, $currency);
+    }
+
     protected function lockedWallet(User $user, Currency $currency): Wallet
     {
         return Wallet::query()

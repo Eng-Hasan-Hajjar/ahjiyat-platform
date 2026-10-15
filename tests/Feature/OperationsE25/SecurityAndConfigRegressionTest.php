@@ -32,20 +32,27 @@ test('E25-20: security headers are present on public, authenticated-area and adm
 });
 
 test('E25-20: HSTS is sent only in production over real HTTPS, with a one-year max-age and no includeSubDomains/preload', function () {
-    // لا HSTS خارج الإنتاج حتى على HTTPS
-    $this->get('https://ahjiyat.example.com/')->assertHeaderMissing('Strict-Transport-Security');
+    // E26: بالإنتاج يقيّد TrustApplicationHosts الطلبات بمضيف APP_URL، فنضبطه لمضيف الاختبار، وننظّف حالة المضيفات الثابتة بعده كي لا تتسرّب لاختبارات تالية.
+    config(['app.url' => 'https://ahjiyat.example.com']);
 
-    $this->app['env'] = 'production';
+    try {
+        // لا HSTS خارج الإنتاج حتى على HTTPS
+        $this->get('https://ahjiyat.example.com/')->assertHeaderMissing('Strict-Transport-Security');
 
-    // لا HSTS على HTTP حتى بالإنتاج
-    $this->get('http://ahjiyat.example.com/')->assertHeaderMissing('Strict-Transport-Security');
+        $this->app['env'] = 'production';
 
-    // HSTS على HTTPS بالإنتاج فقط
-    $header = $this->get('https://ahjiyat.example.com/')->headers->get('Strict-Transport-Security');
+        // لا HSTS على HTTP حتى بالإنتاج
+        $this->get('http://ahjiyat.example.com/')->assertHeaderMissing('Strict-Transport-Security');
 
-    expect($header)->toBe('max-age=31536000')
-        ->and($header)->not->toContain('includeSubDomains')
-        ->and($header)->not->toContain('preload');
+        // HSTS على HTTPS بالإنتاج فقط
+        $header = $this->get('https://ahjiyat.example.com/')->headers->get('Strict-Transport-Security');
+
+        expect($header)->toBe('max-age=31536000')
+            ->and($header)->not->toContain('includeSubDomains')
+            ->and($header)->not->toContain('preload');
+    } finally {
+        \Illuminate\Http\Request::setTrustedHosts([]);
+    }
 });
 
 test('E25-20: no CORS headers are emitted for a foreign Origin, including on a preflight request', function () {

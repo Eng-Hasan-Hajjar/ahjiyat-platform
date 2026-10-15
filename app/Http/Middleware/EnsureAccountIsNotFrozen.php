@@ -20,6 +20,11 @@ class EnsureAccountIsNotFrozen
         $user = Auth::user();
 
         if ($user && $user->is_frozen) {
+            // E26: طلبات JSON/API تتلقى 403 صريحًا (لا إعادة توجيه HTML تُربك عميل الموبايل وتُخفي التقييد).
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => 'تم تقييد حسابك مؤقتاً. يرجى التواصل مع الدعم.'], 403);
+            }
+
             return back()->with('error', 'تم تقييد حسابك مؤقتاً. يرجى التواصل مع الدعم لمزيد من التفاصيل.');
         }
 

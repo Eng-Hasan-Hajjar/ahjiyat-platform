@@ -28,7 +28,7 @@ Production: `APP_URL=https://...` إلزامي. `SESSION_SECURE_COOKIE=true` **�
 | `game-session-reveal` | 60/دقيقة   | user أو IP   |
 | `redemption`          | 5/ساعة      | user أو IP   |
 
-تسجيل الدخول (ويب + API) محمي يدويًا داخل الـController نفسه (5 محاولات/بريد+IP، نمط Laravel القياسي).
+تسجيل الدخول: **تصحيح E26** — كان الحد المذكور هنا لا يُطبَّق فعليًا على الويب (`LoginRequest` غير مستعمل). الآن حد مزدوج (بريد مجزَّأ+IP ثم IP) على الويب والـAPI، وبقية الحدود (إعادة التعيين، الملف الشخصي، الدردشة، الشراء...) في [security-e26](security-e26.md#حدود-الإساءة-rate-limits).
 
 ## رفع الملفات (E8-D)
 

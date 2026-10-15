@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,23 +15,22 @@ class AuthenticatedSessionController extends Controller
         return view('auth.login');
     }
 
-    public function store(Request $request): RedirectResponse
+    /**
+     * E26: الدخول عبر LoginRequest (تحديد معدّل مزدوج + رسالة موحّدة + معادلة زمنية). تجديد معرّف الجلسة بعد النجاح (منع تثبيت الجلسة)، والحساب المجمَّد لا يبقى
+     * مصادَقًا ولا تبقى جلسته: تسجيل خروج + إبطال الجلسة + تجديد الرمز، لا مجرد logout يترك الجلسة حيّة.
+     */
+    public function store(LoginRequest $request): RedirectResponse
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
-        ]);
-
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
-            return back()->withErrors(['email' => 'بيانات الدخول غير صحيحة.'])->onlyInput('email');
-        }
+        $request->authenticate();
 
         $request->session()->regenerate();
 
         if (Auth::user()->is_frozen) {
-            Auth::logout();
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
-            return back()->withErrors(['email' => 'تم تجميد هذا الحساب مؤقتاً، يرجى التواصل مع الدعم.']);
+            return back()->withErrors(['email' => 'تم تجميد هذا الحساب مؤقتاً، يرجى التواصل مع الدعم.'])->onlyInput('email');
         }
 
         Auth::user()->update(['last_seen_at' => now()]);

@@ -1,11 +1,8 @@
 {{-- لعبة ترتيب التسلسل - العناصر تُخلط هون سيرفريًا فقط للعرض، والترتيب
      الصحيح الفعلي محفوظ بـ solution_data ولا يصل أبداً للمتصفح --}}
 @php
-    $shuffledItems = collect($puzzle->game_config['items'] ?? [])
-        ->map(fn ($label, $originalIndex) => ['idx' => $originalIndex, 'label' => $label])
-        ->shuffle()
-        ->values()
-        ->all();
+    // E26: رموز معتمة بدل الفهارس الأصلية (الفهرس التصاعدي كان هو الإجابة الصحيحة نفسها). انظر App\GameEngine\Support\SequenceTokens.
+    $shuffledItems = \App\GameEngine\Support\SequenceTokens::shuffledItems($puzzle);
 @endphp
 
 <div x-data="sequenceGame({{ Illuminate\Support\Js::from($shuffledItems) }})" class="mb-5">

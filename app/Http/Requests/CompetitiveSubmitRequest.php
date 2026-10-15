@@ -31,9 +31,10 @@ class CompetitiveSubmitRequest extends FormRequest
         return [
             'answer' => ['required_without:submission', 'nullable', 'string', 'max:255'],
             'submission' => ['sometimes', 'array'],
-            'submission.order' => ['sometimes', 'array'],
-            'submission.order.*' => ['integer'],
-            'submission.matches' => ['sometimes', 'array'],
+            // E26: ترتيب الترتيب رموز معتمة نصية (SequenceTokens) لا أعداد؛ وحدود على أحجام المصفوفات كي لا يُرسل العميل حمولات ضخمة.
+            'submission.order' => ['sometimes', 'array', 'max:100'],
+            'submission.order.*' => ['string', 'max:64'],
+            'submission.matches' => ['sometimes', 'array', 'max:500'],
             'submission.moves' => ['sometimes', 'integer'],
         ];
     }

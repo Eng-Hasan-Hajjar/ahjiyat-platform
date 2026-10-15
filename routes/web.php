@@ -105,7 +105,8 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:password-reset')->name('password.email');
 
     Route::get('/reset-password/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
-    Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('password.store');
+    Route::post('/reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('throttle:password-reset-submit')->name('password.store');
 });
 
 Route::middleware('auth')->group(function () {
@@ -118,10 +119,12 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:email-verification')->name('verification.send');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('/profile', [ProfileController::class, 'update'])
+        ->middleware('throttle:account-sensitive')->name('profile.update');
 
     Route::get('/confirm-password', [ConfirmablePasswordController::class, 'show'])->name('password.confirm');
-    Route::post('/confirm-password', [ConfirmablePasswordController::class, 'store']);
+    Route::post('/confirm-password', [ConfirmablePasswordController::class, 'store'])
+        ->middleware('throttle:password-confirm');
 
     Route::middleware(['verified', 'account.active'])->group(function () {
         // E19: إجراءات الفرق (POST/PATCH/DELETE فقط عدا صفحة الإدارة). التفويض من الدور الفعلي بالقاعدة، لا من الطلب.
@@ -153,21 +156,23 @@ Route::middleware('auth')->group(function () {
 
         Route::post('/puzzles/{puzzle}/attempt', [PuzzleController::class, 'attempt'])
             ->middleware('throttle:puzzle-attempt')->name('puzzles.attempt');
-        Route::post('/puzzles/{puzzle}/hint', [PuzzleController::class, 'hint'])->name('puzzles.hint');
+        Route::post('/puzzles/{puzzle}/hint', [PuzzleController::class, 'hint'])
+            ->middleware('throttle:puzzle-hint')->name('puzzles.hint');
 
         Route::post('/puzzles/{puzzle}/session', [GameSessionController::class, 'store'])
             ->middleware('throttle:game-session-start')->name('game-sessions.start');
         Route::post('/game-sessions/{session}/reveal', [GameSessionController::class, 'reveal'])
             ->middleware('throttle:game-session-reveal')->name('game-sessions.reveal');
 
-        Route::post('/challenges/{challenge}/join', [ChallengeController::class, 'join'])->name('challenges.join');
+        Route::post('/challenges/{challenge}/join', [ChallengeController::class, 'join'])
+            ->middleware('throttle:game-actions')->name('challenges.join');
 
         Route::get('/campaigns/{campaign:slug}/steps/{step}', [CampaignStepController::class, 'show'])
             ->name('campaigns.steps.show');
         Route::post('/campaigns/{campaign:slug}/steps/{step}/complete', [CampaignStepController::class, 'complete'])
-            ->name('campaigns.steps.complete');
+            ->middleware('throttle:game-actions')->name('campaigns.steps.complete');
         Route::post('/campaigns/{campaign:slug}/steps/{step}/reflect', [CampaignStepController::class, 'reflect'])
-            ->name('campaigns.steps.reflect');
+            ->middleware('throttle:game-actions')->name('campaigns.steps.reflect');
         Route::post('/campaigns/{campaign:slug}/steps/{step}/attempt', [CampaignStepController::class, 'attempt'])
             ->middleware('throttle:puzzle-attempt')->name('campaigns.steps.attempt');
         Route::post('/campaigns/{campaign:slug}/steps/{step}/session', [CampaignStepController::class, 'startSession'])
@@ -191,10 +196,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/profile/cosmetics/{slot}/unequip', [ProfileCustomizationController::class, 'unequip'])
             ->middleware('throttle:cosmetic-equip')->name('profile.cosmetics.unequip');
         Route::patch('/profile/visibility', [ProfileCustomizationController::class, 'updateVisibility'])
-            ->name('profile.visibility.update');
-
-        Route::patch('/profile/visibility', [ProfileCustomizationController::class, 'updateVisibility'])
-            ->name('profile.visibility.update');
+            ->middleware('throttle:account-sensitive')->name('profile.visibility.update');
 
         // E12: صفحة التقدُّم - قراءة فقط، لا Mutation عبر أي مسار هنا.
         Route::get('/progress', [\App\Http\Controllers\PlayerProgressionController::class, 'show'])->name('progress.show');

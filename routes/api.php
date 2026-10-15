@@ -9,10 +9,15 @@ use Illuminate\Support\Facades\Route;
 
 // هذا الملف مخصص لتطبيق الموبايل المستقبلي (Kotlin - Android)
 // نفس منطق الأعمال بالضبط عبر خدمات app/Services، فقط طبقة نقل مختلفة (JSON بدل Blade).
-Route::post('/auth/login', [AuthController::class, 'login']);
+// E26: إصدار الرمز بحدّ مزدوج (IP + بريد مُجزَّأ/IP)، ولا يصدر لحساب مجمَّد أو لبريد غير موثَّق (نفس شروط اللعب بالويب).
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:api-login');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
+});
+
+// E26: كل ما سوى الخروج يتطلب بريدًا موثَّقًا وحسابًا غير مجمَّد (كان رمز مجمَّد/غير موثَّق يكسب جواهر عبر /api/puzzles/{id}/attempt).
+Route::middleware(['auth:sanctum', 'verified', 'account.active'])->group(function () {
 
     Route::get('/puzzles/categories', [PuzzleController::class, 'categories']);
     Route::get('/puzzles', [PuzzleController::class, 'index']);

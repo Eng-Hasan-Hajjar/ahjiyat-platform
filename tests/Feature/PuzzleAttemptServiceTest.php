@@ -86,10 +86,15 @@ test('sequence game type: correct order awards gems via the registry, wrong orde
     expect($puzzle->fresh()->solution_data)->toBe(['order' => [0, 1, 2]]);
 
     $wrongUser = User::factory()->create();
-    $wrongResult = $this->service->attempt($wrongUser, $puzzle, '', false, ['order' => [1, 0, 2]]);
+    // E26: المُرسَل رموز معتمة بالترتيب (SequenceTokens) لا فهارس خام؛ الأعداد الخام تُرفض.
+    $tokens = \App\GameEngine\Support\SequenceTokens::expectedOrder($puzzle);
+    $wrongResult = $this->service->attempt($wrongUser, $puzzle, '', false, ['order' => [$tokens[1], $tokens[0], $tokens[2]]]);
     expect($wrongResult['correct'])->toBeFalse();
 
-    $rightResult = $this->service->attempt($this->user, $puzzle, '', false, ['order' => [0, 1, 2]]);
+    $rawIndexResult = $this->service->attempt(User::factory()->create(), $puzzle, '', false, ['order' => [0, 1, 2]]);
+    expect($rawIndexResult['correct'])->toBeFalse();
+
+    $rightResult = $this->service->attempt($this->user, $puzzle, '', false, ['order' => $tokens]);
     expect($rightResult['correct'])->toBeTrue()
         ->and($rightResult['gems_awarded'])->toBe(20);
 
@@ -98,5 +103,5 @@ test('sequence game type: correct order awards gems via the registry, wrong orde
         ->where('is_correct', true)
         ->first();
 
-    expect($attempt->submission_snapshot)->toBe(['order' => [0, 1, 2]]);
+    expect($attempt->submission_snapshot)->toBe(['order' => $tokens]);
 });

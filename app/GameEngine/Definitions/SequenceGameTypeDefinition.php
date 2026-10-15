@@ -6,6 +6,7 @@ use App\GameEngine\Contracts\GameTypeDefinition;
 use App\GameEngine\Contracts\GameValidator;
 use App\GameEngine\Contracts\ScoreCalculator;
 use App\GameEngine\Scoring\FlatScoreCalculator;
+use App\GameEngine\Support\SequenceTokens;
 use App\GameEngine\Validators\SequenceMatchValidator;
 use App\Models\Puzzle;
 
@@ -56,8 +57,9 @@ class SequenceGameTypeDefinition implements GameTypeDefinition
 
     public function publicPayload(Puzzle $puzzle): array
     {
+        // E26: عناصر مخلوطة برموز معتمة (لا فهارس أصلية ولا ترتيب الإجابة). انظر SequenceTokens.
         return [
-            'items' => $puzzle->game_config['items'] ?? [],
+            'items' => SequenceTokens::shuffledItems($puzzle),
         ];
     }
 }

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\User;
 use App\Services\AuthorizationSafetyService;
 use App\Services\Teams\TeamService;
+use App\Support\Security\Fingerprint;
 use Illuminate\Cache\RateLimiting\Limit;
 use App\Support\ReleaseInfo;
 use Illuminate\Http\Request;
@@ -75,8 +76,49 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // E8: لم تكن محمية إطلاقاً سابقاً (بند 22) - منع email flooding.
+        // E26: حدّ ثانٍ **لكل مستلم** (بريد مُجزَّأ، لا بريد خام بمفتاح المحدِّد) كي لا يُغرِق مهاجمٌ بعناوين IP متعددة صندوق ضحية واحدة.
         RateLimiter::for('password-reset', function (Request $request) {
-            return Limit::perMinutes(10, 5)->by($request->ip());
+            return [
+                Limit::perMinutes(10, 5)->by('pr-ip:'.$request->ip()),
+                Limit::perHour(3)->by('pr-rcpt:'.Fingerprint::email($request->input('email'))),
+            ];
+        });
+
+        // E26: تنفيذ إعادة التعيين نفسه (POST /reset-password) لم يكن محدودًا. الرمز عشوائي طويل، لكن لا سبب لقبول طرق غير محدودة.
+        RateLimiter::for('password-reset-submit', function (Request $request) {
+            return Limit::perMinutes(10, 10)->by('prs-ip:'.$request->ip());
+        });
+
+        // E26: تأكيد كلمة المرور (confirm-password) كان قابلًا للتخمين بلا حدّ داخل جلسة مسروقة. المفتاح المستخدم.
+        RateLimiter::for('password-confirm', function (Request $request) {
+            return Limit::perMinute(6)->by('pc:'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // E26: تعديل بيانات الحساب الحسّاسة (الاسم/البريد/ظهور الملف) - أدنى بكثير من أي استخدام بشري.
+        RateLimiter::for('account-sensitive', function (Request $request) {
+            return Limit::perMinute(10)->by('acs:'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // E26: أفعال لعب خفيفة كانت بلا حدّ (شراء تلميح، انضمام تحدٍّ، إكمال/تأمل خطوة حملة).
+        RateLimiter::for('game-actions', function (Request $request) {
+            return Limit::perMinute(30)->by('ga:'.($request->user()?->id ?: $request->ip()));
+        });
+
+        RateLimiter::for('puzzle-hint', function (Request $request) {
+            return Limit::perMinute(10)->by('ph:'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // E26: مصادقة قنوات البثّ الخاصة (/broadcasting/auth): اشتراك كل غرفة مرة واحدة عادةً؛ السقف يمنع استنزاف القاعدة باستعلامات التخويل.
+        RateLimiter::for('broadcast-auth', function (Request $request) {
+            return Limit::perMinute(90)->by('bca:'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // E26: دخول API (إصدار رمز Sanctum) - حدّ لكل IP وحدّ لكل (بريد مُجزَّأ+IP). لا يتشارك مع محدّد دخول الويب.
+        RateLimiter::for('api-login', function (Request $request) {
+            return [
+                Limit::perMinute(20)->by('apil-ip:'.$request->ip()),
+                Limit::perMinutes(5, 5)->by('apil-acct:'.Fingerprint::email($request->input('email')).'|'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('email-verification', function (Request $request) {
@@ -174,6 +216,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
-        
+
     }
+
 }

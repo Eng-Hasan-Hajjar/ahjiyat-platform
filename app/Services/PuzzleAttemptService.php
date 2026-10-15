@@ -35,6 +35,12 @@ class PuzzleAttemptService
     ): array {
         $context ??= AttemptContext::none();
 
+        // E26: المسار العام المباشر (بلا سياق) كان يقبل محاولات ومكافآت على أحجية معطَّلة/مسودة/مسحوبة لمن يخمّن معرّفها. السياقات (حملة/جلسة/تنافسي) تفحص
+        // التفعيل بخدماتها (CampaignPuzzleService/GameSessionService/CompetitiveEligibility) فلا نغيّر سلوك جلسة جارية بقرار إداري لاحق.
+        if (! $context->isPresent() && ! $puzzle->is_active) {
+            throw new \RuntimeException('هذه الأحجية غير متاحة حالياً.');
+        }
+
         $result = DB::transaction(function () use ($user, $puzzle, $submittedAnswer, $usedHint, $submission, $context) {
             $previousAttempts = PuzzleAttempt::where('user_id', $user->id)
                 ->where('puzzle_id', $puzzle->id)
@@ -105,6 +111,9 @@ class PuzzleAttemptService
             : $directive->amount;
 
         if ($isDefaultCurrency) {
+            // E26: تسلسل قراءة السقف + الإيداع بقفل صف المحفظة (نحن داخل معاملة attempt()): طلبات متزامنة لأحجيات مختلفة كانت تتجاوز السقف اليومي معًا.
+            $this->wallets->lockWallet($user, $currency);
+
             $dailyCap = config('gems.daily_earn_cap');
             $alreadyEarnedToday = $this->wallets->dailyEarnedToday($user, $currency);
             $reward = min($rawReward, max(0, $dailyCap - $alreadyEarnedToday));
@@ -125,6 +134,11 @@ class PuzzleAttemptService
 
     public function purchaseHint(User $user, Puzzle $puzzle): string
     {
+        // E26: لا تلميحات (ولا خصم جواهر) لأحجية غير مفعّلة.
+        if (! $puzzle->is_active) {
+            throw new \RuntimeException('هذه الأحجية غير متاحة حالياً.');
+        }
+
         if (blank($puzzle->hint)) {
             throw new \RuntimeException('لا يوجد تلميح متاح لهذه الأحجية.');
         }

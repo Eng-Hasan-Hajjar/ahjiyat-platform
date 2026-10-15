@@ -28,6 +28,9 @@ class ChallengeController extends Controller
 
     public function show(Challenge $challenge)
     {
+        // E26: تحدٍّ غير مفعّل (مسودة) لا يُعرض للعامة بالمعرّف التسلسلي؛ المسؤول يعاينه.
+        abort_unless($challenge->is_active || (Auth::user()?->can('admin.access') ?? false), 404);
+
         $challenge->load(['puzzles.category']);
 
         $leaderboard = $challenge->participants()

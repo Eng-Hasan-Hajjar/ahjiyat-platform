@@ -53,7 +53,8 @@ test('a sequence puzzle can be solved by submitting a structured JSON payload', 
 
     $this->actingAs($user)
         ->post(route('puzzles.attempt', $puzzle), [
-            'submission' => json_encode(['order' => [0, 1, 2]]),
+            // E26: المُرسَل رموز معتمة (SequenceTokens) لا فهارس خام
+            'submission' => json_encode(['order' => \App\GameEngine\Support\SequenceTokens::expectedOrder($puzzle)]),
         ])
         ->assertRedirect(route('puzzles.show', $puzzle))
         ->assertSessionHas('success');

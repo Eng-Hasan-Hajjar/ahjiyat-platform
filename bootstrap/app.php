@@ -3,7 +3,9 @@
 use App\Http\Controllers\HealthController;
 use App\Http\Middleware\EnsureAccountIsNotFrozen;
 use App\Http\Middleware\RequestObservability;
+use App\Http\Middleware\RestrictBroadcastChannels;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\TrustApplicationHosts;
 use App\Http\Middleware\TrackDeviceFingerprint;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -22,10 +24,14 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     // E21: قنوات البثّ الخاصة + مسار /broadcasting/auth (وسيط web، يتطلب مستخدمًا مصادَقًا)
-    ->withBroadcasting(__DIR__.'/../routes/channels.php')
+    // E26: حدّ معدّل لمسار /broadcasting/auth (كل اشتراك قناة خاصة يكلّف استعلامًا) + قصر الأسماء على private-chat.* (يغلق presence-chat.* الذي كان يسرّب user_id الداخلي).
+    ->withBroadcasting(__DIR__.'/../routes/channels.php', ['middleware' => ['web', 'throttle:broadcast-auth', RestrictBroadcastChannels::class]])
     ->withMiddleware(function (Middleware $middleware) {
         // E24: معرّف طلب + سجل الطلبات البطيئة + Server-Timing محليًا (عالميّ، فيشمل web وapi وكل الاستثناءات).
         $middleware->prepend(RequestObservability::class);
+
+        // E26: تقييد ترويسة Host (يمنع تسميم روابط إعادة التعيين/التوثيق). صامت محليًا وبالاختبارات؛ انظر TrustApplicationHosts.
+        $middleware->prepend(TrustApplicationHosts::class);
 
         $middleware->web(append: [
             TrackDeviceFingerprint::class,
