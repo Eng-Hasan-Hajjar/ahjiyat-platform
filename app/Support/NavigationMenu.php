@@ -48,6 +48,7 @@ final class NavigationMenu
         ]));
 
         $explore = array_values(array_filter([
+            $item('discover', 'discover.index', 'sparkles', 'اكتشف', ['discover.*', 'search.*']),
             $show('show_seasons_link') ? $item('seasons', 'seasons.index', 'calendar', 'المواسم', ['seasons.*', 'campaigns.*']) : null,
             $show('show_challenges_link') ? $item('challenges', 'challenges.index', 'bolt', 'التحديات', ['challenges.*', 'friends.challenges.*']) : null,
             $show('show_leaderboard_link') ? $item('leaderboard', 'leaderboard.index', 'chart', 'لوحة الصدارة', ['leaderboard.*']) : null,

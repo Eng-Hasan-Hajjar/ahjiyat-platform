@@ -117,6 +117,9 @@
 
     @include('layouts.partials.header')
 
+    {{-- E27: تراكب البحث العام (JavaScript فقط؛ يفتحه زر الرأس أو «/»). --}}
+    @include('layouts.partials.search-overlay')
+
     <main id="main-content" tabindex="-1" class="flex-1 focus:outline-none">
         {{-- E22: غلاف المحتوى مقيَّد القراءة ومستقل عن غلاف الرأس السائل. الصفحة تعدّل عرضه بـ@section('content_width', 'max-w-7xl') مثلًا. --}}
         <div class="mx-auto w-full {{ trim($__env->yieldContent('content_width')) ?: 'max-w-6xl' }} px-4 sm:px-6 py-6 sm:py-10">

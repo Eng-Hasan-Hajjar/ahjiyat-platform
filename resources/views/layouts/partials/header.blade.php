@@ -60,6 +60,12 @@
         @endauth
 
         <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {{-- E27: البحث العام. رابط إلى /search بدون JavaScript؛ مع JavaScript يفتح تراكب الاقتراحات (انظر search-overlay). خارج التنقل الرئيسي فلا يغيّر أيقوناته الست. --}}
+            <a href="{{ route('search.index') }}" @click.prevent="$dispatch('open-search')" aria-label="بحث" title="بحث ( / )" aria-haspopup="dialog" data-search-trigger
+                class="grid place-items-center w-10 h-10 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">
+                <x-ui-icon name="search" class="w-[1.35rem] h-[1.35rem]" />
+            </a>
+
             @if ($appearance['allow_theme_switch'])
                 <x-theme-switcher />
             @endif
