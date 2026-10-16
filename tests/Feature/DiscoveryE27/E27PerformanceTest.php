@@ -70,8 +70,8 @@ test('P2: measured query ceilings hold on a warm cache - search and discovery ad
     $basePlayer = e27_queries(fn () => $this->actingAs($viewer)->get('/terms')->assertOk());
     $count = fn (string $name) => e27_queries($endpoints[$name]);
 
-    // JSON بلا إطار صفحة: مصدر لكل نوع (7) + تحميل التصنيف + الحظر للمسجَّل. مقيس 8 (ضيف) و10 (لاعب).
-    expect($count('suggest guest'))->toBeLessThanOrEqual(10)->and($count('suggest player'))->toBeLessThanOrEqual(12);
+    // JSON بلا إطار صفحة: مصدر لكل نوع (8 منذ E28: +1 لأحجيات المجتمع) + تحميل التصنيف + الحظر للمسجَّل. مقيس 11 (ضيف) و11 (لاعب).
+    expect($count('suggest guest'))->toBeLessThanOrEqual(11)->and($count('suggest player'))->toBeLessThanOrEqual(12);
     // صفحات كاملة: فوق قاعدة الصفحة العادية بنفس المشاهد (مقيس: ضيف +7، لاعب +7 أو أقل).
     expect($count('search all (guest)') - $baseGuest)->toBeLessThanOrEqual(12)
         ->and($count('search all (player)') - $basePlayer)->toBeLessThanOrEqual(12)
@@ -152,7 +152,7 @@ test('P6: beyond the partial-match limit the filter is a bare-column prefix LIKE
     $log = DB::getQueryLog();
     DB::disableQueryLog();
 
-    $tiered = collect($log)->filter(fn ($q) => str_contains($q['query'], 'search_tier') && ! str_contains($q['query'], 'from "team_championships"'));   // لا بطولات بالبيانات: جدول فارغ
+    $tiered = collect($log)->filter(fn ($q) => str_contains($q['query'], 'search_tier') && ! str_contains($q['query'], 'from "team_championships"') && ! str_contains($q['query'], 'from "creator_puzzles"'));   // لا بطولات ولا أحجيات مجتمع بالبيانات: جداول فارغة (أحجيات المجتمع بوضعها الكبير مفحوصة في CreatorE28)
     expect($tiered->count())->toBe(6);
     foreach ($tiered as $q) {
         $where = substr($q['query'], (int) strpos($q['query'], ' from "'));

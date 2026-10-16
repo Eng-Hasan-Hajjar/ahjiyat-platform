@@ -45,6 +45,8 @@ class UserAccountService
 
             $this->audit->log('user_frozen', $target, ['reason' => $reason], $actor);
         });
+
+        $this->reconcileCreatorVisibility($target);
     }
 
     public function unfreeze(User $target, User $actor): void
@@ -63,5 +65,20 @@ class UserAccountService
 
             $this->audit->log('user_unfrozen', $target, ['previous_reason' => $previousReason], $actor);
         });
+
+        $this->reconcileCreatorVisibility($target);
+    }
+
+    /**
+     * E28: تجميد/رفع تجميد حساب مبدع يُخفي/يُظهر منشوراته (إخفاء مشتقّ بسبب account_frozen لا يلغي الإخفاء الإشرافي). بعد الـcommit؛ فشلها لا يُفشل التجميد
+     * (الأمان أولًا) وأي مصالحة لاحقة تعيد الاتساق. is_frozen يكتبها هذا الصنف وحده.
+     */
+    protected function reconcileCreatorVisibility(User $target): void
+    {
+        try {
+            app(\App\Services\Creators\CreatorVisibilityService::class)->reconcileForUser($target->refresh());
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }

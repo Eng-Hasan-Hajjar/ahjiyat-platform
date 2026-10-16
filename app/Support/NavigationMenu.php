@@ -49,6 +49,7 @@ final class NavigationMenu
 
         $explore = array_values(array_filter([
             $item('discover', 'discover.index', 'sparkles', 'اكتشف', ['discover.*', 'search.*']),
+            $item('community-puzzles', 'community.puzzles.index', 'friends', 'أحجيات المجتمع', ['community.puzzles.*', 'creators.*']),
             $show('show_seasons_link') ? $item('seasons', 'seasons.index', 'calendar', 'المواسم', ['seasons.*', 'campaigns.*']) : null,
             $show('show_challenges_link') ? $item('challenges', 'challenges.index', 'bolt', 'التحديات', ['challenges.*', 'friends.challenges.*']) : null,
             $show('show_leaderboard_link') ? $item('leaderboard', 'leaderboard.index', 'chart', 'لوحة الصدارة', ['leaderboard.*']) : null,
@@ -74,6 +75,10 @@ final class NavigationMenu
                 $teams,
                 $friends,
             ]))];
+            // E28: بوابة الاستوديو (عرض فقط، بلا استعلام لكل طلب): صفحة الطلب تعرض الحالة وتُحيل المبدع المعتمَد للاستوديو.
+            $verified && $moreGroups[] = ['title' => 'المبدعون', 'items' => [
+                $item('creator-studio', 'creator.apply', 'palette', 'استوديو المبدع', ['creator.*']),
+            ]];
             $user->email_verified_at === null && $moreGroups[] = ['title' => 'المجتمع', 'items' => [$teams]];
         } else {
             $moreGroups[] = ['title' => 'المتجر', 'items' => [$item('store', 'store.index', 'store', 'المتجر', ['store.*'])]];

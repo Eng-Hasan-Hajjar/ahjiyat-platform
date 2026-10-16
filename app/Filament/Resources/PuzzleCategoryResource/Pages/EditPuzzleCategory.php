@@ -12,6 +12,6 @@ class EditPuzzleCategory extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [Actions\DeleteAction::make()];
+        return [Actions\DeleteAction::make()->before(fn (Actions\DeleteAction $action) => \App\Filament\Resources\PuzzleCategoryResource::guardDelete($action, $this->record))];
     }
 }

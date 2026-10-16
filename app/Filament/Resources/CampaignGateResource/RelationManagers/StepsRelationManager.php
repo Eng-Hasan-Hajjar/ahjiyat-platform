@@ -110,7 +110,7 @@ class StepsRelationManager extends RelationManager
             // ===== puzzle فقط - اختيار أحجية موجودة حصراً =====
             Forms\Components\Select::make('puzzle_id')
                 ->label('الأحجية')
-                ->options(fn () => Puzzle::query()->where('is_active', true)->pluck('title', 'id'))
+                ->options(fn () => Puzzle::query()->official()->where('is_active', true)->pluck('title', 'id'))
                 ->searchable()
                 ->required(fn (Get $get) => $get('kind') === CampaignStep::KIND_PUZZLE)
                 ->visible(fn (Get $get) => $get('kind') === CampaignStep::KIND_PUZZLE)

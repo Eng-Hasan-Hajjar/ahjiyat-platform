@@ -32,7 +32,7 @@ class PuzzleController extends Controller
     {
         // E26: (1) غير المفعّلة 404 كالقائمة. (2) game_config الخام كان يسرّب ترتيب الإجابة الصحيح للترتيب (عناصر بالترتيب الصحيح) وأزواج بطاقات الذاكرة؛
         // نُعيد حمولة النوع العامة فقط (publicPayload: عناصر مخلوطة برموز معتمة، بلا solution_data/hotspots) ونحتفظ بالمفتاح game_config للتوافق.
-        abort_unless($puzzle->is_active, 404);
+        abort_unless($puzzle->is_active && ! $puzzle->isCommunity(), 404);
 
         return array_merge($puzzle->only([
             'id', 'title', 'type', 'difficulty', 'prompt', 'choices',
@@ -55,6 +55,8 @@ class PuzzleController extends Controller
 
     public function attempt(SolvePuzzleRequest $request, Puzzle $puzzle)
     {
+        abort_if($puzzle->isCommunity(), 404);
+
         $submission = (array) $request->input('submission', []);
 
         if ($request->filled('start_token')) {

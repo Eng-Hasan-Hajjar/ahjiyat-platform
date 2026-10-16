@@ -10,6 +10,7 @@ use App\Models\Season;
 use App\Models\Team;
 use App\Models\TeamChampionship;
 use App\Models\User;
+use App\Services\Creators\CommunityDiscovery;
 use Illuminate\Support\Collection;
 
 /**
@@ -20,7 +21,7 @@ use Illuminate\Support\Collection;
  */
 class DiscoveryService
 {
-    public function __construct(protected TrendingService $trending, protected RecommendationService $recommendations) {}
+    public function __construct(protected TrendingService $trending, protected RecommendationService $recommendations, protected CommunityDiscovery $community) {}
 
     /**
      * @return array{sections: list<array>, categories: Collection<int, PuzzleCategory>, personalized: bool}
@@ -51,6 +52,12 @@ class DiscoveryService
             Puzzle::query()->select('puzzles.id', 'puzzles.title', 'puzzles.difficulty', 'puzzles.puzzle_category_id')->with('category:id,name')
                 ->where('puzzles.is_active', true)->orderByDesc('puzzles.id')->limit($limit)->get()
                 ->map(fn (Puzzle $p) => $this->puzzleCard($p, null))->all());
+
+        // E28: أحجيات المجتمع بأقسام مستقلة موسومة «من المجتمع» (لا تمتزج بالرسمي ولا تؤثر برائجه/توصياته). قسم فارغ لا يظهر.
+        $community = $this->community->sections($viewer);
+        $this->add($sections, 'community-trending', 'رائج من المجتمع', 'friends', route('community.puzzles.index'), 'كل أحجيات المجتمع', $community['trending']);
+        $this->add($sections, 'community-new', 'جديد من المجتمع', 'friends', route('community.puzzles.index'), 'كل أحجيات المجتمع', $community['new']);
+        $this->add($sections, 'community-for-you', 'مقترحة لك من المجتمع', 'sparkles', route('community.puzzles.index'), 'كل أحجيات المجتمع', $community['for_you']);
 
         $seasons = Season::query()->join('campaigns', 'campaigns.id', '=', 'seasons.campaign_id')
             ->select('seasons.id', 'seasons.slug', 'seasons.is_featured', 'campaigns.title as campaign_title')

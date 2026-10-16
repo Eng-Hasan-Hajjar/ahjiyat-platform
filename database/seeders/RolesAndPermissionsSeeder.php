@@ -98,6 +98,10 @@ class RolesAndPermissionsSeeder extends Seeder
 
         ]);
 
+        $this->grantIfMissing('administrator', ['creators.view', 'creators.review', 'creators.manage']);
+
+        $this->grantIfMissing('moderator', ['creators.view', 'creators.review']);
+
         $this->grantIfMissing('moderator', [
             'users.view_security',
             'users.view_activity',

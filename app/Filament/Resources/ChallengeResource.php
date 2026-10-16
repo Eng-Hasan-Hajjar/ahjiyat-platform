@@ -36,7 +36,7 @@ class ChallengeResource extends Resource
             Forms\Components\DateTimePicker::make('ends_at')->label('ينتهي في')->required(),
             Forms\Components\TextInput::make('bonus_gem_pool')->label('مجموع جواهر المكافأة')->numeric()->default(0),
             Forms\Components\Select::make('puzzles')->label('الأحجيات المرتبطة')
-                ->relationship('puzzles', 'title')->multiple()->preload()->searchable(),
+                ->relationship('puzzles', 'title', modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => $query->official())->multiple()->preload()->searchable(),
             Forms\Components\Toggle::make('is_active')->label('مفعّل')->default(true),
         ]);
     }

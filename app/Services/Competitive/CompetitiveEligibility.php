@@ -20,6 +20,11 @@ class CompetitiveEligibility
     /** @return string|null سبب الرفض بالعربية، أو null إن كانت صالحة */
     public function reasonIfIneligible(Puzzle $puzzle, bool $requireActive = true): ?string
     {
+        // E28: أحجيات المجتمع بلا اقتصاد/منافسة رسمية (حتى حين يُسمح بغير المفعَّلة للجدولة).
+        if ($puzzle->isCommunity()) {
+            return 'أحجيات المجتمع لا تصلح للمنافسات.';
+        }
+
         if ($requireActive && ! $puzzle->is_active) {
             return 'هذه الأحجية غير مفعَّلة.';
         }
@@ -43,7 +48,7 @@ class CompetitiveEligibility
      */
     public function eligiblePuzzlesQuery(bool $requireActive = true)
     {
-        return Puzzle::query()->when($requireActive, fn ($q) => $q->where('is_active', true))
+        return Puzzle::query()->official()->when($requireActive, fn ($q) => $q->where('is_active', true))
             ->where(fn ($q) => $q->whereNull('hint')->orWhere('hint', ''))
             ->where(fn ($q) => $q->whereNull('game_type')->orWhereIn('game_type', ['memory', 'sequence']));
     }

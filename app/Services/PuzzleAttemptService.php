@@ -35,6 +35,12 @@ class PuzzleAttemptService
     ): array {
         $context ??= AttemptContext::none();
 
+        // E28: أحجيات المجتمع بلا اقتصاد/تقدّم بالبناء: لعبها يمرّ حصرًا بـCommunityPlayService (جدول لعب منفصل). هذه الخدمة تمنح جواهر وXP وتغذّي المهام والسلسلة،
+        // فنرفض أي أحجية مجتمع هنا مهما كان السياق (حملة/جلسة/تنافس) كحاجز أخير لا يعتمد على فلترة المنادي.
+        if ($puzzle->isCommunity()) {
+            throw new \RuntimeException('هذه الأحجية غير متاحة عبر هذا المسار.');
+        }
+
         // E26: المسار العام المباشر (بلا سياق) كان يقبل محاولات ومكافآت على أحجية معطَّلة/مسودة/مسحوبة لمن يخمّن معرّفها. السياقات (حملة/جلسة/تنافسي) تفحص
         // التفعيل بخدماتها (CampaignPuzzleService/GameSessionService/CompetitiveEligibility) فلا نغيّر سلوك جلسة جارية بقرار إداري لاحق.
         if (! $context->isPresent() && ! $puzzle->is_active) {
@@ -134,8 +140,8 @@ class PuzzleAttemptService
 
     public function purchaseHint(User $user, Puzzle $puzzle): string
     {
-        // E26: لا تلميحات (ولا خصم جواهر) لأحجية غير مفعّلة.
-        if (! $puzzle->is_active) {
+        // E26: لا تلميحات (ولا خصم جواهر) لأحجية غير مفعّلة. E28: ولا لأحجية مجتمع (تلميحها مجاني عبر CommunityPlayService).
+        if ($puzzle->isCommunity() || ! $puzzle->is_active) {
             throw new \RuntimeException('هذه الأحجية غير متاحة حالياً.');
         }
 

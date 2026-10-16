@@ -46,7 +46,21 @@ class PuzzleCategoryResource extends Resource
                 Tables\Columns\TextColumn::make('sort_order')->label('الترتيب')->sortable(),
             ])
             ->defaultSort('sort_order')
-            ->actions([Tables\Actions\EditAction::make(), Tables\Actions\DeleteAction::make()]);
+            ->actions([Tables\Actions\EditAction::make(), Tables\Actions\DeleteAction::make()->before(fn (Tables\Actions\DeleteAction $action, PuzzleCategory $record) => static::guardDelete($action, $record))]);
+    }
+
+    /** E28: حذف تصنيف يحوي أحجيات مجتمع منشورة يمحو سجل النسخ؛ نمنعه برسالة بدل خطأ قيد بقاعدة البيانات. */
+    public static function guardDelete(\Filament\Actions\MountableAction $action, PuzzleCategory $record): void
+    {
+        if ($record->puzzles()->where('origin', \App\Models\Puzzle::ORIGIN_COMMUNITY)->exists()) {
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('لا يمكن حذف هذا التصنيف')
+                ->body('يحوي أحجيات مجتمع منشورة ضمن سجل المبدعين. عطّل التصنيف بدل حذفه.')
+                ->send();
+
+            $action->halt();
+        }
     }
 
     public static function getPages(): array

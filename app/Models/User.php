@@ -218,4 +218,10 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
     {
         return $this->hasMany(UserAchievementProgress::class);
     }
+
+    /** E28: ملف المبدع (إن وُجد). */
+    public function creatorProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(CreatorProfile::class);
+    }
 }

@@ -22,7 +22,7 @@ class PuzzleAnalyticsService
             $correct = (clone $attempts)->where('is_correct', true)->count();
 
             return [
-                'total_puzzles' => Puzzle::count(),
+                'total_puzzles' => Puzzle::official()->count(),
                 'active_puzzles' => Puzzle::where('is_active', true)->count(),
                 'total_attempts' => $total,
                 'correct_attempts' => $correct,

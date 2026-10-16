@@ -56,6 +56,12 @@ enum NotificationType: string
     case TeamChallengeResultReady = 'team_challenge_result_ready';
     case TeamChampionshipStarted = 'team_championship_started';
     case TeamChampionshipResultReady = 'team_championship_result_ready';
+    case CreatorApproved = 'creator_approved';
+    case CreatorRejected = 'creator_rejected';
+    case SubmissionApproved = 'submission_approved';
+    case SubmissionChangesRequested = 'submission_changes_requested';
+    case SubmissionRejected = 'submission_rejected';
+    case PublicationHidden = 'publication_hidden';
 
     public function category(): NotificationCategory
     {
@@ -72,7 +78,8 @@ enum NotificationType: string
             self::CampaignEndingSoon => NotificationCategory::Campaign,
             self::FriendRequestReceived, self::FriendRequestAccepted, self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady,
             self::TeamInvitationReceived, self::TeamInvitationAccepted, self::TeamJoinRequestReceived, self::TeamJoinRequestAccepted, self::TeamMemberRemoved,
-            self::TeamChallengeReceived, self::TeamChallengeAccepted, self::TeamChallengeResultReady => NotificationCategory::Social,
+            self::TeamChallengeReceived, self::TeamChallengeAccepted, self::TeamChallengeResultReady,
+            self::CreatorApproved, self::CreatorRejected, self::SubmissionApproved, self::SubmissionChangesRequested, self::SubmissionRejected, self::PublicationHidden => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::TeamChampionshipStarted, self::TeamChampionshipResultReady => NotificationCategory::Competitive,
         };
@@ -117,6 +124,12 @@ enum NotificationType: string
             self::TeamChampionshipStarted => 8,
             self::TeamChampionshipResultReady => 7,
             self::AchievementUnlocked => 10,
+            self::CreatorApproved => 6,
+            self::CreatorRejected => 5,
+            self::SubmissionApproved => 4,
+            self::SubmissionChangesRequested => 3,
+            self::SubmissionRejected => 2,
+            self::PublicationHidden => 1,
         };
     }
 
@@ -142,6 +155,12 @@ enum NotificationType: string
             self::TeamChallengeReceived, self::TeamChallengeAccepted, self::TeamChallengeResultReady => '⚔️',
             self::TeamChampionshipStarted, self::TeamChampionshipResultReady => '🏆',
             self::CompetitiveEventEndingSoon => '⏳',
+            self::CreatorApproved => '🎨',
+            self::CreatorRejected => '📝',
+            self::SubmissionApproved => '✅',
+            self::SubmissionChangesRequested => '✍️',
+            self::SubmissionRejected => '📝',
+            self::PublicationHidden => '🚫',
         };
     }
 
@@ -168,6 +187,9 @@ enum NotificationType: string
             self::TeamMemberRemoved => ['teams.index'],
             self::TeamChallengeReceived, self::TeamChallengeAccepted, self::TeamChallengeResultReady => ['teams.challenges.show'],
             self::TeamChampionshipStarted, self::TeamChampionshipResultReady => ['team-championships.show'],
+            self::CreatorApproved => ['creator.dashboard'],
+            self::CreatorRejected => ['creator.apply'],
+            self::SubmissionApproved, self::SubmissionChangesRequested, self::SubmissionRejected, self::PublicationHidden => ['creator.puzzles.index'],
         };
     }
 
@@ -209,6 +231,12 @@ enum NotificationType: string
             self::TeamChallengeResultReady => 'نتيجة مباراتكم ضد «'.($params['team'] ?? '').'» جاهزة',
             self::TeamChampionshipStarted => 'بدأت بطولة الفرق: '.($params['title'] ?? ''),
             self::TeamChampionshipResultReady => 'اعتُمدت نتائج بطولة الفرق: '.($params['title'] ?? ''),
+            self::CreatorApproved => 'تمت الموافقة على انضمامك كمبدع',
+            self::CreatorRejected => 'لم يُقبل طلب انضمامك كمبدع',
+            self::SubmissionApproved => 'اعتُمدت أحجيتك: '.($params['title'] ?? ''),
+            self::SubmissionChangesRequested => 'طُلبت تعديلات على أحجيتك: '.($params['title'] ?? ''),
+            self::SubmissionRejected => 'لم تُعتمد أحجيتك: '.($params['title'] ?? ''),
+            self::PublicationHidden => 'أُخفيت أحجيتك من المنصة: '.($params['title'] ?? ''),
         };
     }
 
@@ -245,7 +273,21 @@ enum NotificationType: string
             self::TeamChallengeResultReady => ($params['outcome'] ?? 'اعتُمدت النتيجة').'.',
             self::TeamChampionshipStarted => 'تُحتسب نتائج أحداثها المعتمَدة بنقاط الترتيب.',
             self::TeamChampionshipResultReady => 'اطّلع على الترتيب النهائي وبطل البطولة.',
+            self::CreatorApproved => 'يمكنك الآن إنشاء أحجيات المجتمع وإرسالها للمراجعة من استوديو المبدعين.',
+            self::CreatorRejected => static::withNote('يمكنك مراجعة الملاحظة وإعادة التقديم لاحقًا.', $params),
+            self::SubmissionApproved => 'أصبحت أحجيتك منشورة ضمن «من المجتمع» ويمكن للاعبين لعبها.',
+            self::SubmissionChangesRequested => static::withNote('عدّل الأحجية وأعد إرسالها للمراجعة من استوديو المبدعين.', $params),
+            self::SubmissionRejected => static::withNote('يمكنك إنشاء نسخة جديدة من استوديو المبدعين.', $params),
+            self::PublicationHidden => 'أخفاها فريق الإشراف مؤقتًا. راجع حالتها في استوديو المبدعين.',
         };
+    }
+
+    /** ملاحظة المراجع (نص عادي يُهرَّب عند العرض) تُلحق بنص الإشعار إن وُجدت؛ الغياب لا يكسر النص. */
+    protected static function withNote(string $base, array $params): string
+    {
+        $note = trim((string) ($params['note'] ?? ''));
+
+        return $note === '' ? $base : 'ملاحظة المراجع: '.$note.' — '.$base;
     }
 
     /** @return list<string> */

@@ -33,6 +33,11 @@ class GameSessionService
     {
         $context ??= AttemptContext::none();
 
+        // E28: جلسات اللعب مسار رسمي يمنح مكافآت وتأهيلًا؛ أحجيات المجتمع (غير المدعومة بالجلسات أصلًا) مرفوضة هنا كحاجز أخير.
+        if ($puzzle->isCommunity()) {
+            throw new \RuntimeException('هذه الأحجية غير متاحة عبر هذا المسار.');
+        }
+
         $definition = $this->games->definitionFor($puzzle->game_type);
 
         if (! $definition instanceof GameSessionHandler) {

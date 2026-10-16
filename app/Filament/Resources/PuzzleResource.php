@@ -28,6 +28,12 @@ class PuzzleResource extends Resource
 
     protected static ?string $pluralModelLabel = 'الأحجيات';
 
+    /** E28: أحجيات المجتمع (لقطات النسخ المعتمدة) لا تظهر ولا تُعدَّل من هنا؛ مراجعتها وإخفاؤها من مركز مراجعة المبدعين. */
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->official();
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([

@@ -33,6 +33,9 @@ class PuzzleController extends Controller
     {
         $user = Auth::user();
 
+        // E28: أحجيات المجتمع صفحتها /community/puzzles/{id} حصرًا؛ هذا المسار رسمي (جواهر/XP) ولا يعرضها لأحد حتى المسؤول.
+        abort_if($puzzle->isCommunity(), 404);
+
         // E26: أحجية غير مفعّلة (مسودة/مسحوبة) لا تُعرض للعامة؛ المسؤول يعاينها. 404 لا 403 كي لا يُكشف وجودها.
         abort_unless($puzzle->is_active || ($user && $user->can('admin.access')), 404);
 
@@ -49,6 +52,8 @@ class PuzzleController extends Controller
 
     public function attempt(SolvePuzzleRequest $request, Puzzle $puzzle): RedirectResponse
     {
+        abort_if($puzzle->isCommunity(), 404);
+
         $submission = (array) $request->input('submission', []);
 
         if ($request->filled('start_token')) {
@@ -82,6 +87,8 @@ class PuzzleController extends Controller
 
     public function hint(Puzzle $puzzle): RedirectResponse
     {
+        abort_if($puzzle->isCommunity(), 404);
+
         try {
             $hint = $this->attempts->purchaseHint(Auth::user(), $puzzle);
         } catch (\RuntimeException $e) {

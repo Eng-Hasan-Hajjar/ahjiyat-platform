@@ -14,6 +14,11 @@ class Puzzle extends Model
 {
     use HasFactory;
 
+    /** E28: مصدر الأحجية حقيقة سيرفرية على الصف (لا من الرابط). 'origin' ليس بالـfillable: يُضبط عند الإنشاء فقط عبر forceFill من مُنشئ أحجيات المجتمع. */
+    public const ORIGIN_OFFICIAL = 'official';
+
+    public const ORIGIN_COMMUNITY = 'community';
+
      protected $fillable = [
         'puzzle_category_id', 'title', 'type', 'difficulty', 'prompt',
         'image_path', 'choices', 'answer_hash', 'answer_raw', 'hint', 'max_attempts',
@@ -39,8 +44,47 @@ class Puzzle extends Model
     protected static function booted(): void
     {
         static::saving(function (Puzzle $puzzle) {
+            // E28: أحجية المجتمع لقطة لنسخة معتمدة. لا تُعدَّل بعد إنشائها (سلامة المحاولات التاريخية) ولا يتبدّل مصدرها أبدًا،
+            // وتُنشأ دائمًا بلا أي مكافأة/ربط رسمي/تفعيل رسمي مهما كان مصدر الكتابة (رفض افتراضي على مستوى النموذج).
+            if ($puzzle->exists) {
+                if ($puzzle->isDirty('origin')) {
+                    throw new \LogicException('لا يمكن تغيير مصدر الأحجية.');
+                }
+
+                if ($puzzle->getOriginal('origin') === self::ORIGIN_COMMUNITY) {
+                    throw new \LogicException('أحجية المجتمع المنشورة لقطة ثابتة ولا تُعدَّل؛ أنشئ نسخة جديدة بدلًا منها.');
+                }
+            } elseif ($puzzle->isCommunity()) {
+                $puzzle->forceFill([
+                    'is_active' => false,
+                    'gem_reward' => 0,
+                    'xp_reward' => 0,
+                    'reward_currency_id' => null,
+                    'is_daily_puzzle' => false,
+                    'daily_puzzle_date' => null,
+                    'time_limit_seconds' => null,
+                ]);
+            }
+
             app(GameTypeRegistry::class)->prepareForSave($puzzle);
         });
+
+        static::deleting(function (Puzzle $puzzle) {
+            if ($puzzle->isCommunity()) {
+                throw new \LogicException('أحجية المجتمع جزء من سجل النسخ ولا تُحذف.');
+            }
+        });
+    }
+
+    public function isCommunity(): bool
+    {
+        return $this->getAttribute('origin') === self::ORIGIN_COMMUNITY;
+    }
+
+    /** الأحجيات الرسمية فقط (لوحة الإدارة والإحصاءات والمنتقيات). الصفوف القديمة رسمية بالافتراضي. */
+    public function scopeOfficial($query)
+    {
+        return $query->where($query->getModel()->getTable().'.origin', self::ORIGIN_OFFICIAL);
     }
 
     public function setAnswerRawAttribute(?string $value): void
