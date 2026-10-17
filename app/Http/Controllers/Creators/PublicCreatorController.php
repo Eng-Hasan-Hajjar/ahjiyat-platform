@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Creators;
 use App\Http\Controllers\Controller;
 use App\Models\CreatorProfile;
 use App\Models\CreatorPuzzle;
+use App\Services\Engagement\CommunityQualityService;
+use App\Services\Engagement\CreatorFollowService;
+use App\Services\Engagement\EngagementViewerState;
 use App\Services\PlayerIdentity\CosmeticLoadoutService;
 use Illuminate\Http\Request;
 
@@ -15,7 +18,12 @@ use Illuminate\Http\Request;
  */
 class PublicCreatorController extends Controller
 {
-    public function __construct(protected CosmeticLoadoutService $loadouts) {}
+    public function __construct(
+        protected CosmeticLoadoutService $loadouts,
+        protected CreatorFollowService $follows,
+        protected CommunityQualityService $quality,
+        protected EngagementViewerState $viewerState,
+    ) {}
 
     public function show(Request $request, CreatorProfile $creator)
     {
@@ -24,16 +32,27 @@ class PublicCreatorController extends Controller
         abort_unless($creator->isApproved() && $creator->user !== null && ! $creator->user->is_frozen, 404);
 
         $totals = CreatorPuzzle::query()->visible()->where('creator_profile_id', $creator->id)
-            ->selectRaw('COUNT(*) as published, COALESCE(SUM(plays_count), 0) as plays')->first();
+            ->selectRaw('COUNT(*) as published, COALESCE(SUM(plays_count), 0) as plays, COALESCE(SUM(ratings_count), 0) as rated, COALESCE(SUM(ratings_sum), 0) as rated_sum')->first();
 
         $works = CreatorPuzzle::query()->visible()
             ->where('creator_profile_id', $creator->id)
-            ->select('id', 'public_id', 'creator_profile_id', 'published_title', 'published_category_id', 'published_difficulty', 'published_at', 'plays_count')
+            ->select('id', 'public_id', 'creator_profile_id', 'published_title', 'published_category_id', 'published_difficulty', 'published_at', 'plays_count', 'ratings_count', 'ratings_sum', 'favorites_count')
             ->with('publishedCategory:id,name')
             ->orderByDesc('published_at')->orderByDesc('id')
             ->paginate((int) config('creators.page_size'));
 
         $loadout = $this->loadouts->loadoutFor($creator->user);
+        $user = $request->user();
+
+        // E29: حالة زر المتابعة بقرار واحد (استعلام exists واحد للموثَّق فقط). لا هوية متابعين تُعرض؛ العدد المجمَّع (followers_count) علني.
+        $followState = match (true) {
+            $user === null => 'guest',
+            $user->id === $creator->user_id => 'self',
+            ! $user->hasVerifiedEmail() => 'verify',
+            (bool) $user->is_frozen => 'frozen',
+            $this->follows->isFollowing($user, $creator->id) => 'following',
+            default => 'can_follow',
+        };
 
         return view('creator.public', [
             'creator' => $creator,
@@ -42,6 +61,10 @@ class PublicCreatorController extends Controller
             'published' => (int) ($totals->published ?? 0),
             'plays' => (int) ($totals->plays ?? 0),
             'works' => $works,
+            'followState' => $followState,
+            'followers' => (int) $creator->followers_count,
+            'quality' => $this->quality->creatorSummary((int) ($totals->rated ?? 0), (int) ($totals->rated_sum ?? 0)),
+            'savedIds' => $this->viewerState->favoriteIds($user, $works->getCollection()->pluck('id')->all()),
         ]);
     }
 }

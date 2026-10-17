@@ -12,6 +12,8 @@ use App\Models\PuzzleCategory;
 use App\Services\Creators\CommunityPlayService;
 use App\Services\Creators\CommunityReportService;
 use App\Services\Creators\CreatorException;
+use App\Services\Engagement\CollectionService;
+use App\Services\Engagement\EngagementViewerState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -25,6 +27,8 @@ class CommunityPuzzleController extends Controller
         protected CommunityPlayService $play,
         protected CommunityReportService $reports,
         protected GameTypeRegistry $games,
+        protected EngagementViewerState $viewerState,
+        protected CollectionService $collections,
     ) {}
 
     public function index(Request $request)
@@ -33,7 +37,7 @@ class CommunityPuzzleController extends Controller
         $category = is_string($categorySlug) ? PuzzleCategory::query()->where('slug', $categorySlug)->where('is_active', true)->first(['id', 'name', 'slug']) : null;
 
         $works = CreatorPuzzle::query()->visible()
-            ->select('id', 'public_id', 'creator_profile_id', 'published_title', 'published_category_id', 'published_difficulty', 'published_at', 'plays_count')
+            ->select('id', 'public_id', 'creator_profile_id', 'published_title', 'published_category_id', 'published_difficulty', 'published_at', 'plays_count', 'ratings_count', 'ratings_sum', 'favorites_count')
             ->when($category, fn ($q) => $q->where('published_category_id', $category->id))
             ->with(['creator:id,user_id,slug', 'creator.user:id,name', 'publishedCategory:id,name'])
             ->orderByDesc('published_at')->orderByDesc('id')
@@ -42,6 +46,8 @@ class CommunityPuzzleController extends Controller
         return view('community.index', [
             'works' => $works,
             'category' => $category,
+            // E29: مفضلة المشاهد لصفحة البطاقات بدفعة واحدة (استعلام واحد للمستخدم المسجَّل، صفر للضيف).
+            'savedIds' => $this->viewerState->favoriteIds($request->user(), $works->getCollection()->pluck('id')->all()),
             'categories' => PuzzleCategory::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'slug']),
         ]);
     }
@@ -54,14 +60,22 @@ class CommunityPuzzleController extends Controller
 
         $user = $request->user();
         $state = $this->play->state($user, $puzzle);
+        $isOwner = $user !== null && $work->creator->user_id === $user->id;
+        $canInteract = $user !== null && $user->hasVerifiedEmail() && ! $user->is_frozen;
+
+        // E29: حالة المشاهد (تقييمي/محفوظ/جرّب) باستعلام واحد + منتقي المجموعات باستعلام واحد، ولغير المالك الموثَّق فقط. الضيف والمالك: صفر استعلامات إضافية.
+        $viewer = $canInteract && ! $isOwner ? $this->viewerState->forWork($user, $work->id) : null;
+        $collections = $viewer !== null ? $this->collections->pickerFor($user, $work->id) : collect();
 
         return view('community.show', [
+            'viewer' => $viewer,
+            'collections' => $collections,
             'work' => $work,
             'puzzle' => $puzzle,
             'state' => $state,
             'renderer' => $this->games->rendererFor($puzzle),
-            'isOwner' => $user !== null && $work->creator->user_id === $user->id,
-            'canInteract' => $user !== null && $user->hasVerifiedEmail() && ! $user->is_frozen,
+            'isOwner' => $isOwner,
+            'canInteract' => $canInteract,
             'reasons' => CommunityPuzzleReport::REASONS,
         ]);
     }
