@@ -39,6 +39,15 @@
             </x-slot:actions>
         </x-profile-hero>
 
+        {{-- E30: تقدير الداعم (شارة مشتقّة من الدعم المؤكَّد غير المجهول؛ ليست عنصر هوية قابلًا للشراء ولا تمنح أي أفضلية). --}}
+        @if (! empty($supporter))
+            <p class="anim-fade-up" data-supporter-recognition>
+                <a href="{{ route('supporters.show', $supporter['slug']) }}" class="inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 text-gold px-3 py-1 text-xs font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">
+                    <x-ui-icon name="sparkles" class="w-3.5 h-3.5" />داعم · {{ $supporter['tier'] }}
+                </a>
+            </p>
+        @endif
+
         @if (! $isOwner && $friendRelation !== null)
             <section class="glass rounded-2xl px-4 py-3 anim-fade-up" aria-label="العلاقة مع {{ $player->name }}">
                 @include('friends._actions', ['other' => $player, 'relation' => $friendRelation, 'withBlock' => true])

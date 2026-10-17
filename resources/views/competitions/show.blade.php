@@ -12,6 +12,8 @@
     <div class="max-w-3xl mx-auto space-y-6">
         <a href="{{ route('competitions.index') }}" class="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white transition anim-fade-up">→ كل المنافسات</a>
 
+        <x-sponsor-strip type="competitive_event" :target-id="$event->id" />
+
         <div class="glass rounded-3xl p-6 md:p-8 anim-fade-up">
             <div class="flex flex-wrap items-center gap-2 mb-3">
                 <span class="chip !py-1 !px-3 text-xs {{ $phase === 'live' ? '!text-emerald-400' : '' }}">{{ $phaseLabel }}</span>

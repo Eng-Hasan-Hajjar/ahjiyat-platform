@@ -63,6 +63,17 @@
             @endif
         </section>
 
+        @if ($seriesList->isNotEmpty())
+            <section aria-label="سلاسل المبدع" class="anim-fade-up d-2" data-creator-series>
+                <x-section-header title="سلاسله" />
+                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    @foreach ($seriesList as $series)
+                        @include('series._card', ['series' => $series])
+                    @endforeach
+                </div>
+            </section>
+        @endif
+
         <section aria-label="أحجيات المبدع" class="anim-fade-up d-2">
             <x-section-header title="أحجياته" />
             @if ($works->isEmpty())

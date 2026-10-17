@@ -66,8 +66,8 @@ test('AA11-108: the creator page is bounded for guests and signed-in viewers', f
     $userMany = e27_queries(fn () => $this->get(route('creators.show', $slug))->assertOk());
     $this->app['auth']->forgetGuards();
 
-    // الضيف 7 = رقم E28 نفسه (لا استعلام تفاعل للضيف)؛ المسجَّل +استعلامان فقط فوق الجرس/التقدّم: حالة المتابعة (exists) + مفضلة البطاقات (دفعة واحدة).
-    expect($userMany)->toBe($userOne)->and($userMany)->toBeLessThanOrEqual(18)->and($guestOne)->toBe(7);
+    // الضيف 8 = رقم E28 (7) + استعلام E30 واحد محدود لقسم «سلاسله» (قاعدة الظهور المركزية، LIMIT ثابت) - لا استعلام تفاعل للضيف؛ المسجَّل +استعلامان فقط فوق الجرس/التقدّم: حالة المتابعة (exists) + مفضلة البطاقات (دفعة واحدة).
+    expect($userMany)->toBe($userOne)->and($userMany)->toBeLessThanOrEqual(18)->and($guestOne)->toBe(8);
 });
 
 test('AA11-109: 1 vs 12 community cards cost the same queries (no N+1), saved state is one batched query', function () {

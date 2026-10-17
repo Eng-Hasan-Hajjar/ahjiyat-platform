@@ -10,6 +10,7 @@ use App\Models\Season;
 use App\Models\Team;
 use App\Models\TeamChampionship;
 use App\Models\User;
+use App\Services\CreatorSeries\CreatorSeriesDiscovery;
 use App\Services\Creators\CommunityDiscovery;
 use Illuminate\Support\Collection;
 
@@ -21,7 +22,7 @@ use Illuminate\Support\Collection;
  */
 class DiscoveryService
 {
-    public function __construct(protected TrendingService $trending, protected RecommendationService $recommendations, protected CommunityDiscovery $community) {}
+    public function __construct(protected TrendingService $trending, protected RecommendationService $recommendations, protected CommunityDiscovery $community, protected CreatorSeriesDiscovery $series) {}
 
     /**
      * @return array{sections: list<array>, categories: Collection<int, PuzzleCategory>, personalized: bool}
@@ -60,6 +61,12 @@ class DiscoveryService
         $this->add($sections, 'community-top-rated', 'الأعلى تقييمًا من المجتمع', 'trophy', route('community.puzzles.index'), 'كل أحجيات المجتمع', $community['top_rated']);
         $this->add($sections, 'community-new', 'جديد من المجتمع', 'friends', route('community.puzzles.index'), 'كل أحجيات المجتمع', $community['new']);
         $this->add($sections, 'community-for-you', 'مقترحة لك من المجتمع', 'sparkles', route('community.puzzles.index'), 'كل أحجيات المجتمع', $community['for_you']);
+
+        // E30: سلاسل المجتمع (وسم «سلسلة من المجتمع»): قسمان مستقلان؛ CreatorSeriesDiscovery تعزل فشلها (فلا يكسر مركز الاكتشاف)، وقسم فارغ لا يظهر.
+        $seriesSections = $this->series->sections($viewer);
+
+        $this->add($sections, 'community-series-following', 'سلاسل جديدة ممّن تتابعهم', 'grid', route('following.index'), 'كل ما ينشره من أتابعهم', $seriesSections['following']);
+        $this->add($sections, 'community-series', 'سلاسل من المجتمع', 'grid', null, null, $seriesSections['new']);
 
         $seasons = Season::query()->join('campaigns', 'campaigns.id', '=', 'seasons.campaign_id')
             ->select('seasons.id', 'seasons.slug', 'seasons.is_featured', 'campaigns.title as campaign_title')

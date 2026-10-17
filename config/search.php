@@ -25,7 +25,7 @@ return [
     'suggest_total' => 9,
 
     // ترتيب الأنواع الافتراضي في النتائج (المجموعة التي فيها تطابق تام تتقدّم).
-    'types' => ['puzzles', 'community', 'campaigns', 'seasons', 'competitions', 'championships', 'teams', 'players'],
+    'types' => ['puzzles', 'community', 'creator_series', 'campaigns', 'seasons', 'competitions', 'championships', 'teams', 'players'],
 
     // المطابقة الجزئية (بالوسط/بأي كلمة + طيّ الحروف العربية بـREPLACE) مسح كامل للجدول؛ لذا لا تُفعَّل إلا حين يكون أكبر معرّف بالجدول ≤ هذا الحدّ.
     // فوقه: بحث ببادئة العمود فقط (يستعمل الفهرس). هذا هو مؤشر الانتقال لمحرك بحث/FULLTEXT (انظر المستند).

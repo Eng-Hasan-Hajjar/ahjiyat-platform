@@ -1,1 +1,1 @@
-E29 — انسخ محتويات new-files/ و modified-full-files/ إلى جذر المشروع بنفس المسارات النسبية (استبدال للموجود). لا أوامر git. لا composer install ولا تحديث أي حزمة. التحقق: sha256sum -c بعد تعديل المسارات، أو قارن manifest-sha256.txt.
+E30 — انسخ محتويات new-files/ و modified-full-files/ إلى جذر المشروع بنفس المسارات النسبية (استبدال للموجود). لا أوامر git. لا composer install ولا تحديث أي حزمة. التحقق: قارن sha256 لكل ملف مع manifest-sha256.txt.

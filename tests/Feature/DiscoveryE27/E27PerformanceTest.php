@@ -70,15 +70,15 @@ test('P2: measured query ceilings hold on a warm cache - search and discovery ad
     $basePlayer = e27_queries(fn () => $this->actingAs($viewer)->get('/terms')->assertOk());
     $count = fn (string $name) => e27_queries($endpoints[$name]);
 
-    // JSON بلا إطار صفحة: مصدر لكل نوع (8 منذ E28: +1 لأحجيات المجتمع) + تحميل التصنيف + الحظر للمسجَّل. مقيس 11 (ضيف) و11 (لاعب).
-    expect($count('suggest guest'))->toBeLessThanOrEqual(11)->and($count('suggest player'))->toBeLessThanOrEqual(12);
+    // JSON بلا إطار صفحة: مصدر لكل نوع (9 منذ E30: +1 لسلاسل المجتمع بعد +1 لأحجيات المجتمع بـE28) + تحميل التصنيف + الحظر للمسجَّل. مقيس 12 (ضيف) و12 (لاعب).
+    expect($count('suggest guest'))->toBeLessThanOrEqual(12)->and($count('suggest player'))->toBeLessThanOrEqual(13);
     // صفحات كاملة: فوق قاعدة الصفحة العادية بنفس المشاهد (مقيس: ضيف +7، لاعب +7 أو أقل).
     expect($count('search all (guest)') - $baseGuest)->toBeLessThanOrEqual(12)
         ->and($count('search all (player)') - $basePlayer)->toBeLessThanOrEqual(12)
         ->and($count('search players page') - $basePlayer)->toBeLessThanOrEqual(5)
         ->and($count('search puzzles page') - $basePlayer)->toBeLessThanOrEqual(5);
-    // الاكتشاف: قسم بكل استعلام محدود (مقيس 22).
-    expect($count('discover guest'))->toBeLessThanOrEqual(26)->and($count('discover player'))->toBeLessThanOrEqual(28);
+    // الاكتشاف: قسم بكل استعلام محدود (مقيس 22). +1 منذ E30: قسم «سلاسل جديدة ممّن تتابعهم» (استعلام واحد محدود للمسجَّل؛ المنفرد من الكاش) - ويُقاس هنا بجلسة اللاعب الباقية من النقطة السابقة.
+    expect($count('discover guest'))->toBeLessThanOrEqual(27)->and($count('discover player'))->toBeLessThanOrEqual(29);
 });
 
 test('P3: a cold cache costs a few extra queries once - then nothing until it expires', function () {
@@ -89,7 +89,7 @@ test('P3: a cold cache costs a few extra queries once - then nothing until it ex
     e27_cold();
     $cold = e27_queries($endpoints['suggest guest']);
     $warm = e27_queries($endpoints['suggest guest']);
-    expect($cold)->toBeLessThanOrEqual(18)->and($warm)->toBeLessThan($cold)->and($cold - $warm)->toBeLessThanOrEqual(8);   // مجسّ الحجم لكل نوع مرة واحدة
+    expect($cold)->toBeLessThanOrEqual(19)->and($warm)->toBeLessThan($cold)->and($cold - $warm)->toBeLessThanOrEqual(9);   // مجسّ الحجم لكل نوع مرة واحدة (9 أنواع منذ E30)
 
     e27_cold();
     expect(e27_queries($endpoints['discover guest']))->toBeLessThanOrEqual(30);
@@ -152,7 +152,7 @@ test('P6: beyond the partial-match limit the filter is a bare-column prefix LIKE
     $log = DB::getQueryLog();
     DB::disableQueryLog();
 
-    $tiered = collect($log)->filter(fn ($q) => str_contains($q['query'], 'search_tier') && ! str_contains($q['query'], 'from "team_championships"') && ! str_contains($q['query'], 'from "creator_puzzles"'));   // لا بطولات ولا أحجيات مجتمع بالبيانات: جداول فارغة (أحجيات المجتمع بوضعها الكبير مفحوصة في CreatorE28)
+    $tiered = collect($log)->filter(fn ($q) => str_contains($q['query'], 'search_tier') && ! str_contains($q['query'], 'from "team_championships"') && ! str_contains($q['query'], 'from "creator_puzzles"') && ! str_contains($q['query'], 'from "creator_series"'));   // لا بطولات ولا أحجيات/سلاسل مجتمع بالبيانات: جداول فارغة (وضعها الكبير مفحوص في CreatorE28 وCreatorSeriesE30)
     expect($tiered->count())->toBe(6);
     foreach ($tiered as $q) {
         $where = substr($q['query'], (int) strpos($q['query'], ' from "'));

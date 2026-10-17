@@ -7,6 +7,9 @@
         <x-page-header title="استوديو المبدع" icon="palette" subtitle="أنشئ أحجيات المجتمع وتابع حالتها وأرقام لعبها." class="anim-fade-up !mb-0">
             <x-slot:actions>
                 <a href="{{ route('creators.show', $profile->slug) }}" class="btn-secondary !py-2 !px-4 text-sm">صفحتي العامة</a>
+                @if (config('creator_series.enabled', true)) {{-- E30: رابط واحد فقط للوحة السلاسل؛ لا أي استعلام إضافي بلوحة الأحجيات. --}}
+                    <a href="{{ route('creator.series.index') }}" class="btn-secondary !py-2 !px-4 text-sm">سلاسلي</a>
+                @endif
                 <a href="{{ route('creator.puzzles.create') }}" class="btn-gem !py-2 !px-5 text-sm inline-flex items-center gap-1.5"><x-ui-icon name="plus" class="w-4 h-4" />أحجية جديدة</a>
             </x-slot:actions>
         </x-page-header>

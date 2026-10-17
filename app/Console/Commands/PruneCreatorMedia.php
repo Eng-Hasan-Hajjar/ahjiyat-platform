@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\CreatorPuzzleRevision;
+use App\Models\CreatorSeries;
+use App\Models\CreatorSeriesRevision;
 use App\Models\Puzzle;
 use App\Services\Creators\CreatorMediaService;
 use Illuminate\Console\Command;
@@ -11,7 +13,7 @@ class PruneCreatorMedia extends Command
 {
     protected $signature = 'creators:prune-media {--hours=24 : مهلة أمان بالساعات قبل اعتبار الملف يتيمًا} {--dry-run : عرض ما سيُحذف دون حذف}';
 
-    protected $description = 'E28: يحذف صور أحجيات المبدعين اليتيمة (ملفات غير مرتبطة بأي نسخة ولا أحجية). لا يمسّ ملفًا مرتبطًا ولا ملفًا أحدث من مهلة الأمان. صحة النظام لا تعتمد عليه.';
+    protected $description = 'E28: يحذف صور أحجيات المبدعين وأغلفة سلاسلهم اليتيمة (ملفات غير مرتبطة بأي نسخة ولا أحجية ولا سلسلة). لا يمسّ ملفًا مرتبطًا ولا ملفًا أحدث من مهلة الأمان. صحة النظام لا تعتمد عليه.';
 
     public function handle(CreatorMediaService $media): int
     {
@@ -34,6 +36,21 @@ class PruneCreatorMedia extends Command
             ->chunkById(500, function ($rows) use (&$referenced) {
                 foreach ($rows as $row) {
                     $referenced[$row->image_path] = true;
+                }
+            });
+
+        // E30: أغلفة السلاسل تُخزَّن بالمجلد نفسه عبر CreatorMediaService؛ بدون هذا تعدّها الأداة يتيمة وتحذف غلاف سلسلة منشورة.
+        CreatorSeriesRevision::query()->whereNotNull('cover_path')->select('id', 'cover_path')
+            ->chunkById(500, function ($rows) use (&$referenced) {
+                foreach ($rows as $row) {
+                    $referenced[$row->cover_path] = true;
+                }
+            });
+
+        CreatorSeries::query()->whereNotNull('published_cover_path')->select('id', 'published_cover_path')
+            ->chunkById(500, function ($rows) use (&$referenced) {
+                foreach ($rows as $row) {
+                    $referenced[$row->published_cover_path] = true;
                 }
             });
 

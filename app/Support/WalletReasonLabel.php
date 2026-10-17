@@ -17,6 +17,7 @@ final class WalletReasonLabel
         'store_purchase' => 'شراء من المتجر',
         'hint' => 'شراء تلميح',
         'redemption_request' => 'طلب استبدال',
+        'sponsor_bonus' => 'مكافأة رعاية',
     ];
 
     /** @var array<string, string> رمز كامل ← النص المعروض */

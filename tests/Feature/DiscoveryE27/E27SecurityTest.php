@@ -173,7 +173,9 @@ test('S8: player results are privacy-shaped at the query level - the SELECT list
         $columns = $m[1] ?? '';
 
         expect($columns)->not->toBe('')->not->toContain('*')->not->toMatch('/email|password|remember_token|two_factor|api_token|phone|balance|wallet|answer/i');
-        if (str_contains($query, 'from "users"')) {
+        // الجدول الرئيسي للاستعلام (أول from) لا أي ذِكر لـusers داخل استعلام فرعي: مصدر سلاسل E30 يفحص حساب المبدع بـEXISTS ولا يُرجع أعمدة users.
+        preg_match('/ from "([a-z_]+)"/', $query, $main);
+        if (($main[1] ?? null) === 'users') {
             expect($columns)->toBe('"users"."id", "users"."name", "users"."public_id", "users"."profile_visibility"');
         }
     }

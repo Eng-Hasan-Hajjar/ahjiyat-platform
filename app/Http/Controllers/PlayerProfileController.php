@@ -40,6 +40,20 @@ class PlayerProfileController extends Controller
             'competitive' => $this->competitive->eventStats($user),
             // E19: شارة الفريق (فريق عام مفعَّل فقط؛ الخاص/المعطَّل لا يُكشف).
             'team' => app(\App\Services\Teams\TeamMembershipService::class)->publicTeamFor($user),
+            // E30: شارة «داعم» مشتقّة (علنية فقط وغير مجهولة)؛ معزولة الفشل ولا تعطّل الملف.
+            'supporter' => $this->supporterBadge($user),
         ]);
+    }
+
+    /** @return array{name: string, slug: string, tier: string, badge_key: string}|null */
+    protected function supporterBadge(User $user): ?array
+    {
+        try {
+            return app(\App\Services\Sponsorship\SupporterRecognitionService::class)->forUser($user);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 }

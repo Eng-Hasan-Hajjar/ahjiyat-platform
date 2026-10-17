@@ -8,6 +8,7 @@ use App\Services\Search\Sources\CampaignSource;
 use App\Services\Search\Sources\ChampionshipSource;
 use App\Services\Search\Sources\CommunitySource;
 use App\Services\Search\Sources\CompetitionSource;
+use App\Services\Search\Sources\CreatorSeriesSource;
 use App\Services\Search\Sources\PlayerSource;
 use App\Services\Search\Sources\PuzzleSource;
 use App\Services\Search\Sources\SeasonSource;
@@ -22,9 +23,9 @@ final class DatabaseSearchBackend implements SearchBackend
     /** @var array<string, SearchSource> */
     private array $sources = [];
 
-    public function __construct(PuzzleSource $puzzles, CampaignSource $campaigns, SeasonSource $seasons, CompetitionSource $competitions, ChampionshipSource $championships, TeamSource $teams, PlayerSource $players, CommunitySource $community)
+    public function __construct(PuzzleSource $puzzles, CampaignSource $campaigns, SeasonSource $seasons, CompetitionSource $competitions, ChampionshipSource $championships, TeamSource $teams, PlayerSource $players, CommunitySource $community, CreatorSeriesSource $creatorSeries)
     {
-        foreach ([$puzzles, $community, $campaigns, $seasons, $competitions, $championships, $teams, $players] as $source) {
+        foreach ([$puzzles, $community, $creatorSeries, $campaigns, $seasons, $competitions, $championships, $teams, $players] as $source) {
             $this->sources[$source->type()] = $source;
         }
     }

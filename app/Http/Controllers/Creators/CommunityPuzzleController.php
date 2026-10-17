@@ -11,6 +11,7 @@ use App\Models\CreatorPuzzle;
 use App\Models\PuzzleCategory;
 use App\Services\Creators\CommunityPlayService;
 use App\Services\Creators\CommunityReportService;
+use App\Services\CreatorSeries\CreatorSeriesNavigator;
 use App\Services\Creators\CreatorException;
 use App\Services\Engagement\CollectionService;
 use App\Services\Engagement\EngagementViewerState;
@@ -29,6 +30,7 @@ class CommunityPuzzleController extends Controller
         protected GameTypeRegistry $games,
         protected EngagementViewerState $viewerState,
         protected CollectionService $collections,
+        protected CreatorSeriesNavigator $seriesNavigator,
     ) {}
 
     public function index(Request $request)
@@ -67,7 +69,11 @@ class CommunityPuzzleController extends Controller
         $viewer = $canInteract && ! $isOwner ? $this->viewerState->forWork($user, $work->id) : null;
         $collections = $viewer !== null ? $this->collections->pickerFor($user, $work->id) : collect();
 
+        // E30: سياق السلسلة (?series=): يعمل فقط حين يوجد المعامل وكانت الأحجية عنصرًا في سلسلة ظاهرة؛ قراءة فقط ولا يغيّر اللعب ولا الاقتصاد.
+        $seriesContext = $request->query->has('series') ? $this->seriesNavigator->context($request->query('series'), (int) $work->id) : null;
+
         return view('community.show', [
+            'seriesContext' => $seriesContext,
             'viewer' => $viewer,
             'collections' => $collections,
             'work' => $work,

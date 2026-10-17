@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\Economy\CurrencyRegistry;
 use App\Services\Economy\CurrencyWalletService;
 use App\Services\Progression\GameplayProgressionService;
+use App\Services\Sponsorship\SponsorshipRewardService;
 use Illuminate\Support\Facades\DB;
 
 class PuzzleAttemptService
@@ -81,9 +82,10 @@ class PuzzleAttemptService
             ]);
 
             $gemsAwarded = 0;
+            $sponsorBonus = 0;
 
             if ($isCorrect) {
-                $gemsAwarded = $this->awardGemsForSolve($user, $puzzle, $context);
+                ['base' => $gemsAwarded, 'bonus' => $sponsorBonus] = $this->awardGemsForSolve($user, $puzzle, $context, (int) $puzzleAttempt->id);
                 $this->updateChallengeScoresIfAny($user, $puzzle);
             }
 
@@ -91,6 +93,8 @@ class PuzzleAttemptService
                 'attempt' => $puzzleAttempt,
                 'correct' => $isCorrect,
                 'gems_awarded' => $gemsAwarded,
+                // E30: مكافأة الرعاية الإضافية (معاملة منفصلة، غالبًا 0). المكافأة الأساسية أعلاه لا تتغير أبدًا.
+                'sponsor_bonus' => $sponsorBonus,
                 'attempts_left' => max(0, $puzzle->max_attempts - $puzzleAttempt->attempt_number),
             ];
         });
@@ -102,7 +106,8 @@ class PuzzleAttemptService
         return $result;
     }
 
-    protected function awardGemsForSolve(User $user, Puzzle $puzzle, AttemptContext $context): int
+    /** @return array{base: int, bonus: int} */
+    protected function awardGemsForSolve(User $user, Puzzle $puzzle, AttemptContext $context, int $attemptId = 0): array
     {
         $directive = $this->rewards->resolve($puzzle, $context);
 
@@ -128,14 +133,17 @@ class PuzzleAttemptService
         }
 
         if ($reward <= 0) {
-            return 0;
+            return ['base' => 0, 'bonus' => 0];
         }
 
         $this->wallets->creditPending($user, $currency, $reward, "solved_puzzle:{$puzzle->id}", $puzzle);
 
+        // E30: مكافأة الرعاية (إن وُجد برنامج تعزيز نشط منطبق) عبر البوابة المركزية الوحيدة: معاملة منفصلة، رسمي فقط، ضمن سقف اليوم، وفشلها معزول (لا يمسّ الأساس).
+        $bonus = app(SponsorshipRewardService::class)->applyToSolve($user, $puzzle, $context, $currency, $reward, $attemptId);
+
         $this->fraud->evaluateAfterEarn($user);
 
-        return $reward;
+        return ['base' => $reward, 'bonus' => $bonus];
     }
 
     public function purchaseHint(User $user, Puzzle $puzzle): string

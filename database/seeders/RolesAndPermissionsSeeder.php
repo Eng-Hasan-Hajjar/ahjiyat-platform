@@ -102,6 +102,10 @@ class RolesAndPermissionsSeeder extends Seeder
 
         $this->grantIfMissing('moderator', ['creators.view', 'creators.review']);
 
+        // E30: فصل مالي. المدير العام يملك كل شيء؛ مدير المحتوى يعرض ويدير الملفات والبرامج فقط (لا تأكيد/استرداد ولا خطة مكافآت)؛ الدعم والمشرف بلا صلاحيات رعاية.
+        $this->grantIfMissing('administrator', ['sponsorships.view', 'sponsorships.manage', 'sponsorships.confirm', 'sponsorships.reward_plan']);
+        $this->grantIfMissing('content-manager', ['sponsorships.view', 'sponsorships.manage']);
+
         $this->grantIfMissing('moderator', [
             'users.view_security',
             'users.view_activity',

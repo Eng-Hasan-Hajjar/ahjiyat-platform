@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CreatorProfile;
 use App\Models\CreatorPuzzle;
 use App\Services\Engagement\CommunityQualityService;
+use App\Services\CreatorSeries\CreatorSeriesVisibilityService;
 use App\Services\Engagement\CreatorFollowService;
 use App\Services\Engagement\EngagementViewerState;
 use App\Services\PlayerIdentity\CosmeticLoadoutService;
@@ -23,6 +24,7 @@ class PublicCreatorController extends Controller
         protected CreatorFollowService $follows,
         protected CommunityQualityService $quality,
         protected EngagementViewerState $viewerState,
+        protected CreatorSeriesVisibilityService $seriesVisibility,
     ) {}
 
     public function show(Request $request, CreatorProfile $creator)
@@ -40,6 +42,21 @@ class PublicCreatorController extends Controller
             ->with('publishedCategory:id,name')
             ->orderByDesc('published_at')->orderByDesc('id')
             ->paginate((int) config('creators.page_size'));
+
+        // E30: سلاسل المبدع الظاهرة فقط (الظهور حيًّا من CreatorSeriesVisibilityService: عنصر مخفي/مبدع معلَّق/مؤرشفة = غير موجودة). قسم مستقل لا يكسر الصفحة إن تعطّلت السلاسل.
+        $series = collect();
+
+        if ((bool) config('creator_series.enabled', true)) {
+            try {
+                $series = $this->seriesVisibility->visibleQuery()
+                    ->where('creator_series.creator_profile_id', $creator->id)
+                    ->select('creator_series.id', 'creator_series.public_id', 'creator_series.creator_profile_id', 'creator_series.published_title', 'creator_series.published_items_count', 'creator_series.published_at')
+                    ->orderByDesc('creator_series.published_at')->orderByDesc('creator_series.id')
+                    ->limit((int) config('creator_series.page_size', 12))->get();
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         $loadout = $this->loadouts->loadoutFor($creator->user);
         $user = $request->user();
@@ -61,6 +78,7 @@ class PublicCreatorController extends Controller
             'published' => (int) ($totals->published ?? 0),
             'plays' => (int) ($totals->plays ?? 0),
             'works' => $works,
+            'seriesList' => $series,
             'followState' => $followState,
             'followers' => (int) $creator->followers_count,
             'quality' => $this->quality->creatorSummary((int) ($totals->rated ?? 0), (int) ($totals->rated_sum ?? 0)),

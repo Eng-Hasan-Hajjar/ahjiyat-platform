@@ -13,6 +13,17 @@
             <x-ui-icon name="chevron-right" class="w-4 h-4" />أحجيات المجتمع
         </a>
 
+        @if (! empty($seriesContext))
+            {{-- E30: شريط سياق السلسلة (تنقّل فقط): الموضع والسابق والتالي. لا يغيّر اللعب ولا يمنح شيئًا. --}}
+            <nav aria-label="سياق السلسلة" data-series-context class="glass rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-sm anim-fade-up">
+                <a href="{{ $seriesContext['url'] }}" class="font-bold text-slate-200 hover:text-amethyst rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst break-words">سلسلة: {{ $seriesContext['title'] }} · {{ $seriesContext['position'] }} من {{ $seriesContext['total'] }}</a>
+                <span class="flex items-center gap-2">
+                    @if ($seriesContext['previous']) <a href="{{ route('community.puzzles.show', ['work' => $seriesContext['previous']['public_id'], 'series' => $seriesContext['series']]) }}" class="btn-secondary !py-1.5 !px-3 text-xs" rel="prev">السابقة</a> @endif
+                    @if ($seriesContext['next']) <a href="{{ route('community.puzzles.show', ['work' => $seriesContext['next']['public_id'], 'series' => $seriesContext['series']]) }}" class="btn-secondary !py-1.5 !px-3 text-xs" rel="next">التالية</a> @endif
+                </span>
+            </nav>
+        @endif
+
         <div class="puzzle-card !p-6 md:!p-9 anim-fade-up d-1">
             <div class="flex flex-wrap items-center gap-2 mb-5">
                 <x-status-badge tone="primary" icon="friends">من المجتمع</x-status-badge>

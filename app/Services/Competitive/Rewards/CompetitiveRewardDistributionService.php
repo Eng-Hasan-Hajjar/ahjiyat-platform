@@ -127,6 +127,8 @@ class CompetitiveRewardDistributionService
             'currency_id' => $rule->currency_id,
             'store_item_id' => $rule->store_item_id,
             'amount' => $rule->amount,
+            // E30: لقطة تعزيز الرعاية من الخطة المقفلة قبل بدء المنافسة (الأساس `amount` لا يُمسّ). بلا خطة مقفلة = أصفار.
+            ...app(\App\Services\Sponsorship\SponsorshipRewardService::class)->competitiveSnapshot($event, $rule),
             'reward_label' => Str::limit($rule->rewardLabel(), 150, ''),
             'attempts' => 0,
             'created_at' => now(),
@@ -184,11 +186,22 @@ class CompetitiveRewardDistributionService
         $reason = 'competitive_event_reward';
 
         match ($grant->reward_type) {
-            CompetitiveRewardRule::TYPE_CURRENCY => $this->wallets->creditPending($user, Currency::query()->findOrFail($grant->currency_id), $grant->amount, $reason, $event, $key),
+            CompetitiveRewardRule::TYPE_CURRENCY => $this->deliverCurrency($grant, $user, $event, $reason, $key),
             CompetitiveRewardRule::TYPE_XP => $this->xp->grantXp($user, $grant->amount, XpTransaction::TYPE_COMPETITIVE_REWARD, $reason, $event, $key),
             CompetitiveRewardRule::TYPE_STORE_ITEM => $this->deliverItem($user, StoreItem::query()->findOrFail($grant->store_item_id), $grant->amount, $reason, $event),
             default => throw new \RuntimeException('نوع جائزة غير مدعوم.'),
         };
+    }
+
+    /** الأساس أولًا بمنطقه القائم، ثم مكافأة الرعاية المحفوظة بلقطة الجائزة (معاملة منفصلة معزولة الفشل عبر SponsorshipRewardService). */
+    protected function deliverCurrency(CompetitiveRewardGrant $grant, User $user, CompetitiveEvent $event, string $reason, string $key): void
+    {
+        $currency = Currency::query()->findOrFail($grant->currency_id);
+        $this->wallets->creditPending($user, $currency, $grant->amount, $reason, $event, $key);
+
+        if ((int) $grant->sponsor_bonus_amount > 0) {
+            app(\App\Services\Sponsorship\SponsorshipRewardService::class)->grantCompetitiveBonus($grant, $user, $currency);
+        }
     }
 
     protected function deliverItem(User $user, StoreItem $item, int $quantity, string $reason, CompetitiveEvent $event): void

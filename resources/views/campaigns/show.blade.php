@@ -9,6 +9,8 @@
             → كل الحملات
         </a>
 
+        <x-sponsor-strip type="campaign" :target-id="$campaign->id" class="mb-4" />
+
         <div class="puzzle-card !p-6 md:!p-9 anim-fade-up d-1">
             @if ($campaign->cover_image)
                 <div class="rounded-2xl overflow-hidden border border-white/10 mb-6">

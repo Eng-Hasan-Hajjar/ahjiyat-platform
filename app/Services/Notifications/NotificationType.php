@@ -24,6 +24,8 @@ namespace App\Services\Notifications;
  *  - CompetitiveLifecycleService (مجدول ساعيًا) → competitive_event_started/ending_soon؛ CompetitiveEventFinalized → competitive_event_result_ready
  *  - FriendRequestCreated / FriendshipAccepted (أحداث مجال بعد commit، FriendshipService) → friend_request_received / friend_request_accepted
  *  - اعتماد نشر (أول نشر أو نسخة جديدة) لمبدع له متابعون (E29، CreatorPublicationAnnouncer بعد الـcommit ← دفعات بالطابور) → creator_new_publication (فئة social؛ بلا إشعار على التقييم/المفضلة/اللعب)
+ *  - E30 رعاية: ContributionService بعد الـcommit → support_confirmed / supporter_tier_changed (للداعم المرتبط بحساب فقط، بلا مبالغ ولا مراجع خاصة)؛ SponsorshipProgramService عند التفعيل → sponsorship_program_started (لداعمي البرنامج فقط)
+ *  - E30 سلاسل: CreatorSeriesReviewService بعد الـcommit → series_approved / series_changes_requested / series_rejected / series_hidden (للمبدع)؛ اعتماد سلسلة لمبدع له متابعون (CreatorSeriesAnnouncer ← دفعات بالطابور) → creator_new_series (social)
  */
 enum NotificationType: string
 {
@@ -64,6 +66,14 @@ enum NotificationType: string
     case SubmissionRejected = 'submission_rejected';
     case PublicationHidden = 'publication_hidden';
     case CreatorNewPublication = 'creator_new_publication';
+    case SupportConfirmed = 'support_confirmed';
+    case SupporterTierChanged = 'supporter_tier_changed';
+    case SponsorshipProgramStarted = 'sponsorship_program_started';
+    case SeriesApproved = 'series_approved';
+    case SeriesChangesRequested = 'series_changes_requested';
+    case SeriesRejected = 'series_rejected';
+    case SeriesHidden = 'series_hidden';
+    case CreatorNewSeries = 'creator_new_series';
 
     public function category(): NotificationCategory
     {
@@ -81,7 +91,9 @@ enum NotificationType: string
             self::FriendRequestReceived, self::FriendRequestAccepted, self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady,
             self::TeamInvitationReceived, self::TeamInvitationAccepted, self::TeamJoinRequestReceived, self::TeamJoinRequestAccepted, self::TeamMemberRemoved,
             self::TeamChallengeReceived, self::TeamChallengeAccepted, self::TeamChallengeResultReady,
-            self::CreatorApproved, self::CreatorRejected, self::SubmissionApproved, self::SubmissionChangesRequested, self::SubmissionRejected, self::PublicationHidden, self::CreatorNewPublication => NotificationCategory::Social,
+            self::CreatorApproved, self::CreatorRejected, self::SubmissionApproved, self::SubmissionChangesRequested, self::SubmissionRejected, self::PublicationHidden, self::CreatorNewPublication,
+            self::SupportConfirmed, self::SupporterTierChanged, self::SponsorshipProgramStarted,
+            self::SeriesApproved, self::SeriesChangesRequested, self::SeriesRejected, self::SeriesHidden, self::CreatorNewSeries => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::TeamChampionshipStarted, self::TeamChampionshipResultReady => NotificationCategory::Competitive,
         };
@@ -133,6 +145,14 @@ enum NotificationType: string
             self::SubmissionRejected => 2,
             self::PublicationHidden => 1,
             self::CreatorNewPublication => 27,
+            self::SupportConfirmed => 31,
+            self::SupporterTierChanged => 32,
+            self::SponsorshipProgramStarted => 33,
+            self::SeriesApproved => 34,
+            self::SeriesChangesRequested => 35,
+            self::SeriesRejected => 36,
+            self::SeriesHidden => 37,
+            self::CreatorNewSeries => 38,
         };
     }
 
@@ -165,6 +185,14 @@ enum NotificationType: string
             self::SubmissionRejected => '📝',
             self::PublicationHidden => '🚫',
             self::CreatorNewPublication => '🆕',
+            self::SupportConfirmed => '💎',
+            self::SupporterTierChanged => '🏅',
+            self::SponsorshipProgramStarted => '📣',
+            self::SeriesApproved => '📚',
+            self::SeriesChangesRequested => '✍️',
+            self::SeriesRejected => '📝',
+            self::SeriesHidden => '🚫',
+            self::CreatorNewSeries => '📚',
         };
     }
 
@@ -195,6 +223,10 @@ enum NotificationType: string
             self::CreatorRejected => ['creator.apply'],
             self::SubmissionApproved, self::SubmissionChangesRequested, self::SubmissionRejected, self::PublicationHidden => ['creator.puzzles.index'],
             self::CreatorNewPublication => ['community.puzzles.show'],
+            self::SupportConfirmed, self::SupporterTierChanged => ['supporters.index', 'supporters.show'],
+            self::SponsorshipProgramStarted => ['supporters.index'],
+            self::SeriesApproved, self::SeriesChangesRequested, self::SeriesRejected, self::SeriesHidden => ['creator.series.index'],
+            self::CreatorNewSeries => ['series.show'],
         };
     }
 
@@ -245,6 +277,18 @@ enum NotificationType: string
             self::CreatorNewPublication => ! empty($params['updated'])
                 ? 'حدّث '.($params['creator'] ?? 'مبدع تتابعه').' أحجيته: '.($params['title'] ?? '')
                 : 'نشر '.($params['creator'] ?? 'مبدع تتابعه').' أحجية جديدة: '.($params['title'] ?? ''),
+            self::SupportConfirmed => 'تم تأكيد دعمك للمنصة، شكرًا لك',
+            self::SupporterTierChanged => ! empty($params['up'])
+                ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
+                : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
+            self::SponsorshipProgramStarted => 'بدأ برنامج رعاية: '.($params['title'] ?? ''),
+            self::SeriesApproved => 'اعتُمدت سلسلتك: '.($params['title'] ?? ''),
+            self::SeriesChangesRequested => 'طُلبت تعديلات على سلسلتك: '.($params['title'] ?? ''),
+            self::SeriesRejected => 'لم تُعتمد سلسلتك: '.($params['title'] ?? ''),
+            self::SeriesHidden => 'أُخفيت سلسلتك من المنصة: '.($params['title'] ?? ''),
+            self::CreatorNewSeries => ! empty($params['updated'])
+                ? 'حدّث '.($params['creator'] ?? 'مبدع تتابعه').' سلسلته: '.($params['title'] ?? '')
+                : 'نشر '.($params['creator'] ?? 'مبدع تتابعه').' سلسلة جديدة: '.($params['title'] ?? ''),
         };
     }
 
@@ -290,6 +334,16 @@ enum NotificationType: string
             self::CreatorNewPublication => ! empty($params['updated'])
                 ? 'اعتُمدت نسخة جديدة من الأحجية ضمن «من المجتمع». أحجيات المجتمع بلا جوائز اقتصادية.'
                 : 'أحجية جديدة ضمن «من المجتمع» من مبدع تتابعه. أحجيات المجتمع بلا جوائز اقتصادية.',
+            self::SupportConfirmed => 'سُجّل دعمك وأُكّد من فريق المنصة. الدعم لا يمنحك أي أفضلية في اللعب أو المكافآت.',
+            self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
+            self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
+            self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',
+            self::SeriesChangesRequested => static::withNote('عدّل السلسلة وأعد إرسالها للمراجعة من استوديو المبدعين.', $params),
+            self::SeriesRejected => static::withNote('يمكنك إنشاء سلسلة جديدة من استوديو المبدعين.', $params),
+            self::SeriesHidden => 'أخفاها فريق الإشراف مؤقتًا. راجع حالتها في استوديو المبدعين.',
+            self::CreatorNewSeries => ! empty($params['updated'])
+                ? 'اعتُمدت نسخة جديدة من السلسلة ضمن «من المجتمع». سلاسل المجتمع بلا جوائز اقتصادية.'
+                : 'سلسلة أحجيات جديدة ضمن «من المجتمع» من مبدع تتابعه. سلاسل المجتمع بلا جوائز اقتصادية.',
         };
     }
 

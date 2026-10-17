@@ -19,6 +19,9 @@
             :campaign-available="$campaignAvailable"
         />
 
+        {{-- E30: «برعاية» (بيانات منظَّمة معزولة الفشل؛ بلا رعاة = لا إخراج). --}}
+        <x-sponsor-strip type="season" :target-id="$season->id" />
+
         @auth
             @if ($campaignAvailable && $currentStep)
                 <x-mission-card
