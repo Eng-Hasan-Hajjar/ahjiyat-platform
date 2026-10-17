@@ -141,6 +141,10 @@ test('AM15-142: the moderation queue is paginated and its query count does not g
 });
 
 test('AM15: hot series queries use their indexes (public id, creator listing, queue, items by revision)', function () {
+    if (\Illuminate\Support\Facades\DB::getDriverName() !== 'sqlite') {
+        test()->markTestSkipped('E31: يعتمد على EXPLAIN QUERY PLAN الخاص بـSQLite - خطط MySQL تُفحص بـEXPLAIN محليًا (docs/mysql-production-e31.md).');
+    }
+
     $creator = e28_creator();
     $series = e30s_published($creator);
 
@@ -155,6 +159,10 @@ test('AM15: hot series queries use their indexes (public id, creator listing, qu
 });
 
 test('AM15: the visibility rule is one query with indexed lookups (no scan of items by series)', function () {
+    if (\Illuminate\Support\Facades\DB::getDriverName() !== 'sqlite') {
+        test()->markTestSkipped('E31: يعتمد على EXPLAIN QUERY PLAN الخاص بـSQLite - خطط MySQL تُفحص بـEXPLAIN محليًا (docs/mysql-production-e31.md).');
+    }
+
     $creator = e28_creator();
     $series = e30s_published($creator);
 

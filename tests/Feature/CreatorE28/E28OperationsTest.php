@@ -180,6 +180,10 @@ test('X8: navigation - community puzzles are listed for everyone; the creator st
 });
 
 test('X9: beyond the partial-match limit the community search filter is a bare-column prefix LIKE served by the visible-title index, and reads no encrypted content', function () {
+    if (\Illuminate\Support\Facades\DB::getDriverName() !== 'sqlite') {
+        test()->markTestSkipped('E31: يعتمد على EXPLAIN QUERY PLAN الخاص بـSQLite - خطط MySQL تُفحص بـEXPLAIN محليًا (docs/mysql-production-e31.md).');
+    }
+
     config(['search.partial_match_max_id' => 0]);
     $creator = e28_creator();
     e28_published($creator, 'text', ['title' => 'نمط مجتمع واحد']);

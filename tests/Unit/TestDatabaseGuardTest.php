@@ -17,6 +17,12 @@ test('E14.1-R/41: only explicit test databases are allowed', function (string $d
     'mysql testing db' => ['mysql', 'testing', true],
     'mysql production-looking db' => ['mysql', 'puzzles', false],
     'mysql db merely containing test' => ['mysql', 'contest_prod', false],
+    'E31 mysql dedicated test db' => ['mysql', 'ahjiyat_platform_test_mysql', true],
+    'E31 mariadb dedicated test db' => ['mariadb', 'ahjiyat_platform_test_mariadb', true],
+    'E31 testing suffix with engine' => ['mysql', 'ahjiyat_testing_mysql', true],
+    'E31 working db is never a test db' => ['mysql', 'ahjiyat_platform', false],
+    'E31 engine suffix alone is not enough' => ['mysql', 'ahjiyat_platform_mysql', false],
+    'E31 test in the middle is not enough' => ['mysql', 'ahjiyat_test_prod', false],
 ]);
 
 test('a cached config is refused before any database check (it would silently target the real DB)', function () {

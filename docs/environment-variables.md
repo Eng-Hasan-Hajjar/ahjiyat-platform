@@ -67,6 +67,10 @@
 | `GEMS_*`, `PROGRESSION_*` | انظر `config/gems.php` | منطق المنتج: **لا تغيّرها ضمن عملية تشغيل** (قرار منتج) |
 | `DB_QUEUE_RETRY_AFTER` / `REDIS_QUEUE_RETRY_AFTER` | 90 | يجب أن يبقى **أكبر من 80** (أقصى timeout لأي Job) وإلا تُنفَّذ المهمة مرتين |
 | `SESSION_SAME_SITE` / `SESSION_HTTP_ONLY` / `SESSION_LIFETIME` | `lax` / `true` / 120 | الكوكي: لا تعطّل HttpOnly |
+| `DB_ENGINE` / `DB_TIMEZONE` | `InnoDB` / `+00:00` | محرك جداول MySQL ومنطقة جلسة القاعدة (E31؛ يجب أن تطابق UTC) |
+| `OPS_ALLOW_SQLITE_PRODUCTION` | `false` | `true`: يحوّل فشل `production:check` على SQLite إلى تحذير. **غير مستحسن**: MySQL 8.0.16+ هي القاعدة المعتمدة ([E31](mysql-production-e31.md)) |
+| `MIGRATION_TARGET_CONNECTION` / `MIGRATION_SQLITE_DATABASE` / `MIGRATION_BATCH_SIZE` / `MIGRATION_MAX_BATCH_BYTES` | `mysql` / — / 1000 / 1000000 | أداة نقل SQLite→MySQL لمرة واحدة (محلية فقط، ترفض الإنتاج) |
+| `MIGRATION_MYSQL_HOST` / `_PORT` / `_DATABASE` / `_USERNAME` / `_PASSWORD` | — | تجاوزات هدف النقل (كلمة المرور **SECRET** من البيئة فقط ولا تُطبع) |
 
 ## 4) INFRASTRUCTURE-SPECIFIC: تعتمد على بنيتك/مزوّدك
 

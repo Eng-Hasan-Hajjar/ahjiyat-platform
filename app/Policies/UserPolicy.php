@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\User;
 use App\Services\AuthorizationSafetyService;
+use App\Services\Database\FinancialHistoryGuard;
 
 class UserPolicy
 {
@@ -47,7 +48,8 @@ class UserPolicy
 
         $this->safety->assertCanDeleteUser($model);
 
-        return true;
+        // E31 (U3): ON DELETE CASCADE على جداول المال/المكافآت كان سيمسح تاريخ المستخدم المالي عرَضًا. من له تاريخ يُجمَّد ولا يُحذف.
+        return ! app(FinancialHistoryGuard::class)->hasHistory($model);
     }
 
     public function freeze(User $user, User $model): bool

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  E31 - إعداد اختبار على MySQL 8 الحقيقية (مصفوفة التكافؤ). بقية الاختبارات تبقى على SQLite عبر phpunit.xml.dist (سريعة).
+
+  الاستعمال (PowerShell، من جذر المشروع):
+      php vendor/bin/pest -c phpunit.mysql.xml.dist tests/Feature/DatabaseE31   (لا تستعمل php artisan test هنا: يضيف إعداده الخاص ويتعارض)
+  أو المصفوفة كاملة:  tools/e31/run-mysql-matrix.ps1 (PowerShell)
+
+  القيم أدناه افتراضات محلية فقط (غير مفروضة): أي متغير بيئة تضبطه في الجلسة قبل التشغيل (مثل $env:DB_USERNAME, $env:DB_PASSWORD) يتقدّم عليها،
+  وهي بدورها تتقدّم على ملف .env. لا أسرار هنا. اسم القاعدة يجب أن ينتهي بـ_test أو _testing أو _test_mysql وإلا يرفض TestDatabaseGuard التشغيل
+  (والاختبار يُنشئ ويحذف قاعدة نقل مؤقتة باسم <القاعدة>_xfer_test فقط، فيحتاج المستخدم صلاحية CREATE/DROP على ذلك النمط).
+  ممنوع منعًا باتًا توجيه هذا الإعداد إلى قاعدة العمل (ahjiyat_platform): RefreshDatabase يحذف كل جداولها.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="DB_CONNECTION" value="mysql" force="true"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="3306"/>
+        <env name="DB_DATABASE" value="ahjiyat_platform_test_mysql"/>
+        <env name="DB_USERNAME" value="root"/>
+        <env name="DB_PASSWORD" value=""/>
+        <env name="DB_TIMEZONE" value="+00:00"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="SESSION_DRIVER" value="array"/>
+    </php>
+</phpunit>

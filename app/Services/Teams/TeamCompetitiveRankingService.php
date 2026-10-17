@@ -122,7 +122,8 @@ class TeamCompetitiveRankingService
     public function stats(Team $team): array
     {
         $row = CompetitiveEventTeamResult::query()->where('team_id', $team->getKey())
-            ->selectRaw('count(*) as events, sum(case when rank = 1 then 1 else 0 end) as wins, sum(case when rank <= 3 then 1 else 0 end) as top3, min(rank) as best, avg(rank) as avg_rank')->first();
+            // E31: rank كلمة محجوزة في MySQL 8 (دالة نافذة) فيجب تأهيلها باسم الجدول في SQL الخام، وإلا فالاستعلام خطأ صياغة على MySQL.
+            ->selectRaw('count(*) as events, sum(case when competitive_event_team_results.rank = 1 then 1 else 0 end) as wins, sum(case when competitive_event_team_results.rank <= 3 then 1 else 0 end) as top3, min(competitive_event_team_results.rank) as best, avg(competitive_event_team_results.rank) as avg_rank')->first();
 
         return [
             'events' => (int) $row->events, 'wins' => (int) $row->wins, 'top3' => (int) $row->top3,

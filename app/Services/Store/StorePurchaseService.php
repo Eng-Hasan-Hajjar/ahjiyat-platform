@@ -8,6 +8,7 @@ use App\Models\StoreItemPrice;
 use App\Models\StorePurchase;
 use App\Models\User;
 use App\Services\Economy\CurrencyWalletService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 class StorePurchaseService
@@ -26,6 +27,25 @@ class StorePurchaseService
             return $existing;
         }
 
+        try {
+            return $this->purchaseLocked($user, $item, $price, $requestKey);
+        } catch (UniqueConstraintViolationException $e) {
+            // E31 (P3): طلبان متزامنان بالمفتاح نفسه (نقر مزدوج): يسلسلهما قفل صف المنتج، والثاني يصطدم بقيد request_key الفريد بعد التزام الأول.
+            // الفحص الأول أعلاه سبق الالتزام فلم يره؛ نعيد الشراء القائم (idempotent) بدل خطأ 500، بعد تأكيد أنه الطلب نفسه. أي قيد فريد آخر يُعاد رميه.
+            $existing = StorePurchase::where('request_key', $requestKey)->first();
+
+            if ($existing === null) {
+                throw $e;
+            }
+
+            $this->assertRequestConsistent($existing, $user, $item, $price);
+
+            return $existing;
+        }
+    }
+
+    protected function purchaseLocked(User $user, StoreItem $item, StoreItemPrice $price, string $requestKey): StorePurchase
+    {
         return DB::transaction(function () use ($user, $item, $price, $requestKey) {
             $lockedItem = StoreItem::where('id', $item->id)->lockForUpdate()->first();
 

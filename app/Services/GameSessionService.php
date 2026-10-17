@@ -9,6 +9,7 @@ use App\Models\GameSession;
 use App\Models\Puzzle;
 use App\Models\PuzzleAttempt;
 use App\Models\User;
+use App\Services\Database\TransactionPolicy;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -90,7 +91,7 @@ class GameSessionService
                     : null,
                 'server_state' => $definition->initialServerState($puzzle),
             ]);
-        });
+        }, TransactionPolicy::DEADLOCK_ATTEMPTS); // E31 (P): بدء متزامن (نقر مزدوج) = قفل نطاق فارغ ثم إدراج؛ الإعادة ترى الجلسة الأولى وتعيد استخدامها.
     }
 
     /**

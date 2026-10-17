@@ -56,7 +56,10 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
-            'engine' => null,
+            // E31: InnoDB صراحةً (المعاملات والمفاتيح الأجنبية والأقفال الصفية تعتمد عليه؛ لا نترك المحرك لإعداد الخادم الافتراضي).
+            'engine' => env('DB_ENGINE', 'InnoDB'),
+            // E31: جلسة الاتصال بتوقيت UTC (يطابق app.timezone). أعمدة TIMESTAMP تُحوَّل بتوقيت الجلسة، فتوحيده يمنع انزياح الأوقات وأخطاء التوقيت الصيفي.
+            'timezone' => env('DB_TIMEZONE', '+00:00'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
@@ -76,7 +79,10 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
-            'engine' => null,
+            // E31: InnoDB صراحةً (المعاملات والمفاتيح الأجنبية والأقفال الصفية تعتمد عليه؛ لا نترك المحرك لإعداد الخادم الافتراضي).
+            'engine' => env('DB_ENGINE', 'InnoDB'),
+            // E31: جلسة الاتصال بتوقيت UTC (يطابق app.timezone). أعمدة TIMESTAMP تُحوَّل بتوقيت الجلسة، فتوحيده يمنع انزياح الأوقات وأخطاء التوقيت الصيفي.
+            'timezone' => env('DB_TIMEZONE', '+00:00'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],

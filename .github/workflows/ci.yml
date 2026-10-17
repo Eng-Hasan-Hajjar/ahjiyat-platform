@@ -82,3 +82,87 @@ jobs:
       - name: npm audit (تقرير فقط)
         continue-on-error: true
         run: npm audit --audit-level=high
+
+  # E31: تكافؤ MySQL. خدمة MySQL 8 مؤقتة بجانب المهمة (بيانات اعتماد اختبار فقط تعيش دقائق داخل الحاوية، ليست أسرارًا ولا تُستعمل خارجها).
+  # يشغّل اختبارات E31 على MySQL الحقيقية + أهم مجموعات السلامة (محافظ/متجر/منافسة/بحث/مبدعون/رعاية). مهمة validate (SQLite) باقية كما هي.
+  # لا نشر ولا migrate على بيئة حقيقية ولا composer/npm update.
+  mysql-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      APP_ENV: testing
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: ahjiyat_platform_test_mysql
+      DB_USERNAME: root
+      DB_PASSWORD: ci-only-test-password
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only-test-password
+          MYSQL_DATABASE: ahjiyat_platform_test_mysql
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-only-test-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, bcmath, pdo_sqlite, sqlite3, pdo_mysql, gd, zip, fileinfo
+          coverage: none
+          tools: composer:v2
+
+      - name: Composer cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install PHP dependencies (من composer.lock)
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare environment (بلا أسرار حقيقية)
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install & build frontend (من package-lock.json)
+        run: |
+          npm ci
+          npm run build
+
+      - name: Static MySQL compatibility (no live database needed)
+        run: php artisan db:parity --static
+
+      - name: E31 on MySQL (fresh migrate + parity + transfer + concurrency + domain integrity)
+        run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/DatabaseE31 tests/Unit/TestDatabaseGuardTest.php
+
+      - name: Critical integrity subsets on MySQL (wallet / store / competitive / search / creators / sponsorship)
+        run: |
+          php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist \
+            tests/Feature/Economy \
+            tests/Feature/GemWalletServiceTest.php \
+            tests/Feature/PuzzleAttemptServiceTest.php \
+            tests/Feature/Store \
+            tests/Feature/Competitive \
+            tests/Feature/CompetitiveRewards \
+            tests/Feature/DiscoveryE27 \
+            tests/Feature/CreatorE28 \
+            tests/Feature/SponsorshipE30 \
+            tests/Feature/CreatorSeriesE30
+
+      - name: Schema parity against the migrated MySQL database (read-only)
+        run: php artisan db:parity --connection=mysql --runtime

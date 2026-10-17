@@ -27,7 +27,8 @@ final class TestDatabaseGuard
         }
 
         // مخدّمات أخرى: اسم القاعدة نفسه يجب أن يدل صراحةً على الاختبار (xxx_test / xxx_testing / testing).
-        return (bool) preg_match('/(^|_)(test|testing)$/i', $database);
+        // E31: يُقبل أيضًا اللاحق الصريح لمحرك الاختبار (xxx_test_mysql / xxx_test_mariadb) المقترح في وثيقة MySQL، ولا يُقبل غيره (لا contest_prod ولا xxx_test_prod).
+        return (bool) preg_match('/(^|_)(test|testing)(_(mysql|mariadb))?$/i', $database);
     }
 
     public static function assertSafe(string $driver, ?string $database, bool $configCached): void

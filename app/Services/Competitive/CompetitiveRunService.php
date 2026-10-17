@@ -8,6 +8,7 @@ use App\GameEngine\Support\TimedAttemptToken;
 use App\Models\GameSession;
 use App\Models\Puzzle;
 use App\Models\User;
+use App\Services\Database\TransactionPolicy;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -72,7 +73,7 @@ class CompetitiveRunService
             }
 
             return $created;
-        });
+        }, TransactionPolicy::DEADLOCK_ATTEMPTS); // E31 (P): على MySQL يتحوّل سباق البدء المتزامن إلى deadlock لا إلى إدراجين؛ الإعادة ترى الجلسة الأقدم فتستأنفها (idempotent).
     }
 
     /** الجلسة النشطة الصالحة لهذا المستخدم بهذا السياق (أو null). */

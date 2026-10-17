@@ -9,6 +9,7 @@ use App\Models\Currency;
 use App\Models\Puzzle;
 use App\Models\PuzzleAttempt;
 use App\Models\User;
+use App\Services\Database\TransactionPolicy;
 use App\Services\Economy\CurrencyRegistry;
 use App\Services\Economy\CurrencyWalletService;
 use App\Services\Progression\GameplayProgressionService;
@@ -97,7 +98,7 @@ class PuzzleAttemptService
                 'sponsor_bonus' => $sponsorBonus,
                 'attempts_left' => max(0, $puzzle->max_attempts - $puzzleAttempt->attempt_number),
             ];
-        });
+        }, TransactionPolicy::DEADLOCK_ATTEMPTS); // E31 (P): قفل نطاق فارغ ثم إدراج ← deadlock محتمل على MySQL عند نقر مزدوج؛ المعاملة كلها كتابات DB فإعادتها آمنة.
 
         if ($result['correct']) {
             $this->progression->afterPuzzleSolved($user, $result['attempt'], $puzzle, $context);

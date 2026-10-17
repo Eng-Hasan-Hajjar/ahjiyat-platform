@@ -2,6 +2,8 @@
 
 namespace App\Services\Operations;
 
+use App\Services\Database\DatabaseFactsEvaluator;
+use App\Services\Database\DatabaseRuntimeInspector;
 use App\Support\ReleaseInfo;
 use App\Support\SchedulerHeartbeat;
 use Illuminate\Cache\NullStore;
@@ -156,9 +158,26 @@ final class ProductionChecker
         $driver = (string) config("database.connections.{$name}.driver");
 
         if ($driver === 'sqlite') {
-            $this->prodFail($g, 'DB_CONNECTION', 'DB_CONNECTION=sqlite غير مناسب للإنتاج (كتابة متزامنة محدودة، لا نسخ نقطي) - استعمل MySQL/MariaDB/PostgreSQL');
+            // E31: SQLite غير معتمدة للإنتاج في هذا الملف التشغيلي. التجاوز الواعي الوحيد: OPS_ALLOW_SQLITE_PRODUCTION=true (يبقى تحذيرًا ظاهرًا).
+            if ((bool) config('operations.allow_sqlite_production', false)) {
+                $this->warn($g, 'DB_CONNECTION', 'SQLite مسموحة صراحةً عبر OPS_ALLOW_SQLITE_PRODUCTION (تجاوز واعٍ) - غير موصى بها للإنتاج (كتابة متزامنة محدودة، لا نسخ نقطي)');
+            } else {
+                $this->prodFail($g, 'DB_CONNECTION', 'SQLite is not an approved production database for this deployment profile - SQLite غير معتمدة للإنتاج: استعمل MySQL 8.0.16+ (docs/mysql-production-e31.md)');
+            }
 
             return;
+        }
+
+        // E31: حقائق الخادم الفعلية (نسخة/وضع صارم/ترميز/محرك) بلا كشف مضيف ولا بيانات اعتماد.
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            foreach (app(DatabaseFactsEvaluator::class)->evaluate(app(DatabaseRuntimeInspector::class)->inspect($name)) as $result) {
+                match ($result['level']) {
+                    'pass' => $this->pass($g, $result['key'], $result['message']),
+                    'prodfail' => $this->prodFail($g, $result['key'], $result['message']),
+                    'fail' => $this->fail($g, $result['key'], $result['message']),
+                    default => $this->warn($g, $result['key'], $result['message']),
+                };
+            }
         }
 
         if ((string) config("database.connections.{$name}.password") === '') {

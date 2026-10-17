@@ -211,7 +211,9 @@ class CurrencyWalletService
         return (int) CurrencyTransaction::where('user_id', $user->id)
             ->where('currency_id', $currency->id)
             ->where('type', CurrencyTransaction::TYPE_EARN_PENDING)
-            ->whereDate('created_at', today())
+            // E31: نطاق نصف مفتوح بدل whereDate (DATE(created_at)=? على MySQL يمنع استعمال فهرس created_at ويفحص كل معاملات المستخدم عند كل حل). مكافئ دلاليًا (بتوقيت التطبيق).
+            ->where('created_at', '>=', today())
+            ->where('created_at', '<', today()->addDay())
             ->sum('amount');
     }
 

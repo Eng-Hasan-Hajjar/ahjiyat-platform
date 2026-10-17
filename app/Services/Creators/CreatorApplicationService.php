@@ -4,6 +4,7 @@ namespace App\Services\Creators;
 
 use App\Models\CreatorProfile;
 use App\Models\User;
+use App\Services\Database\TransactionPolicy;
 use App\Services\OperationalAuditService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -52,7 +53,7 @@ class CreatorApplicationService
                 ])->save();
 
                 return $profile;
-            });
+            }, TransactionPolicy::DEADLOCK_ATTEMPTS); // E31 (P): طلبان متزامنان لنفس المستخدم: deadlock على MySQL؛ الإعادة ترى الطلب القائم فتُرفض بالرسالة الصحيحة.
         } catch (UniqueConstraintViolationException) {
             // طلبان متزامنان لنفس المستخدم: قيد user_id الفريد يحسمها؛ الخاسر يرى رسالة الطلب القائم.
             throw new CreatorException('لديك طلب قيد المراجعة بالفعل.');

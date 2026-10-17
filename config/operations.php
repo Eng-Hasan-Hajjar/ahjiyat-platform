@@ -26,6 +26,12 @@ return [
     'allow_destructive_commands' => (bool) env('OPS_ALLOW_DESTRUCTIVE_COMMANDS', false),
 
     /*
+    | E31: SQLite ليست قاعدة إنتاج معتمدة (production:check يفشل بها عند APP_ENV=production). الاستثناء الواعي: OPS_ALLOW_SQLITE_PRODUCTION=true
+    | يحوّل الفشل إلى تحذير ظاهر. لا يُنصح به؛ وُجد للنشر التجريبي المعزول فقط. انظر docs/mysql-production-e31.md.
+    */
+    'allow_sqlite_production' => (bool) env('OPS_ALLOW_SQLITE_PRODUCTION', false),
+
+    /*
     | نبض المجدول: مهمة صغيرة كل دقيقة (routes/console.php) تكتب الطابع الزمني في الكاش الافتراضي.
     | الحالة تُحسب من عمر آخر نبضة: ok < stale_after_seconds <= stale < down_after_seconds <= down. لا نبضة قط = unknown (نشر جديد).
     | /ready لا يفشل بسبب المجدول إلا إن فعّلت ready_fails_on_down صراحةً (افتراضيًا معلوماتي فقط).

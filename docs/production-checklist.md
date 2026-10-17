@@ -26,6 +26,7 @@
 ## قاعدة البيانات والترحيلات
 
 - [ ] `DB_CONNECTION=mysql|pgsql` (ليس sqlite)، مستخدم بصلاحيات التطبيق فقط (ليس root)، كلمة مرور قوية.
+- [ ] MySQL **8.0.16+** بترميز utf8mb4 والوضع الصارم وInnoDB؛ `php artisan db:parity --runtime` يخرج 0؛ إجراء النقل والانتقال والتراجع في [E31](mysql-production-e31.md).
 - [ ] **نسخة احتياطية مُتحقَّق منها قبل أول ترحيل**.
 - [ ] `php artisan release:preflight` بلا FAIL، ومراجعة كل ترحيل معلّق وخطره ([السياسة](release-engineering.md#4-سياسة-الترحيلات-الآمنة)).
 - [ ] `php artisan migrate --force` نُفِّذ؛ `production:check` لا يعرض ترحيلات معلّقة.

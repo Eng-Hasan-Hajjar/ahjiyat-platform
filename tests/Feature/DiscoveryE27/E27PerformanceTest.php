@@ -113,6 +113,10 @@ test('P4: the cold trending computation is logarithmic in the number of attempts
 });
 
 test('P5: the trending query is a bounded range on the primary key - never a full scan of the attempts table', function () {
+    if (\Illuminate\Support\Facades\DB::getDriverName() !== 'sqlite') {
+        test()->markTestSkipped('E31: يعتمد على EXPLAIN QUERY PLAN الخاص بـSQLite - خطط MySQL تُفحص بـEXPLAIN محليًا (docs/mysql-production-e31.md).');
+    }
+
     $puzzle = e27_puzzle('أحجية الخطة');
     $users = array_map(fn () => e27_user(), range(1, 10));
     foreach (range(1, 120) as $n) {
@@ -142,6 +146,10 @@ test('P5: the trending query is a bounded range on the primary key - never a ful
 });
 
 test('P6: beyond the partial-match limit the filter is a bare-column prefix LIKE - nothing wraps the column, so a name/title index can serve it', function () {
+    if (\Illuminate\Support\Facades\DB::getDriverName() !== 'sqlite') {
+        test()->markTestSkipped('E31: يعتمد على EXPLAIN QUERY PLAN الخاص بـSQLite - خطط MySQL تُفحص بـEXPLAIN محليًا (docs/mysql-production-e31.md).');
+    }
+
     config(['search.partial_match_max_id' => 0]);
     e27_grow(0, 1);   // صف في كل جدول مصدر: الجدول الفارغ رخيص المسح فيبقى بالوضع الكامل عمدًا، والمقصود هنا الوضع الكبير
     e27_cold();

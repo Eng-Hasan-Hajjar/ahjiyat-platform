@@ -23,6 +23,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Search\Contracts\SearchBackend::class, fn ($app) => match ((string) config('search.driver', 'database')) {
             default => $app->make(\App\Services\Search\DatabaseSearchBackend::class),
         });
+
+        // E31: أسماء الفهارس/المفاتيح المولَّدة تلقائيًا تُقتطع إلى 64 محرفًا على MySQL/MariaDB فقط (SQLite بلا تغيير). انظر MysqlSafeBlueprint.
+        $this->app->bind(\Illuminate\Database\Schema\Blueprint::class, \App\Database\MysqlSafeBlueprint::class);
     }
 
     public function boot(): void
