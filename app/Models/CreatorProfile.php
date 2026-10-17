@@ -30,6 +30,7 @@ class CreatorProfile extends Model
             'submitted_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'approved_at' => 'datetime',
+            'followers_count' => 'integer',
         ];
     }
 
@@ -51,6 +52,12 @@ class CreatorProfile extends Model
     public function puzzles(): HasMany
     {
         return $this->hasMany(CreatorPuzzle::class);
+    }
+
+    /** E29: متابعات المبدع (هوية المتابعين لا تُعرض؛ followers_count عدّاد مشتقّ تكتبه CreatorFollowService). */
+    public function follows(): HasMany
+    {
+        return $this->hasMany(CreatorFollow::class);
     }
 
     public function isApproved(): bool

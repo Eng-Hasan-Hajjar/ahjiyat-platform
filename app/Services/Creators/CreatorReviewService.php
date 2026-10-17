@@ -6,6 +6,7 @@ use App\Models\CreatorProfile;
 use App\Models\CreatorPuzzle;
 use App\Models\CreatorPuzzleRevision;
 use App\Models\User;
+use App\Services\Engagement\CreatorPublicationAnnouncer;
 use App\Services\OperationalAuditService;
 use Illuminate\Support\Facades\DB;
 
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\DB;
  * أي فشل بأي خطوة يُرجع كل شيء (لا نشر لما لا يُحلّ ولا نشر نصف مكتمل). الإشعار بعد الـcommit ولا يتراجع الاعتماد بفشله.
  * النسخة القديمة المنشورة لا تُحذف ولا تُعدَّل: تبقى أحجيتها القانونية القديمة وكل محاولاتها؛ لقطة العمل فقط تتحول للنسخة الجديدة.
  * ملاحظة: طلب التعديل والرفض يشترطان سببًا مكتوبًا (يظهر للمبدع بالاستوديو وبالإشعار).
+ * E29: بعد الـcommit أيضًا يُعلَن النشر لمتابعي المبدع (CreatorPublicationAnnouncer ← دفعات بالطابور)، وفشل الإعلان لا يتراجع عنه الاعتماد.
  */
 class CreatorReviewService
 {
@@ -24,13 +26,17 @@ class CreatorReviewService
         protected CreatorPuzzleMaterializer $materializer,
         protected OperationalAuditService $audit,
         protected CreatorNotifier $notifier,
+        protected CreatorPublicationAnnouncer $announcer,
     ) {}
 
     public function approve(CreatorPuzzleRevision $revision, User $actor, ?string $note = null): CreatorPuzzleRevision
     {
         $this->assertReviewer($actor);
 
-        $approved = DB::transaction(function () use ($revision, $actor, $note) {
+        $isUpdate = false;
+        $creatorProfileId = 0;
+
+        $approved = DB::transaction(function () use ($revision, $actor, $note, &$isUpdate, &$creatorProfileId) {
             $locked = CreatorPuzzleRevision::query()->lockForUpdate()->findOrFail($revision->id);
             $this->assertPending($locked);
 
@@ -43,6 +49,8 @@ class CreatorReviewService
 
             $this->content->assertReady($locked);
             $puzzle = $this->materializer->materialize($locked);
+            $isUpdate = $work->first_published_at !== null;   // نسخة جديدة لعمل نُشر سابقًا (لا أول نشر)
+            $creatorProfileId = (int) $work->creator_profile_id;
 
             $locked->forceFill([
                 'status' => CreatorPuzzleRevision::STATUS_APPROVED,
@@ -73,6 +81,7 @@ class CreatorReviewService
         });
 
         $this->notifier->submissionApproved($approved->load('work.creator.user'));
+        $this->announcer->announce($approved, $creatorProfileId, $isUpdate);
 
         return $approved;
     }

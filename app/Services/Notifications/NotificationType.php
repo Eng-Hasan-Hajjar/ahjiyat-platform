@@ -23,6 +23,7 @@ namespace App\Services\Notifications;
  *  - TeamInvitationCreated/Accepted, TeamJoinRequestCreated/Accepted, TeamMemberRemoved (أحداث مجال بعد commit بخدمات الفرق، E19) → team_* (فئة social؛ بلا إشعار للرفض)
  *  - CompetitiveLifecycleService (مجدول ساعيًا) → competitive_event_started/ending_soon؛ CompetitiveEventFinalized → competitive_event_result_ready
  *  - FriendRequestCreated / FriendshipAccepted (أحداث مجال بعد commit، FriendshipService) → friend_request_received / friend_request_accepted
+ *  - اعتماد نشر (أول نشر أو نسخة جديدة) لمبدع له متابعون (E29، CreatorPublicationAnnouncer بعد الـcommit ← دفعات بالطابور) → creator_new_publication (فئة social؛ بلا إشعار على التقييم/المفضلة/اللعب)
  */
 enum NotificationType: string
 {
@@ -62,6 +63,7 @@ enum NotificationType: string
     case SubmissionChangesRequested = 'submission_changes_requested';
     case SubmissionRejected = 'submission_rejected';
     case PublicationHidden = 'publication_hidden';
+    case CreatorNewPublication = 'creator_new_publication';
 
     public function category(): NotificationCategory
     {
@@ -79,7 +81,7 @@ enum NotificationType: string
             self::FriendRequestReceived, self::FriendRequestAccepted, self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady,
             self::TeamInvitationReceived, self::TeamInvitationAccepted, self::TeamJoinRequestReceived, self::TeamJoinRequestAccepted, self::TeamMemberRemoved,
             self::TeamChallengeReceived, self::TeamChallengeAccepted, self::TeamChallengeResultReady,
-            self::CreatorApproved, self::CreatorRejected, self::SubmissionApproved, self::SubmissionChangesRequested, self::SubmissionRejected, self::PublicationHidden => NotificationCategory::Social,
+            self::CreatorApproved, self::CreatorRejected, self::SubmissionApproved, self::SubmissionChangesRequested, self::SubmissionRejected, self::PublicationHidden, self::CreatorNewPublication => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::TeamChampionshipStarted, self::TeamChampionshipResultReady => NotificationCategory::Competitive,
         };
@@ -130,6 +132,7 @@ enum NotificationType: string
             self::SubmissionChangesRequested => 3,
             self::SubmissionRejected => 2,
             self::PublicationHidden => 1,
+            self::CreatorNewPublication => 27,
         };
     }
 
@@ -161,6 +164,7 @@ enum NotificationType: string
             self::SubmissionChangesRequested => '✍️',
             self::SubmissionRejected => '📝',
             self::PublicationHidden => '🚫',
+            self::CreatorNewPublication => '🆕',
         };
     }
 
@@ -190,6 +194,7 @@ enum NotificationType: string
             self::CreatorApproved => ['creator.dashboard'],
             self::CreatorRejected => ['creator.apply'],
             self::SubmissionApproved, self::SubmissionChangesRequested, self::SubmissionRejected, self::PublicationHidden => ['creator.puzzles.index'],
+            self::CreatorNewPublication => ['community.puzzles.show'],
         };
     }
 
@@ -237,6 +242,9 @@ enum NotificationType: string
             self::SubmissionChangesRequested => 'طُلبت تعديلات على أحجيتك: '.($params['title'] ?? ''),
             self::SubmissionRejected => 'لم تُعتمد أحجيتك: '.($params['title'] ?? ''),
             self::PublicationHidden => 'أُخفيت أحجيتك من المنصة: '.($params['title'] ?? ''),
+            self::CreatorNewPublication => ! empty($params['updated'])
+                ? 'حدّث '.($params['creator'] ?? 'مبدع تتابعه').' أحجيته: '.($params['title'] ?? '')
+                : 'نشر '.($params['creator'] ?? 'مبدع تتابعه').' أحجية جديدة: '.($params['title'] ?? ''),
         };
     }
 
@@ -279,6 +287,9 @@ enum NotificationType: string
             self::SubmissionChangesRequested => static::withNote('عدّل الأحجية وأعد إرسالها للمراجعة من استوديو المبدعين.', $params),
             self::SubmissionRejected => static::withNote('يمكنك إنشاء نسخة جديدة من استوديو المبدعين.', $params),
             self::PublicationHidden => 'أخفاها فريق الإشراف مؤقتًا. راجع حالتها في استوديو المبدعين.',
+            self::CreatorNewPublication => ! empty($params['updated'])
+                ? 'اعتُمدت نسخة جديدة من الأحجية ضمن «من المجتمع». أحجيات المجتمع بلا جوائز اقتصادية.'
+                : 'أحجية جديدة ضمن «من المجتمع» من مبدع تتابعه. أحجيات المجتمع بلا جوائز اقتصادية.',
         };
     }
 

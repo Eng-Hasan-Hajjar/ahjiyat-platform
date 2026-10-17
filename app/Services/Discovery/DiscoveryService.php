@@ -56,6 +56,8 @@ class DiscoveryService
         // E28: أحجيات المجتمع بأقسام مستقلة موسومة «من المجتمع» (لا تمتزج بالرسمي ولا تؤثر برائجه/توصياته). قسم فارغ لا يظهر.
         $community = $this->community->sections($viewer);
         $this->add($sections, 'community-trending', 'رائج من المجتمع', 'friends', route('community.puzzles.index'), 'كل أحجيات المجتمع', $community['trending']);
+        $this->add($sections, 'community-following', 'جديد من تتابعهم', 'friends', route('following.index'), 'كل ما ينشره من أتابعهم', $community['following']);
+        $this->add($sections, 'community-top-rated', 'الأعلى تقييمًا من المجتمع', 'trophy', route('community.puzzles.index'), 'كل أحجيات المجتمع', $community['top_rated']);
         $this->add($sections, 'community-new', 'جديد من المجتمع', 'friends', route('community.puzzles.index'), 'كل أحجيات المجتمع', $community['new']);
         $this->add($sections, 'community-for-you', 'مقترحة لك من المجتمع', 'sparkles', route('community.puzzles.index'), 'كل أحجيات المجتمع', $community['for_you']);
 

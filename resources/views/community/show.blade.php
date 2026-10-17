@@ -71,6 +71,9 @@
             @endguest
         </div>
 
+        {{-- E29: التقييم والمفضلة والمجموعات (المتوسط والعدّادات علنية للجميع؛ التفاعل للموثَّق غير المجمَّد وغير المالك) --}}
+        @include('engagement._work_panel', ['work' => $work, 'isOwner' => $isOwner, 'canInteract' => $canInteract, 'viewer' => $viewer, 'collections' => $collections])
+
         @auth
             @if (! $isOwner && $canInteract)
                 <details class="glass rounded-2xl p-5 anim-fade-up">

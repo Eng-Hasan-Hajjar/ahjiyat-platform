@@ -6,6 +6,7 @@ use App\Models\CommunityPuzzleAttempt;
 use App\Models\CreatorPuzzle;
 use App\Models\User;
 use App\Services\Discovery\DiscoverCard;
+use App\Services\Engagement\CommunityQualityService;
 use App\Support\CachedSnapshot;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -20,11 +21,19 @@ use Illuminate\Support\Facades\DB;
  *    فلا تأثير لأي شيء هنا على الرائج الرسمي ولا على توصيات الأحجيات الرسمية، ولا على الاقتصاد/XP/المهام (عرض فقط).
  *  - عدد الاستعلامات ثابت لا يتبع حجم البيانات: جديد (1) + رائج (1 إن وُجدت لقطة) + للمسجَّل: سجلّه (1). الحساب الثقيل مخزَّن (TTL مثل رائج E27).
  *  - لا مكافآت ولا رعاية ولا ترتيب مدفوع. المبدع لا تُقترح عليه أعماله.
+ *
+ * E29 (إشارات التفاعل - ضعيفة ولا تحلّ محلّ الاستكشاف):
+ *  - top_rated: ترتيب الدرجة المنكمشة (CommunityQualityService) من كاش معرّفات+درجات؛ الظهور يُفحص حيًّا هنا بكل طلب (المخفي لا يظهر ولو بقي بالكاش)، بسقف لكل مبدع.
+ *  - following: أحدث ظاهر من مبدعين يتابعهم المشاهد (استعلام واحد، للمسجَّل فقط).
+ *  - for_you: مفضلة المشاهد وتقييماته العالية (تصنيفاتها فقط، من بياناته هو حصرًا) تعيد **ترتيب** المرشَّحين أنفسهم؛ لا تضيف مرشَّحًا ولا تلغي سقف المبدع ولا تعرض شيئًا عن غيره.
+ *  - لا أثر على الاكتشاف الرسمي ولا على أي اقتصاد/XP/مهام.
  */
 class CommunityDiscovery
 {
+    public function __construct(protected CommunityQualityService $quality) {}
+
     /**
-     * @return array{trending: list<DiscoverCard>, new: list<DiscoverCard>, for_you: list<DiscoverCard>}
+     * @return array{trending: list<DiscoverCard>, new: list<DiscoverCard>, for_you: list<DiscoverCard>, top_rated: list<DiscoverCard>, following: list<DiscoverCard>}
      */
     public function sections(?User $viewer): array
     {
@@ -38,24 +47,94 @@ class CommunityDiscovery
         $new = $this->capPerCreator($pool->reject(fn ($w) => in_array($w->id, $trendingIds, true)), $cap, $limit);
 
         $forYou = collect();
+        $following = collect();
 
         if ($viewer !== null) {
+            $following = $this->followingWorks($viewer, $cap);
+
             $seen = CommunityPuzzleAttempt::query()->where('user_id', $viewer->id)->distinct()
                 ->limit((int) config('search.recommendations.history_cap', 500))->pluck('creator_puzzle_id')->all();
             $shown = array_merge($trendingIds, $new->pluck('id')->all(), $seen);
 
+            $liked = $this->likedCategories($viewer);
+
             $forYou = $this->capPerCreator(
-                $pool->reject(fn ($w) => in_array($w->id, $shown, true) || (int) $w->creator_user_id === $viewer->id)->sort(fn ($a, $b) => [(int) $b->plays_count, (int) $b->id] <=> [(int) $a->plays_count, (int) $a->id])->values(),
+                $pool->reject(fn ($w) => in_array($w->id, $shown, true) || (int) $w->creator_user_id === $viewer->id)
+                    ->sort(fn ($a, $b) => [isset($liked[(int) $b->published_category_id]) ? 1 : 0, (int) $b->plays_count, (int) $b->id] <=> [isset($liked[(int) $a->published_category_id]) ? 1 : 0, (int) $a->plays_count, (int) $a->id])->values(),
                 $cap,
                 min($limit, (int) config('creators.discovery.reco_limit', 4)),
             );
         }
 
+        $topRated = $this->topRatedWorks($cap);
+
         return [
             'trending' => $trending->map(fn ($w) => $this->card($w, $w->trending_players.' لاعب هذا الأسبوع'))->values()->all(),
             'new' => $new->map(fn ($w) => $this->card($w, null))->values()->all(),
             'for_you' => $forYou->map(fn ($w) => $this->card($w, 'لم تجرّبها بعد'))->values()->all(),
+            'top_rated' => $topRated->map(fn ($w) => $this->card($w, number_format((float) $w->top_average, 1).' من 5 · '.number_format((int) $w->top_count).' تقييم'))->values()->all(),
+            'following' => $following->map(fn ($w) => $this->card($w, 'من مبدع تتابعه'))->values()->all(),
         ];
+    }
+
+    /**
+     * الأعلى تقييمًا: المعرّفات والدرجات من الكاش القصير، والظهور مُعاد فحصه حيًّا باستعلام واحد (whereIn على المعرّفات + is_visible + المبدع المعتمد).
+     *
+     * @return Collection<int, CreatorPuzzle>
+     */
+    protected function topRatedWorks(int $cap): Collection
+    {
+        $scores = $this->quality->topRated();
+
+        if ($scores === []) {
+            return collect();
+        }
+
+        $works = $this->visibleQuery()->whereIn('creator_puzzles.id', array_keys($scores))->get()->keyBy('id');
+
+        $ordered = collect($scores)
+            ->filter(fn (array $row, int $id) => $works->has($id))
+            ->map(function (array $row, int $id) use ($works) {
+                $work = $works->get($id);
+                $work->setAttribute('top_average', $row['average']);
+                $work->setAttribute('top_count', $row['count']);
+
+                return $work;
+            })
+            ->values();
+
+        return $this->capPerCreator($ordered, $cap, max(1, (int) config('engagement.discovery.top_rated_limit', 8)));
+    }
+
+    /** @return Collection<int, CreatorPuzzle> أحدث أعمال ظاهرة لمبدعين يتابعهم المشاهد (استعلام واحد، سقف لكل مبدع). */
+    protected function followingWorks(User $viewer, int $cap): Collection
+    {
+        $limit = max(1, (int) config('engagement.discovery.following_limit', 4));
+
+        return $this->capPerCreator(
+            $this->visibleQuery()
+                ->whereIn('creator_puzzles.creator_profile_id', fn ($q) => $q->select('creator_profile_id')->from('creator_follows')->where('user_id', $viewer->id))
+                ->orderByDesc('creator_puzzles.published_at')->orderByDesc('creator_puzzles.id')
+                ->limit($limit * $cap + $limit)->get(),
+            $cap,
+            $limit,
+        );
+    }
+
+    /**
+     * تصنيفات يفضّلها المشاهد (مفضلته + تقييماته ≥ الحدّ) كمجموعة مفاتيح. بيانات المشاهد وحده (WHERE user_id)، استعلام واحد بـUNION، ولا تُخزَّن بالكاش.
+     *
+     * @return array<int, true>
+     */
+    protected function likedCategories(User $viewer): array
+    {
+        $favorites = DB::table('community_puzzle_favorites as f')->join('creator_puzzles as p', 'p.id', '=', 'f.creator_puzzle_id')
+            ->where('f.user_id', $viewer->id)->whereNotNull('p.published_category_id')->select('p.published_category_id as category_id')->limit(200);
+        $rated = DB::table('community_puzzle_ratings as r')->join('creator_puzzles as p', 'p.id', '=', 'r.creator_puzzle_id')
+            ->where('r.user_id', $viewer->id)->where('r.rating', '>=', (int) config('engagement.discovery.affinity_min_rating', 4))
+            ->whereNotNull('p.published_category_id')->select('p.published_category_id as category_id')->limit(200);
+
+        return array_fill_keys($favorites->union($rated)->pluck('category_id')->map(fn ($id) => (int) $id)->all(), true);
     }
 
     /** أحدث الأعمال الظاهرة (مجمَّع قراءة واحد بضمّ التصنيف واسم المبدع: لا N+1). */
@@ -128,7 +207,7 @@ class CommunityDiscovery
             ->leftJoin('puzzle_categories', 'puzzle_categories.id', '=', 'creator_puzzles.published_category_id')
             ->select(
                 'creator_puzzles.id', 'creator_puzzles.public_id', 'creator_puzzles.creator_profile_id', 'creator_puzzles.published_title',
-                'creator_puzzles.published_difficulty', 'creator_puzzles.plays_count', 'creator_puzzles.published_at',
+                'creator_puzzles.published_category_id', 'creator_puzzles.published_difficulty', 'creator_puzzles.plays_count', 'creator_puzzles.published_at',
                 'creator_profiles.user_id as creator_user_id', 'users.name as creator_name', 'puzzle_categories.name as category_name',
             );
     }

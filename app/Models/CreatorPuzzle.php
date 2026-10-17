@@ -45,6 +45,9 @@ class CreatorPuzzle extends Model
             'hidden_at' => 'datetime',
             'is_visible' => 'boolean',
             'plays_count' => 'integer',
+            'ratings_count' => 'integer',
+            'ratings_sum' => 'integer',
+            'favorites_count' => 'integer',
         ];
     }
 
@@ -91,6 +94,25 @@ class CreatorPuzzle extends Model
     public function reports(): HasMany
     {
         return $this->hasMany(CommunityPuzzleReport::class);
+    }
+
+    /** E29: مصدر الحقيقة للتقييمات (العدّادات المجمَّعة بأعمدة العمل مشتقّة منها). */
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(CommunityPuzzleRating::class);
+    }
+
+    public function favorites(): HasMany
+    {
+        return $this->hasMany(CommunityPuzzleFavorite::class);
+    }
+
+    /** متوسط التقييم بخانة عشرية واحدة، أو null بلا تقييمات. يقرأ العدّادين المجمَّعين فقط (بلا AVG/COUNT بكل بطاقة). */
+    public function averageRating(): ?float
+    {
+        $count = (int) $this->getAttribute('ratings_count');
+
+        return $count > 0 ? round(((int) $this->getAttribute('ratings_sum')) / $count, 1) : null;
     }
 
     public function scopeVisible($query)

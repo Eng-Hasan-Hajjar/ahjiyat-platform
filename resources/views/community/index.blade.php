@@ -11,6 +11,11 @@
                 @if (auth()->user()?->email_verified_at !== null)
                     <a href="{{ route('creator.apply') }}" class="btn-secondary !py-2 !px-4 text-sm">كن مبدعًا</a>
                 @endif
+                @if (auth()->user()?->email_verified_at !== null)
+                    <a href="{{ route('favorites.index') }}" class="chip !py-2 text-sm">مفضلتي</a>
+                    <a href="{{ route('following.index') }}" class="chip !py-2 text-sm">من أتابعهم</a>
+                    <a href="{{ route('collections.index') }}" class="chip !py-2 text-sm">مجموعاتي</a>
+                @endif
                 <a href="{{ route('puzzles.index') }}" class="chip !py-2 text-sm">الأحجيات الرسمية</a>
             </x-slot:actions>
         </x-page-header>
@@ -28,7 +33,7 @@
         @else
             <section aria-label="أحجيات المجتمع" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 anim-fade-up">
                 @foreach ($works as $work)
-                    @include('community._card', ['work' => $work, 'showCreator' => true])
+                    @include('community._card', ['work' => $work, 'showCreator' => true, 'savedIds' => $savedIds ?? []])
                 @endforeach
             </section>
 

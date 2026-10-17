@@ -23,6 +23,20 @@
             <x-stat-card :label="'محاولات آخر '.$stats['recent_days'].' أيام'" :value="number_format($stats['recent_attempts'])" icon="bolt" />
         </section>
 
+        {{-- E29: تفاعل المجتمع مع أعمالك (أرقام مجمَّعة فقط: لا أسماء متابعين ولا مقيِّمين). المتوسط يُخفى تحت الحدّ الأدنى للعيّنة. --}}
+        <section aria-label="تفاعل المجتمع" class="grid grid-cols-2 lg:grid-cols-4 gap-3 anim-fade-up">
+            <x-stat-card label="متابعون" :value="number_format($stats['followers'])" icon="friends" />
+            <x-stat-card label="حفظوا أعمالك" :value="number_format($stats['favorites_received'])" icon="sparkles" />
+            <x-stat-card label="تقييمات" :value="number_format($stats['ratings_count'])" icon="chart" />
+            <x-stat-card label="متوسط التقييم" :value="$stats['average_rating'] === null ? '—' : number_format($stats['average_rating'], 1).' من 5'" icon="trophy" tone="gold" />
+        </section>
+        @if ($stats['top_rated_work'])
+            <p class="text-sm text-slate-300 anim-fade-up">
+                الأعلى تقييمًا: <a href="{{ route('community.puzzles.show', $stats['top_rated_work']['public_id']) }}" class="font-bold text-amethyst underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">{{ $stats['top_rated_work']['title'] }}</a>
+                <span class="text-slate-400">({{ number_format($stats['top_rated_work']['average'], 1) }} من 5 · {{ number_format($stats['top_rated_work']['count']) }} تقييم)</span>
+            </p>
+        @endif
+
         <section aria-label="أعمالي" class="anim-fade-up">
             <x-section-header title="أحجياتي" :href="route('creator.puzzles.index')" linkLabel="عرض الكل" />
             <nav aria-label="تصفية حسب الحالة" class="flex flex-wrap gap-2 mb-4">
