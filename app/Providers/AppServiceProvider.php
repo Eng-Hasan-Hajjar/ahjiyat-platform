@@ -24,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
             default => $app->make(\App\Services\Search\DatabaseSearchBackend::class),
         });
 
+        // E32: سجل مزوّدي الدفع نسخة واحدة (يسمح بحقن مزوّد بالاختبارات/المستقبل دون المساس بالمجال المالي).
+        $this->app->singleton(\App\Services\Payments\PaymentProviderRegistry::class);
+
         // E31: أسماء الفهارس/المفاتيح المولَّدة تلقائيًا تُقتطع إلى 64 محرفًا على MySQL/MariaDB فقط (SQLite بلا تغيير). انظر MysqlSafeBlueprint.
         $this->app->bind(\Illuminate\Database\Schema\Blueprint::class, \App\Database\MysqlSafeBlueprint::class);
     }
@@ -247,6 +250,14 @@ class AppServiceProvider extends ServiceProvider
         // E30: قراءات الرعاة والسلاسل العامة (صفحات عرض فقط) بحدّ معتدل لكل مستخدم/عنوان؛ إجراءات استوديو السلاسل تُعيد استعمال محدّدات المبدعين (creator-draft-create / creator-submit).
         RateLimiter::for('supporters-read', fn (Request $request) => Limit::perMinute(120)->by('spr:'.($request->user()?->id ?: $request->ip())));
         RateLimiter::for('series-read', fn (Request $request) => Limit::perMinute(120)->by('ser:'.($request->user()?->id ?: $request->ip())));
+
+        // E32: دفع الرعاية. قراءة الصفحات العامة، إنشاء الطلب، إرسال/إلغاء التحويل، رفع الإثبات (أضيقها)، متابعة حالة الطلب، وWebhook المستقبلي بحدّ لكل عنوان.
+        RateLimiter::for('support-read', fn (Request $request) => Limit::perMinute(120)->by('sur:'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('support-checkout', fn (Request $request) => [Limit::perMinute(10)->by('suc:'.($request->user()?->id ?: $request->ip())), Limit::perHour(40)->by('such:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('support-submit', fn (Request $request) => [Limit::perMinute(10)->by('sus:'.($request->user()?->id ?: $request->ip())), Limit::perHour(60)->by('sush:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('support-proof-upload', fn (Request $request) => [Limit::perMinute(5)->by('sup:'.($request->user()?->id ?: $request->ip())), Limit::perHour(20)->by('suph:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('payment-status', fn (Request $request) => Limit::perMinute(60)->by('pst:'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('payment-webhook', fn (Request $request) => Limit::perMinute(120)->by('pwh:'.$request->ip()));
 
         // E11: تجهيز/إزالة تجميليات - UX تتطلب تجربة سريعة (تبديل/معاينة)، لا حساسية مالية هنا.
         RateLimiter::for('cosmetic-equip', function (Request $request) {

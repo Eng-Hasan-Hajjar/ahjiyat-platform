@@ -53,3 +53,6 @@ $guard(Schedule::command('sponsorship:lock-event-plans')->everyFiveMinutes()->na
 // يمرّ من $guard مثل بقية المهام (قاعدة E24: لا مهمة بلا قفل تداخل محدود ولا onOneServer). قفل 5 دقائق يكفي لعملية بطولها ميلي ثوانٍ وينتهي وحده بعد أي انهيار.
 // يُسجَّل أخيرًا كي لا يغيّر ترتيب المهام القائمة.
 $guard(Schedule::call(fn () => app(SchedulerHeartbeat::class)->beat())->everyMinute()->name('scheduler-heartbeat'), 5);
+
+// E32: إنهاء طلبات الدعم «بانتظار الدفع» المتأخرة (حالة فقط، لا حذف؛ المرسَل/المحقَّق لا ينتهي). غيابه لا يكسر شيئًا: تبقى الطلبات القديمة مفتوحة حتى يُنفَّذ.
+$guard(Schedule::command('payments:expire-stale')->everyFifteenMinutes()->name('payments-expire-stale'), 30);

@@ -150,77 +150,89 @@ class ContributionService
     {
         abort_unless($actor->can('sponsorships.confirm'), 403);
 
-        $accounting = SponsorshipMoney::accountingCurrency();
         $before = null;
         $supporterId = 0;
 
-        $confirmed = DB::transaction(function () use ($actor, $contribution, $accountingAmount, $accounting, &$before, &$supporterId) {
+        $confirmed = DB::transaction(function () use ($actor, $contribution, $accountingAmount, &$before, &$supporterId) {
             $locked = SponsorshipContribution::query()->lockForUpdate()->findOrFail($contribution->id);
 
-            if (! $locked->isPending()) {
-                throw new SponsorshipException('هذه المساهمة ليست معلّقة (ربما عولجت للتو).');
-            }
-
-            $supporter = SupporterProfile::query()->findOrFail($locked->supporter_profile_id);
-            $program = SponsorshipProgram::query()->findOrFail($locked->sponsorship_program_id);
-
-            if ($supporter->status === SupporterProfile::STATUS_SUSPENDED) {
-                throw new SponsorshipException('ملف الداعم موقوف؛ لا يمكن تأكيد مساهمته.');
-            }
-
-            if (! in_array($program->status, [SponsorshipProgram::STATUS_DRAFT, SponsorshipProgram::STATUS_ACTIVE], true)) {
-                throw new SponsorshipException('البرنامج مغلق أو ملغى؛ لا يمكن تأكيد مساهمة عليه.');
-            }
-
-            if (SponsorshipContribution::query()->where('status', SponsorshipContribution::STATUS_CONFIRMED)->where('accounting_currency', '!=', $accounting)->exists()) {
-                throw new SponsorshipException('عملة المحاسبة تغيّرت بعد وجود مساهمات مؤكَّدة بعملة أخرى؛ لا يمكن خلط العملات (راجع التوثيق).');
-            }
-
-            if ($locked->currency === $accounting) {
-                $accountingMinor = (int) $locked->original_amount_minor;
-
-                if ($accountingAmount !== null && $accountingAmount !== '' && SponsorshipMoney::parse($accountingAmount, $accounting) !== $accountingMinor) {
-                    throw new SponsorshipException('بعملة المحاسبة نفسها يجب أن يساوي المعادل المبلغ الأصلي.');
-                }
-            } else {
-                if ($accountingAmount === null || $accountingAmount === '') {
-                    throw new SponsorshipException('أدخل المعادل بعملة المحاسبة ('.$accounting.') لأن عملة المساهمة مختلفة.');
-                }
-
-                $accountingMinor = SponsorshipMoney::parse($accountingAmount, $accounting);
-            }
-
-            $supporterId = (int) $supporter->id;
-            $before = $this->tiers->forSupporter($supporter);
-
-            $locked->forceFill([
-                'accounting_amount_minor' => $accountingMinor,
-                'accounting_currency' => $accounting,
-                'status' => SponsorshipContribution::STATUS_CONFIRMED,
-                'confirmed_at' => now(),
-                'confirmed_by' => $actor->id,
-            ])->save();
-
-            $this->audit->log('sponsorship_contribution_confirmed', $locked, [
-                'public_id' => $locked->public_id, 'supporter' => $supporter->public_id, 'program' => $program->slug,
-                'original_amount_minor' => (int) $locked->original_amount_minor, 'currency' => $locked->currency,
-                'accounting_amount_minor' => $accountingMinor, 'accounting_currency' => $accounting,
-            ], $actor);
-
-            if ($locked->currency !== $accounting) {
-                $this->audit->log('sponsorship_contribution_normalized', $locked, [
-                    'from_currency' => $locked->currency, 'from_minor' => (int) $locked->original_amount_minor,
-                    'to_currency' => $accounting, 'to_minor' => $accountingMinor,
-                ], $actor);
-            }
-
-            return $locked;
+            return $this->confirmLocked($actor, $locked, $accountingAmount, $before, $supporterId);
         });
 
         SponsorshipCache::bust();
-        $this->afterChange($confirmed, $supporterId, $before, true);
+        $this->publishChange($confirmed, $supporterId, $before, true);
 
         return $confirmed;
+    }
+
+    /**
+     * E32: قلب التأكيد القابل لإعادة الاستعمال **داخل معاملة يملكها المنادي** (الصف مقفول مسبقًا بـlockForUpdate). نفس قواعد E30 حرفيًا (موقوف/برنامج مغلق/خلط عملات/المعادل المحاسبي/تدقيق)،
+     * بلا تحقق صلاحية (المنادي مسؤول عنها) وبلا كاش أو إشعارات: يقوم بها المنادي بعد الـcommit (publishChange).
+     *
+     * @throws SponsorshipException
+     */
+    public function confirmLocked(?User $actor, SponsorshipContribution $locked, string|int|null $accountingAmount, mixed &$before, int &$supporterId): SponsorshipContribution
+    {
+        $accounting = SponsorshipMoney::accountingCurrency();
+
+        if (! $locked->isPending()) {
+            throw new SponsorshipException('هذه المساهمة ليست معلّقة (ربما عولجت للتو).');
+        }
+
+        $supporter = SupporterProfile::query()->findOrFail($locked->supporter_profile_id);
+        $program = SponsorshipProgram::query()->findOrFail($locked->sponsorship_program_id);
+
+        if ($supporter->status === SupporterProfile::STATUS_SUSPENDED) {
+            throw new SponsorshipException('ملف الداعم موقوف؛ لا يمكن تأكيد مساهمته.');
+        }
+
+        if (! in_array($program->status, [SponsorshipProgram::STATUS_DRAFT, SponsorshipProgram::STATUS_ACTIVE], true)) {
+            throw new SponsorshipException('البرنامج مغلق أو ملغى؛ لا يمكن تأكيد مساهمة عليه.');
+        }
+
+        if (SponsorshipContribution::query()->where('status', SponsorshipContribution::STATUS_CONFIRMED)->where('accounting_currency', '!=', $accounting)->exists()) {
+            throw new SponsorshipException('عملة المحاسبة تغيّرت بعد وجود مساهمات مؤكَّدة بعملة أخرى؛ لا يمكن خلط العملات (راجع التوثيق).');
+        }
+
+        if ($locked->currency === $accounting) {
+            $accountingMinor = (int) $locked->original_amount_minor;
+
+            if ($accountingAmount !== null && $accountingAmount !== '' && SponsorshipMoney::parse($accountingAmount, $accounting) !== $accountingMinor) {
+                throw new SponsorshipException('بعملة المحاسبة نفسها يجب أن يساوي المعادل المبلغ الأصلي.');
+            }
+        } else {
+            if ($accountingAmount === null || $accountingAmount === '') {
+                throw new SponsorshipException('أدخل المعادل بعملة المحاسبة ('.$accounting.') لأن عملة المساهمة مختلفة.');
+            }
+
+            $accountingMinor = SponsorshipMoney::parse($accountingAmount, $accounting);
+        }
+
+        $supporterId = (int) $supporter->id;
+        $before = $this->tiers->forSupporter($supporter);
+
+        $locked->forceFill([
+            'accounting_amount_minor' => $accountingMinor,
+            'accounting_currency' => $accounting,
+            'status' => SponsorshipContribution::STATUS_CONFIRMED,
+            'confirmed_at' => now(),
+            'confirmed_by' => $actor?->id,
+        ])->save();
+
+        $this->audit->log('sponsorship_contribution_confirmed', $locked, [
+            'public_id' => $locked->public_id, 'supporter' => $supporter->public_id, 'program' => $program->slug,
+            'original_amount_minor' => (int) $locked->original_amount_minor, 'currency' => $locked->currency,
+            'accounting_amount_minor' => $accountingMinor, 'accounting_currency' => $accounting,
+        ], $actor);
+
+        if ($locked->currency !== $accounting) {
+            $this->audit->log('sponsorship_contribution_normalized', $locked, [
+                'from_currency' => $locked->currency, 'from_minor' => (int) $locked->original_amount_minor,
+                'to_currency' => $accounting, 'to_minor' => $accountingMinor,
+            ], $actor);
+        }
+
+        return $locked;
     }
 
     /** @throws SponsorshipException */
@@ -258,36 +270,53 @@ class ContributionService
         $refunded = DB::transaction(function () use ($actor, $contribution, $reason, &$before, &$supporterId) {
             $locked = SponsorshipContribution::query()->lockForUpdate()->findOrFail($contribution->id);
 
-            if (! $locked->isConfirmed()) {
-                throw new SponsorshipException('يُسترد المؤكَّد فقط.');
-            }
+            $locked = $this->refundLocked($actor, $locked, $reason, $before, $supporterId);
 
-            $supporter = SupporterProfile::query()->findOrFail($locked->supporter_profile_id);
-            $supporterId = (int) $supporter->id;
-            $before = $this->tiers->forSupporter($supporter);
-
-            $locked->forceFill(['status' => SponsorshipContribution::STATUS_REFUNDED, 'refunded_at' => now(), 'refunded_by' => $actor->id, 'status_note' => $reason])->save();
-            $this->audit->log('sponsorship_contribution_refunded', $locked, [
-                'public_id' => $locked->public_id, 'reason' => $reason, 'accounting_amount_minor' => (int) $locked->accounting_amount_minor,
-            ], $actor);
-
-            // لا مساهمة مؤكَّدة متبقية للداعم بهذا البرنامج ⇒ يسقط دوره (راعٍ/راعٍ رئيسي) ويُدقَّق.
-            if (! $this->totals->hasConfirmed($supporterId, (int) $locked->sponsorship_program_id)) {
-                $roles = SponsorshipProgramRole::query()->where('sponsorship_program_id', $locked->sponsorship_program_id)->where('supporter_profile_id', $supporterId)->get();
-
-                foreach ($roles as $role) {
-                    $this->audit->log($role->role === SponsorshipProgramRole::ROLE_MAIN_SPONSOR ? 'main_sponsor_removed' : 'sponsorship_role_removed', $locked->program, ['supporter' => $supporter->public_id, 'reason' => 'refund'], $actor);
-                    $role->delete();
-                }
-            }
+            // E32: مساهمة ناتجة عن طلب دفع ⇒ يُسجَّل الطلب مستردًّا في المعاملة نفسها (لا تعارض حالات بين الطلب والمساهمة).
+            app(\App\Services\Payments\SponsorshipPaymentService::class)->syncRefundFromContribution($locked, $actor, $reason);
 
             return $locked;
         });
 
         SponsorshipCache::bust();
-        $this->afterChange($refunded, $supporterId, $before, false);
+        $this->publishChange($refunded, $supporterId, $before, false);
+        app(\App\Services\Payments\SponsorshipPaymentService::class)->notifyLinkedRefund($refunded);
 
         return $refunded;
+    }
+
+    /**
+     * E32: قلب الاسترداد **داخل معاملة المنادي** (الصف مقفول مسبقًا). نفس قواعد E30 (المؤكَّد فقط، إسقاط دور الراعي عند انعدام المؤكَّد، تدقيق) بلا صلاحية/كاش/إشعارات.
+     * لا يسحب أي مكافأة لاعب سبق منحها (لقطات تاريخية).
+     *
+     * @throws SponsorshipException
+     */
+    public function refundLocked(?User $actor, SponsorshipContribution $locked, string $reason, mixed &$before, int &$supporterId): SponsorshipContribution
+    {
+        if (! $locked->isConfirmed()) {
+            throw new SponsorshipException('يُسترد المؤكَّد فقط.');
+        }
+
+        $supporter = SupporterProfile::query()->findOrFail($locked->supporter_profile_id);
+        $supporterId = (int) $supporter->id;
+        $before = $this->tiers->forSupporter($supporter);
+
+        $locked->forceFill(['status' => SponsorshipContribution::STATUS_REFUNDED, 'refunded_at' => now(), 'refunded_by' => $actor?->id, 'status_note' => $reason])->save();
+        $this->audit->log('sponsorship_contribution_refunded', $locked, [
+            'public_id' => $locked->public_id, 'reason' => $reason, 'accounting_amount_minor' => (int) $locked->accounting_amount_minor,
+        ], $actor);
+
+        // لا مساهمة مؤكَّدة متبقية للداعم بهذا البرنامج ⇒ يسقط دوره (راعٍ/راعٍ رئيسي) ويُدقَّق.
+        if (! $this->totals->hasConfirmed($supporterId, (int) $locked->sponsorship_program_id)) {
+            $roles = SponsorshipProgramRole::query()->where('sponsorship_program_id', $locked->sponsorship_program_id)->where('supporter_profile_id', $supporterId)->get();
+
+            foreach ($roles as $role) {
+                $this->audit->log($role->role === SponsorshipProgramRole::ROLE_MAIN_SPONSOR ? 'main_sponsor_removed' : 'sponsorship_role_removed', $locked->program, ['supporter' => $supporter->public_id, 'reason' => 'refund'], $actor);
+                $role->delete();
+            }
+        }
+
+        return $locked;
     }
 
     /** يبدّل إخفاء الهوية لمساهمة (قرار خصوصية الداعم) دون المساس بالمبالغ. مدقَّق. */
@@ -304,8 +333,8 @@ class ContributionService
         return $contribution;
     }
 
-    /** إشعارات ما بعد الـcommit: تأكيد الدعم (للتأكيد فقط) وتغيّر المستوى. فشلها لا يمسّ المعاملة. */
-    protected function afterChange(SponsorshipContribution $contribution, int $supporterId, mixed $tierBefore, bool $confirmed): void
+    /** إشعارات ما بعد الـcommit: تأكيد الدعم (للتأكيد فقط) وتغيّر المستوى. فشلها لا يمسّ المعاملة. (عامة منذ E32: يستدعيها مسار التحقق من الدفع بعد commit معاملته.) */
+    public function publishChange(SponsorshipContribution $contribution, int $supporterId, mixed $tierBefore, bool $confirmed): void
     {
         try {
             $supporter = SupporterProfile::query()->with('user')->find($supporterId);
@@ -326,7 +355,7 @@ class ContributionService
         }
     }
 
-    protected function requireReason(string $reason): string
+    public function requireReason(string $reason): string
     {
         $reason = trim($reason);
 

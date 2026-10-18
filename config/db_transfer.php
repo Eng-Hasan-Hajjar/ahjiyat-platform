@@ -65,6 +65,7 @@ return [
         'store_purchases' => ['price_amount'],
         'currency_packs' => ['base_amount', 'bonus_amount', 'price_minor'],
         'sponsorship_contributions' => ['original_amount_minor', 'accounting_amount_minor'],
+        'sponsorship_payments' => ['amount_minor', 'accounting_amount_minor'],
         'sponsorship_reward_bonuses' => ['base_amount', 'calculated_bonus_amount', 'bonus_amount', 'final_amount', 'funding_snapshot_minor'],
         'competitive_reward_grants' => ['amount'],
         'xp_transactions' => ['amount'],

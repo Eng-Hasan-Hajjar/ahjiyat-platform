@@ -55,6 +55,56 @@ class SupporterService
         return $profile;
     }
 
+    /**
+     * E32: ملف الداعم لمستخدم دفع حقيقي، يُستدعى **داخل معاملة تحقق الدفع** (لا يتطلب sponsorships.manage؛ المنادي SponsorshipPaymentService يتحقق من صلاحية التأكيد).
+     * يقفل صف المستخدم أولًا فيتسلسل أي تحققَين متزامنَين لنفس المستخدم (لا ملف مكرر؛ والقيد UNIQUE(user_id) هو الحدّ الأخير).
+     *  - ملف قائم ⇒ يُعاد كما هو (لا تغيير لاسمه أو حالته). استثناء مقصود: ملف أنشأه المستخدم بنفسه عبر الدفع (created_by = user_id) وكان خاصًا فقط لأن أول دعمه كان مجهولًا،
+     *    ثم اختار الآن الظهور العلني ⇒ يصير علنيًا (قراره الصريح بهذا الطلب). ملفات الإدارة لا تُمسّ.
+     *  - ملف جديد ⇒ علني فقط إن اختار الظهور باسمه؛ دعمٌ مجهول لا ينشئ صفحة علنية بل ملفًا خاصًا (الداعم المجهول لا يُعرَف من أي سطح عام).
+     */
+    public function ensureForUser(User $owner, ?string $displayName, bool $publicChoice, ?User $actor): SupporterProfile
+    {
+        User::query()->lockForUpdate()->findOrFail($owner->id);
+
+        $existing = SupporterProfile::query()->where('user_id', $owner->id)->lockForUpdate()->first();
+
+        if ($existing !== null) {
+            if ($publicChoice && ! $existing->is_public && $existing->status === SupporterProfile::STATUS_ACTIVE && (int) $existing->created_by === (int) $owner->id) {
+                $existing->forceFill(['is_public' => true])->save();
+                $this->audit->log('supporter_visibility_changed', $existing, ['public_id' => $existing->public_id, 'public' => true, 'source' => 'checkout'], $actor);
+            }
+
+            return $existing;
+        }
+
+        $name = trim((string) $displayName);
+        $max = (int) config('sponsorship.profile.name_max', 80);
+
+        if (mb_strlen($name) < 2 || mb_strlen($name) > $max || Validator::make(['n' => $name], ['n' => [new NoMarkup]])->fails()) {
+            $name = Str::limit(trim(strip_tags((string) $owner->name)), $max, '');
+        }
+
+        if (mb_strlen($name) < 2) {
+            $name = 'داعم';
+        }
+
+        $profile = new SupporterProfile;
+        $profile->forceFill([
+            'user_id' => $owner->id,
+            'type' => SupporterProfile::TYPE_INDIVIDUAL,
+            'display_name' => $name,
+            'slug' => $this->uniqueSlug($name),
+            'status' => SupporterProfile::STATUS_ACTIVE,
+            'is_public' => $publicChoice,
+            'anonymous_by_default' => ! $publicChoice,
+            'created_by' => $owner->id,
+        ])->save();
+
+        $this->audit->log('supporter_created', $profile, ['public_id' => $profile->public_id, 'type' => $profile->type, 'source' => 'checkout', 'public' => $publicChoice], $actor);
+
+        return $profile;
+    }
+
     /** @throws SponsorshipException */
     public function update(User $actor, SupporterProfile $profile, array $data, ?UploadedFile $logo = null, bool $removeLogo = false): SupporterProfile
     {

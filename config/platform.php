@@ -128,4 +128,20 @@ return [
         'max_reengagement_per_day' => ['type' => 'integer', 'default' => 1],
     ],
 
+    /**
+     * E32 - تعليمات التحويل اليدوي العلنية. **لا أسرار**: لا كلمات مرور بنكية ولا مفاتيح API ولا مفاتيح خاصة (تُرفض بالتحقق في صفحة الإعدادات).
+     * تُعرض فقط لصاحب طلب الدعم داخل صفحة طلبه (لا في الصفحات العامة). مفتاح تفعيل المزوّد اليدوي هنا يعمل مع PAYMENTS_MANUAL_ENABLED بالبيئة (كلاهما شرط).
+     */
+    'payments' => [
+        'manual_enabled' => ['type' => 'boolean', 'default' => true],
+        'manual_title' => ['type' => 'string', 'default' => 'تحويل بنكي'],
+        'manual_beneficiary' => ['type' => 'string', 'default' => null],
+        'manual_bank_name' => ['type' => 'string', 'default' => null],
+        'manual_account' => ['type' => 'text', 'default' => null],
+        'manual_reference_note' => ['type' => 'text', 'default' => 'اكتب رمز المرجع الظاهر أعلاه في خانة الملاحظات/الغرض من التحويل.'],
+        'manual_extra_note' => ['type' => 'text', 'default' => null],
+        'allowed_currencies' => ['type' => 'string', 'default' => null],
+        'proof_required' => ['type' => 'boolean', 'default' => false],
+    ],
+
 ];

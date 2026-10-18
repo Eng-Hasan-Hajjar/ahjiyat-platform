@@ -275,4 +275,5 @@ require __DIR__.'/creator.php';
 require __DIR__.'/engagement.php';
 // E30: الداعمون والرعاة (قراءة عامة) وسلاسل المبدعين.
 require __DIR__.'/sponsorship.php';
+require __DIR__.'/payments.php';
 require __DIR__.'/series.php';

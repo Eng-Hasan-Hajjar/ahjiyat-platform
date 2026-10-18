@@ -3,9 +3,11 @@
 namespace App\Services\Sponsorship;
 
 use App\Models\SponsorshipContribution;
+use App\Models\SponsorshipPayment;
 use App\Models\SponsorshipProgram;
 use App\Models\SupporterProfile;
 use App\Models\SupporterTier;
+use App\Models\User;
 use App\Services\Notifications\NotificationDispatcher;
 use App\Services\Notifications\NotificationType;
 use Throwable;
@@ -37,6 +39,47 @@ class SponsorshipNotifier
     public function programStarted(SupporterProfile $supporter, SponsorshipProgram $program): void
     {
         $this->send($supporter, NotificationType::SponsorshipProgramStarted, ['title' => $program->title], 'sponsorship_program_started:'.$program->id.':'.$supporter->id);
+    }
+
+    // ---- E32: إشعارات طلب الدعم/الدفع (لصاحب الطلب مباشرة، لا عبر ملف الداعم: قد لا يوجد ملف قبل التحقق). بلا مبالغ ولا مراجع تحويل بالنص. ----
+
+    public function paymentReceived(SponsorshipPayment $payment): void
+    {
+        $this->sendToUser($payment, NotificationType::SupportRequestReceived, [], 'support_request_received:'.$payment->id);
+    }
+
+    public function paymentActionRequired(SponsorshipPayment $payment): void
+    {
+        $this->sendToUser($payment, NotificationType::SupportActionRequired, ['note' => (string) $payment->user_message], 'support_action_required:'.$payment->id.':'.($payment->clarification_requested_at?->timestamp ?? 0));
+    }
+
+    public function paymentRejected(SponsorshipPayment $payment): void
+    {
+        $this->sendToUser($payment, NotificationType::SupportRejected, ['note' => (string) $payment->user_message], 'support_rejected:'.$payment->id);
+    }
+
+    public function paymentRefunded(SponsorshipPayment $payment): void
+    {
+        $this->sendToUser($payment, NotificationType::SupportRefunded, [], 'support_refunded:'.$payment->id);
+    }
+
+    protected function sendToUser(SponsorshipPayment $payment, NotificationType $type, array $params, string $key): void
+    {
+        if (! (bool) config('sponsorship.notifications.enabled', true) || ! (bool) config('payments.notifications.enabled', true)) {
+            return;
+        }
+
+        try {
+            $user = $payment->relationLoaded('user') ? $payment->user : User::query()->find($payment->user_id);
+
+            if ($user === null || $user->is_frozen) {
+                return;
+            }
+
+            $this->dispatcher->dispatch($user, $type, $params, $key, ['sponsorship_payment_id' => $payment->id], ['payment' => (string) $payment->public_id], 'support.payments.show');
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     /** @return array<string, string> */

@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // E24: جاهزية الموازن /ready خارج مجموعتَي web/api عمدًا (بلا جلسة ولا CSRF ولا تتبّع جهاز): فحص خفيف بلا آثار جانبية.
         then: function () {
             Route::get('/ready', [HealthController::class, 'ready'])->name('health.ready');
+
+            // E32: webhook عام لمزوّدين إلكترونيين مستقبليين (مغلق افتراضيًا). مجموعة api = بلا جلسة/CSRF بطبيعتها، لا استثناء من أي وسيط.
+            Route::middleware('api')->group(__DIR__.'/../routes/payments_webhooks.php');
         },
     )
     // E21: قنوات البثّ الخاصة + مسار /broadcasting/auth (وسيط web، يتطلب مستخدمًا مصادَقًا)

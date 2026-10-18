@@ -71,6 +71,13 @@
 | `OPS_ALLOW_SQLITE_PRODUCTION` | `false` | `true`: يحوّل فشل `production:check` على SQLite إلى تحذير. **غير مستحسن**: MySQL 8.0.16+ هي القاعدة المعتمدة ([E31](mysql-production-e31.md)) |
 | `MIGRATION_TARGET_CONNECTION` / `MIGRATION_SQLITE_DATABASE` / `MIGRATION_BATCH_SIZE` / `MIGRATION_MAX_BATCH_BYTES` | `mysql` / — / 1000 / 1000000 | أداة نقل SQLite→MySQL لمرة واحدة (محلية فقط، ترفض الإنتاج) |
 | `MIGRATION_MYSQL_HOST` / `_PORT` / `_DATABASE` / `_USERNAME` / `_PASSWORD` | — | تجاوزات هدف النقل (كلمة المرور **SECRET** من البيئة فقط ولا تُطبع) |
+| `PAYMENTS_ENABLED` / `PAYMENTS_DEFAULT_PROVIDER` / `PAYMENTS_MANUAL_ENABLED` | `true` / `manual` / `true` | دفع الرعاية (E32): مفتاح إيقاف شامل، المزوّد الافتراضي، وتفعيل التحويل اليدوي بالنشر ([E32](sponsorship-payments-e32.md)). لا أسرار: تفاصيل التحويل العلنية من إعدادات الإدارة |
+| `PAYMENTS_ALLOWED_CURRENCIES` / `PAYMENTS_MIN_AMOUNT_MINOR` / `PAYMENTS_MAX_AMOUNT_MINOR` / `PAYMENTS_ALLOW_CUSTOM_AMOUNT` / `PAYMENTS_MAX_OPEN_REQUESTS` | `USD,EUR,TRY` / 100 / — / `true` / 5 | حدود الطلب (عملات تُقاطَع مع الرعاية، أدنى/أعلى مبلغ بالوحدة الصغرى، المبالغ المقترحة فقط، سقف الطلبات المفتوحة لكل مستخدم) |
+| `PAYMENTS_REQUEST_EXPIRY_HOURS` | 48 | مهلة «بانتظار الدفع» قبل الانتهاء الآلي (`payments:expire-stale` كل 15 دقيقة). المرسَل/المحقَّق لا ينتهي أبدًا |
+| `PAYMENTS_PROOF_DISK` / `PAYMENTS_PROOF_MAX_KB` | `local` / 5120 | إثبات التحويل: **قرص خاص إلزامي** (يُرفض `public`)، JPEG/PNG/WEBP/PDF فقط |
+| `PAYMENTS_PROOF_RETENTION_DAYS` / `PAYMENTS_DISPUTE_WINDOW_DAYS` | 365 / 90 | تقليم ملفات الإثبات (`payments:prune-proofs --dry-run` أولًا) بعد الحالة النهائية وخارج نافذة النزاع؛ سجل الطلب لا يُحذف |
+| `PAYMENTS_WEBHOOKS_ENABLED` | `false` | مسار Webhook المستقبلي مغلق افتراضيًا؛ لا مزوّد إلكتروني منفَّذ بعد (يتطلب مزوّدًا يتحقق من توقيعه) |
+| `PAYMENTS_NOTIFICATIONS_ENABLED` | `true` | إشعارات صاحب الطلب (استلام/توضيح/رفض/استرداد) |
 
 ## 4) INFRASTRUCTURE-SPECIFIC: تعتمد على بنيتك/مزوّدك
 

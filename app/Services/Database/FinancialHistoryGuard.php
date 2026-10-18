@@ -29,6 +29,7 @@ final class FinancialHistoryGuard
         'xp_transactions' => ['user_id', 'حركات الخبرة'],
         'competitive_reward_grants' => ['user_id', 'جوائز الأحداث التنافسية'],
         'sponsorship_reward_bonuses' => ['user_id', 'مكافآت الرعاية'],
+        'sponsorship_payments' => ['user_id', 'طلبات دعم ودفع الرعاية'],
     ];
 
     /** @return list<string> أوصاف الأقسام التي فيها سجلّ لهذا المستخدم (فارغة = لا تاريخ مالي). */
