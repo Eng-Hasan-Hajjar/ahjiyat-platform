@@ -161,8 +161,20 @@ jobs:
             tests/Feature/CompetitiveRewards \
             tests/Feature/DiscoveryE27 \
             tests/Feature/CreatorE28 \
+            tests/Feature/EngagementE29 \
             tests/Feature/SponsorshipE30 \
             tests/Feature/CreatorSeriesE30
 
+      - name: E32 payments on MySQL (verify / refund / reconciliation / reward integration)
+        run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/PaymentsE32
+
       - name: Schema parity against the migrated MySQL database (read-only)
         run: php artisan db:parity --connection=mysql --runtime
+
+      # E32: سباق حقيقي بين عمليتي PHP على MySQL (تحقق مزدوج/استرداد مزدوج/مفتاح مكافأة/تراجع استثناء مُحقَن).
+      # يمسح قاعدة الاختبار المؤقتة (migrate:fresh) ويرفض أي قاعدة لا ينتهي اسمها بـ_test؛ لذا يأتي آخر خطوة بعد فحص المخطط.
+      - name: E32 real-concurrency probe on MySQL (two OS processes)
+        timeout-minutes: 10
+        env:
+          DB_CONNECTION: mysql
+        run: php tools/e32/concurrency-probe.php --rounds=4

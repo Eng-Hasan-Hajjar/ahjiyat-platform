@@ -270,7 +270,7 @@ test('P10: recommendations cost the same queries for a short history as for a lo
     DB::flushQueryLog();
     DB::enableQueryLog();
     e27_reco($long);
-    $history = collect(DB::getQueryLog())->first(fn ($q) => str_contains($q['query'], 'group by "puzzle_id"'));
+    $history = collect(DB::getQueryLog())->first(fn ($q) => str_contains(str_replace('`', '"', $q['query']), 'group by "puzzle_id"'));
     DB::disableQueryLog();
 
     expect($history['query'])->toContain('limit 5');

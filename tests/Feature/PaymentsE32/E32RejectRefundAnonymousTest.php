@@ -241,7 +241,8 @@ test('E32-73/74/75/109: an anonymous supporter is not identifiable on any public
     $this->actingAs($viewer)->get(route('players.show', $user))->assertOk()->assertDontSee('data-supporter-recognition', false);
 
     foreach (Route::getRoutes() as $route) {
-        if (str_starts_with($route->uri(), 'api/')) {
+        // الاستثناء الوحيد: Webhook المزوّدين المستقبلي (POST فقط، مغلق افتراضيًا، لا يعرض أي بيانات داعمين - انظر E32-S4/E32-WH).
+        if (str_starts_with($route->uri(), 'api/') && ! str_starts_with($route->uri(), 'api/payments/webhooks/')) {
             expect($route->uri())->not->toContain('support')->and($route->uri())->not->toContain('payment');
         }
     }

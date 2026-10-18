@@ -280,7 +280,7 @@ test('S16: self-play and fake accounts cannot manufacture trending - thirty unve
         e27_attempt(e27_user(['email_verified_at' => null]), $target, true, now()->subHour());
     }
     $bot = e27_user();
-    DB::table('puzzle_attempts')->insert(array_map(fn ($n) => ['user_id' => $bot->id, 'puzzle_id' => $target->id, 'attempt_number' => $n, 'is_correct' => false, 'used_hint' => false, 'context_type' => null, 'created_at' => now()->subHour(), 'updated_at' => now()->subHour()], range(1, 1000)));
+    DB::table('puzzle_attempts')->insert(array_map(fn ($n) => ['user_id' => $bot->id, 'puzzle_id' => $target->id, 'attempt_number' => (($n - 1) % 250) + 1, 'is_correct' => false, 'used_hint' => false, 'context_type' => null, 'created_at' => now()->subHour(), 'updated_at' => now()->subHour()], range(1, 1000)));
 
     expect(e27_trending()->puzzleScores())->toBe([]);
     $html = $this->get(route('discover.index'))->assertOk()->getContent();

@@ -151,8 +151,10 @@ test('AA-5: db:parity is read-only and exits 1 only on material drift (a missing
 });
 
 test('AA-6: comparing two live connections (--against) passes for identical schemas', function () {
+    // اتصالان مهاجَران بالكامل ومستقلان عن الاتصال الافتراضي: الاتصال المسمّى «sqlite» ليس قاعدة الاختبار المهاجَرة عند التشغيل على MySQL (phpunit.mysql.xml.dist).
     e31_new_sqlite('left');
-    [$code, $out] = e31_run('db:parity', ['--connection' => 'e31_left', '--against' => 'sqlite', '--json' => true]);
+    e31_new_sqlite('right');
+    [$code, $out] = e31_run('db:parity', ['--connection' => 'e31_left', '--against' => 'e31_right', '--json' => true]);
     $data = json_decode($out, true);
 
     expect($code)->toBe(0)->and($data['parity']['summary']['material'])->toBe(0);
@@ -278,17 +280,23 @@ test('AC-3: MariaDB is best-effort (warning, never a pass); timezone, timestamp 
 test('AD-1: SQLite fails production:check in production with an explicit message - and the override downgrades it to a warning', function () {
     e25_as_production();
     config(['app.debug' => false, 'app.url' => 'https://ahjiyat.example.com', 'operations.allow_sqlite_production' => false]);
-    [$code, $data] = e25_run('production:check');
-    $db = collect($data['checks'])->firstWhere(fn (array $c) => $c['setting'] === 'DB_CONNECTION' && $c['status'] === 'FAIL');
+    // الاتصال الافتراضي مؤقتًا = SQLite مهاجَرة صراحةً (على MySQL phpunit.mysql.xml.dist يكون الافتراضي mysql فلا يتولّد فشل SQLite أصلًا).
+    // يُعاد الافتراضي قبل انتهاء الاختبار دائمًا: RefreshDatabase يتراجع عن معاملته على config('database.default') عند الإنهاء، وتركه معدَّلًا يُبقي معاملة MySQL مفتوحة ويعلّق الاختبار التالي بقفل metadata.
+    e31_new_sqlite('prod');
 
-    expect($code)->toBe(1)
-        ->and($db)->not->toBeNull()
-        ->and($db['message'])->toContain('SQLite')->and($db['message'])->toContain('MySQL');
+    e31_with_default('e31_prod', function () {
+        [$code, $data] = e25_run('production:check');
+        $db = collect($data['checks'])->firstWhere(fn (array $c) => $c['setting'] === 'DB_CONNECTION' && $c['status'] === 'FAIL');
 
-    config(['operations.allow_sqlite_production' => true]);
-    [, $data] = e25_run('production:check');
+        expect($code)->toBe(1)
+            ->and($db)->not->toBeNull()
+            ->and($db['message'])->toContain('SQLite')->and($db['message'])->toContain('MySQL');
 
-    expect(e25_statuses($data, 'DB_CONNECTION'))->not->toContain('FAIL')->and(e25_statuses($data, 'DB_CONNECTION'))->toContain('WARN');
+        config(['operations.allow_sqlite_production' => true]);
+        [, $data] = e25_run('production:check');
+
+        expect(e25_statuses($data, 'DB_CONNECTION'))->not->toContain('FAIL')->and(e25_statuses($data, 'DB_CONNECTION'))->toContain('WARN');
+    });
 });
 
 test('AD-2: the production check output carries no database name, host or file path', function () {

@@ -597,9 +597,22 @@ final class SqliteToMysqlTransfer
 
         return match ($class) {
             'int', 'bool', 'decimal', 'float' => self::number($value),
+            'date' => self::dateOnly($value),
             'binary' => 'b64:'.base64_encode((string) $value),
             default => (string) $value,
         };
+    }
+
+    /**
+     * عمود DATE في MySQL يحمل التاريخ فقط، بينما يخزّن SQLite قيمة العمود كما كتبها Eloquent (إسناد date-cast يُكتب "Y-m-d H:i:s"،
+     * مثل "2026-10-18 00:00:00"). المحتوى متطابق دلاليًا فنقارن الجزء التاريخي لأعمدة DATE فقط؛ أعمدة DATETIME/TIMESTAMP تبقى حرفية بالكامل.
+     * (اكتُشف بنقل فعلي: بلا هذا التوحيد تفشل البصمة كاذبًا على puzzles.daily_puzzle_date وplayer_streaks.last_active_date.)
+     */
+    private static function dateOnly(mixed $value): string
+    {
+        $text = trim((string) $value);
+
+        return preg_match('/^(\d{4}-\d{2}-\d{2})(?:[ T].*)?$/s', $text, $m) === 1 ? $m[1] : $text;
     }
 
     public static function number(mixed $value): string

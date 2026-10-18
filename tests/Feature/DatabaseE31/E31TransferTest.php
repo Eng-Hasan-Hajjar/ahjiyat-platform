@@ -208,6 +208,21 @@ test('T-7: canonical value encoding is order-independent, type-stable and byte-e
         ->and(SqliteToMysqlTransfer::number('007'))->toBe(SqliteToMysqlTransfer::number(7));
 });
 
+test('T-7b: DATE columns compare by date part (SQLite keeps "Y-m-d 00:00:00" from Eloquent, MySQL keeps "Y-m-d"), DATETIME stays byte-exact, JSON ignores key order and escaping', function () {
+    $c = fn ($v, $class, $json = false) => SqliteToMysqlTransfer::canonical($v, $class, $json);
+
+    expect($c('2026-10-18 00:00:00', 'date'))->toBe($c('2026-10-18', 'date'))->and($c('2026-10-18', 'date'))->toBe('2026-10-18')
+        ->and($c('2026-10-18T00:00:00.000000Z', 'date'))->toBe('2026-10-18')
+        ->and($c('2026-10-18 13:45:10', 'date'))->toBe('2026-10-18')
+        ->and($c('2026-10-19', 'date'))->not->toBe($c('2026-10-18 00:00:00', 'date'))
+        ->and($c(null, 'date'))->not->toBe($c('', 'date'))
+        ->and($c('2026-10-18 00:00:00', 'datetime'))->not->toBe($c('2026-10-18', 'datetime'))
+        ->and($c('2026-10-18 10:00:00', 'datetime'))->not->toBe($c('2026-10-18 11:00:00', 'datetime'))
+        // JSON: MySQL يعيد كتابة الـJSON (مسافات، ترتيب مفاتيح، \uXXXX و\/) والمحتوى واحد
+        ->and($c('{"image":"seasons\/a","t":"طول","x":0.25}', 'text', true))->toBe($c('{"x": 0.25, "t": "طول", "image": "seasons/a"}', 'text', true))
+        ->and($c('{"x":0.25}', 'text', true))->not->toBe($c('{"x":0.26}', 'text', true));
+});
+
 /** يفتح ملف المصدر باتصال عادي لتعديله (الخدمة نفسها تفتحه للقراءة فقط). */
 function e31_mutate_source(string $path, Closure $fn): void
 {

@@ -56,10 +56,19 @@ test('a sold-out item shows no purchase action', function () {
         ->assertDontSee(route('store.items.purchase', $item), false);
 });
 
-test('no payment/checkout/webhook routes exist anywhere in the application', function () {
-    $routeUris = collect(\Illuminate\Support\Facades\Route::getRoutes())->map(fn ($route) => $route->uri());
+test('no payment/checkout/webhook routes exist anywhere in the application except the E32 sponsorship donation surface', function () {
+    // E32: المتجر والاقتصاد الداخلي (الجواهر) بلا دفع حقيقي. السطح الوحيد المسموح له بمسارات دفع هو دعم الرعاية بالتحويل اليدوي
+    // (يتحقق منه مراجع مالي) + لوحة إدارته + Webhook المزوّدين المستقبلي المغلق افتراضيًا. قائمة السماح صريحة وضيقة بالمسار لا بالكلمة.
+    $e32Surface = ['support/', 'payments/staff/', 'api/payments/webhooks/', 'admin/sponsorship-payments', 'admin/payment-settings'];
+
+    $routeUris = collect(\Illuminate\Support\Facades\Route::getRoutes())
+        ->map(fn ($route) => $route->uri())
+        ->reject(fn ($uri) => collect($e32Surface)->contains(fn ($prefix) => str_starts_with($uri, $prefix)));
 
     foreach (['checkout', 'payment', 'webhook'] as $forbidden) {
         expect($routeUris->contains(fn ($uri) => str_contains($uri, $forbidden)))->toBeFalse();
     }
+
+    // المتجر نفسه لا يحمل أي مسار دفع، حتى داخل قائمة السماح.
+    expect(collect(\Illuminate\Support\Facades\Route::getRoutes())->filter(fn ($route) => str_starts_with((string) $route->getName(), 'store.') && preg_match('/checkout|payment|webhook/', $route->uri()))->count())->toBe(0);
 });

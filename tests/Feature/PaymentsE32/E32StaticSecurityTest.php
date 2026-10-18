@@ -187,3 +187,43 @@ test('E32-S10: community puzzles and creator series are not part of the payment 
         }
     }
 });
+
+test('E32-S11: the real-concurrency probe is a read-only-to-production tool - hard guards, disposable test database only, no secrets in output', function () {
+    $source = e32_file('tools/e32/concurrency-probe.php');
+
+    expect($source)->toContain("app()->environment('production')")
+        ->and($source)->toContain("['mysql', 'mariadb']")
+        ->and($source)->toContain('_(mysql|mariadb))?$/')
+        ->and($source)->toContain('migrate:fresh')
+        ->and($source)->toContain('exit(2)');
+
+    // الحارس يسبق أي كتابة: استدعاء probe_guard() الفعلي يأتي قبل migrate:fresh
+    expect(strpos($source, 'if (($error = probe_guard()) !== null)'))->toBeLessThan(strpos($source, "Artisan::call('migrate:fresh'"));
+
+    // لا يقرأ كلمة المرور ولا يطبع مضيفًا ولا رسائل SQL الخام
+    expect($source)->not->toContain(".password")->and($source)->not->toContain("['password']")->and($source)->not->toContain('.host')
+        ->and($source)->not->toContain('getTraceAsString');
+
+    // الاسم المسموح: _test | _testing | _test_mysql | _test_mariadb فقط
+    $pattern = '/(^|_)(test|testing)(_(mysql|mariadb))?$/';
+    foreach (['ahjiyat_platform_test_mysql', 'ahjiyat_platform_test', 'x_testing'] as $ok) {
+        expect(preg_match($pattern, $ok))->toBe(1);
+    }
+    foreach (['ahjiyat_platform', 'ahjiyat_platform_production', 'test_data', 'contest'] as $bad) {
+        expect(preg_match($pattern, $bad))->toBe(0);
+    }
+});
+
+test('E32-S12: CI runs the payment suite, the engagement suite and the real-concurrency probe against MySQL with test-only credentials', function () {
+    $ci = preg_replace('/^\s*#.*$/m', '', e32_file('.github/workflows/ci.yml'));
+
+    expect($ci)->toContain('--configuration=phpunit.mysql.xml.dist tests/Feature/PaymentsE32')
+        ->and($ci)->toContain('tests/Feature/EngagementE29')
+        ->and($ci)->toContain('php tools/e32/concurrency-probe.php')
+        ->and($ci)->not->toContain('secrets.');
+
+    // الخطوة تحمل DB_CONNECTION: mysql صراحةً (المسبار يرفض أي سائق غير MySQL) ولها مهلة
+    $position = strpos($ci, 'php tools/e32/concurrency-probe.php');
+    $window = substr($ci, max(0, $position - 220), 220);
+    expect($window)->toContain('DB_CONNECTION: mysql')->and($window)->toContain('timeout-minutes');
+});

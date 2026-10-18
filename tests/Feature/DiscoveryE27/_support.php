@@ -36,7 +36,7 @@ if (! function_exists('e27_user')) {
         return (int) DB::table('puzzle_attempts')->insertGetId([
             'user_id' => $user instanceof User ? $user->id : $user,
             'puzzle_id' => $puzzle instanceof Puzzle ? $puzzle->id : $puzzle,
-            'attempt_number' => $number,
+            'attempt_number' => (($number - 1) % 250) + 1,   // عمود TINYINT UNSIGNED: MySQL الصارم يرفض > 255 (SQLite لا يفرض). التكرار مسموح: القيد الفريد يضم context NULL.
             'is_correct' => $correct,
             'used_hint' => false,
             'context_type' => $context,

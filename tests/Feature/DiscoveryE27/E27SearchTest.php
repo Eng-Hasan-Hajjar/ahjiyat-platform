@@ -336,7 +336,7 @@ test('33: search is read-only - no write queries run and no table changes', func
     });
 
     // الكاش array والجلسة array: أي كتابة هنا خلل، عدا ما يفعله إطار الصفحة القائم لأي صفحة (E11/E12: إنشاء صف مستوى اللاعب عند أول عرض للرأس)، وليس من البحث.
-    $writes = array_values(array_filter($sql, fn ($q) => preg_match('/^\s*(insert|update|delete|replace)\b/i', $q) && ! str_contains($q, '"player_progressions"')));
+    $writes = array_values(array_filter($sql, fn ($q) => preg_match('/^\s*(insert|update|delete|replace)\b/i', $q) && ! str_contains($q, 'player_progressions')));
     expect($writes)->toBe([]);
 });
 

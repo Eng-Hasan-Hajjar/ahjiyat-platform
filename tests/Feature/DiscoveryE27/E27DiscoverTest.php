@@ -163,7 +163,7 @@ test('D10: the hub is read-only - no write queries, for guests and players', fun
     });
 
     // عدا ما يفعله إطار الصفحة القائم لأي صفحة (E11/E12: صف مستوى اللاعب عند أول عرض للرأس).
-    expect(array_values(array_filter($sql, fn ($q) => preg_match('/^\s*(insert|update|delete|replace)\b/i', $q) && ! str_contains($q, '"player_progressions"'))))->toBe([]);
+    expect(array_values(array_filter($sql, fn ($q) => preg_match('/^\s*(insert|update|delete|replace)\b/i', $q) && ! str_contains($q, 'player_progressions'))))->toBe([]);
 });
 
 test('D11: personal sections never leak between viewers - one player\'s continue list is invisible to a guest and to another player', function () {

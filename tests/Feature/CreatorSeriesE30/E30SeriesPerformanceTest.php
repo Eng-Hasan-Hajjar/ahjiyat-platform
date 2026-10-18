@@ -232,13 +232,14 @@ test('AM15: beyond the partial-match limit the series search filter is a bare-co
     $log = DB::getQueryLog();
     DB::disableQueryLog();
 
-    $query = collect($log)->first(fn ($q) => str_contains($q['query'], 'search_tier') && str_contains($q['query'], 'from "creator_series"'));
+    $query = collect($log)->first(fn ($q) => str_contains($q['query'], 'search_tier') && str_contains(str_replace('`', '"', $q['query']), 'from "creator_series"'));
     expect($titles)->toContain('نمط سلسلة واحد')->and($query)->not->toBeNull();
 
-    $where = substr($query['query'], (int) strpos($query['query'], ' from "'));
+    $sql = str_replace('`', '"', $query['query']);   // اقتباس المعرّفات يختلف بين المحرّكين (`x` على MySQL و"x" على SQLite)
+    $where = substr($sql, (int) strpos($sql, ' from "'));
     expect($where)->not->toContain('REPLACE(')->not->toContain('LOWER(')->toMatch('/like \? escape \'!\'/')
-        ->and(str_contains($query['query'], 'creator_series_revisions'))->toBeFalse()   // لا ضمّ للنسخ
-        ->and(str_contains($query['query'], 'description'))->toBeFalse();
+        ->and(str_contains($sql, 'creator_series_revisions'))->toBeFalse()   // لا ضمّ للنسخ
+        ->and(str_contains($sql, 'description'))->toBeFalse();
 
     foreach ($query['bindings'] as $binding) {
         if (is_string($binding) && str_contains($binding, '%')) {
