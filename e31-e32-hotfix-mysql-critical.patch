@@ -1,0 +1,80 @@
+diff -urN a/tests/Feature/DatabaseE31/E31TestIsolationTest.php b/tests/Feature/DatabaseE31/E31TestIsolationTest.php
+--- a/tests/Feature/DatabaseE31/E31TestIsolationTest.php	1970-01-01 02:00:00.000000000 +0200
++++ b/tests/Feature/DatabaseE31/E31TestIsolationTest.php	2026-10-18 07:39:17.851403023 +0300
+@@ -0,0 +1,31 @@
++<?php
++
++use Illuminate\Pagination\Paginator;
++
++/*
++| E31/E32 hotfix - عزل حالة ساكنة بين الاختبارات.
++| Livewire (صفحات Filament تحت Livewire::test) يستبدل عروض الترقيم الافتراضية ولا تعود بعد الاختبار؛
++| فكان اختبار AA4-48 (رابط cursor في خلاصة المتابَعين) يفشل فقط عندما يسبقه اختبار Filament في نفس العملية (خطوة CI الحرجة على MySQL).
++| الاختباران يعتمدان على ترتيب التعريف داخل الملف: الأول يحاكي التسرّب، والثاني يتحقق أن الاختبار التالي يبدأ بالعروض الافتراضية للإطار.
++*/
++
++test('ISO-1: a test that leaves Livewire pagination views behind (simulated leak)', function () {
++    Paginator::defaultView('livewire::tailwind');
++    Paginator::defaultSimpleView('livewire::simple-tailwind');
++
++    expect(Paginator::$defaultSimpleView)->toBe('livewire::simple-tailwind');
++});
++
++test('ISO-2: the next test starts with the framework pagination views, so cursor/simple links render as plain <a href>', function () {
++    expect(Paginator::$defaultView)->toBe('pagination::tailwind')
++        ->and(Paginator::$defaultSimpleView)->toBe('pagination::simple-tailwind');
++});
++
++test('ISO-3: the base TestCase restores the views before the application boots', function () {
++    Paginator::defaultSimpleView('livewire::simple-tailwind');
++
++    \Tests\TestCase::restorePaginationViews();
++
++    expect(Paginator::$defaultView)->toBe('pagination::tailwind')
++        ->and(Paginator::$defaultSimpleView)->toBe('pagination::simple-tailwind');
++});
+diff -urN a/tests/TestCase.php b/tests/TestCase.php
+--- a/tests/TestCase.php	2026-10-18 07:39:17.847925577 +0300
++++ b/tests/TestCase.php	2026-10-18 07:39:17.849742250 +0300
+@@ -3,16 +3,41 @@
+ namespace Tests;
+ 
+ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
++use Illuminate\Pagination\Paginator;
+ use Tests\Support\TestDatabaseGuard;
+ 
+ abstract class TestCase extends BaseTestCase
+ {
+     /**
++     * عروض الترقيم الافتراضية كما كانت قبل أي اختبار في هذه العملية (تُلتقط مرة واحدة).
++     *
++     * @var array{0: string, 1: string}|null
++     */
++    private static ?array $paginationViews = null;
++
++    /**
++     * Livewire يستبدل Paginator::$defaultView/$defaultSimpleView عند إقلاع أي مكوّن بـWithPagination (صفحات Filament)
++     * ويُفترض أن يعيدهما في destroy()، لكن لوحظ أنهما يبقيان بعد Livewire::test (livewire::simple-tailwind: أزرار wire:click
++     * بدل روابط href) فيرثهما أي اختبار HTTP لاحق في نفس العملية، فيختفي رابط المؤشر عن صفحات cursorPaginate.
++     * نعيدهما قبل إقلاع التطبيق (كي يبقى أي تعيين تفعله مزوّدات التطبيق نفسها عند الإقلاع هو المعتمد).
++     * سلوك الإنتاج لا يتأثر: كل طلب في عملية مستقلة.
++     */
++    public static function restorePaginationViews(): void
++    {
++        self::$paginationViews ??= [Paginator::$defaultView, Paginator::$defaultSimpleView];
++
++        Paginator::defaultView(self::$paginationViews[0]);
++        Paginator::defaultSimpleView(self::$paginationViews[1]);
++    }
++
++    /**
+      * refreshApplication() تسبق setUpTraits() (أي تسبق migrate:fresh الخاصة
+      * بـRefreshDatabase)، فيتوقف التشغيل هنا قبل أن يُمسَح أي شيء.
+      */
+     protected function refreshApplication()
+     {
++        self::restorePaginationViews();
++
+         parent::refreshApplication();
+ 
+         $connection = config('database.default');
