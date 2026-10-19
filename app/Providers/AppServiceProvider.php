@@ -259,6 +259,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('payment-status', fn (Request $request) => Limit::perMinute(60)->by('pst:'.($request->user()?->id ?: $request->ip())));
         RateLimiter::for('payment-webhook', fn (Request $request) => Limit::perMinute(120)->by('pwh:'.$request->ip()));
 
+        // E33: الإحالات. الإعادة التوجيه العامة /r/{code} (لكل IP)، لوحة اللاعب (لكل مستخدم)، عدّاد المشاركة، وإجراءات المشرف على الحملات/المراجعة (تُطبَّق داخل الخدمات).
+        RateLimiter::for('referral-redirect', fn (Request $request) => Limit::perMinute(max(1, (int) config('referrals.limits.redirect_per_minute')))->by('rfr:'.$request->ip()));
+        RateLimiter::for('referral-dashboard', fn (Request $request) => Limit::perMinute(max(1, (int) config('referrals.limits.dashboard_per_minute')))->by('rfd:'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('referral-share', fn (Request $request) => Limit::perMinute(max(1, (int) config('referrals.limits.share_per_minute')))->by('rfs:'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('referral-campaign-action', fn (Request $request) => Limit::perMinute(max(1, (int) config('referrals.limits.campaign_action_per_minute')))->by('rfc:'.($request->user()?->id ?: $request->ip())));
+
         // E11: تجهيز/إزالة تجميليات - UX تتطلب تجربة سريعة (تبديل/معاينة)، لا حساسية مالية هنا.
         RateLimiter::for('cosmetic-equip', function (Request $request) {
             return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());

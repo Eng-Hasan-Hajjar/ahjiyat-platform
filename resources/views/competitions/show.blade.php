@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('title', $event->title)
+@section('meta_description', 'منافسة «'.$event->title.'» على أحجيات.')
+@section('canonical', route('competitions.show', $event->slug))
 
 @section('content')
     @php
@@ -11,6 +13,8 @@
 
     <div class="max-w-3xl mx-auto space-y-6">
         <a href="{{ route('competitions.index') }}" class="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white transition anim-fade-up">→ كل المنافسات</a>
+
+        <x-share-button kind="competition" :param="$event->slug" :title="$event->title" />
 
         <x-sponsor-strip type="competitive_event" :target-id="$event->id" />
 

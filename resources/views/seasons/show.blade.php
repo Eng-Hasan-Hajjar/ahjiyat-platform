@@ -1,9 +1,13 @@
 @extends('layouts.app')
 
 @section('title', $campaign->title)
+@section('meta_description', 'موسم «'.$campaign->title.'» على أحجيات: مراحل ومهام وتحديات.')
+@section('canonical', route('seasons.show', $season))
 
 @section('content')
     <div class="max-w-4xl mx-auto space-y-8">
+        <x-share-button kind="season" :param="$season" :season-id="$season->id" :title="$campaign->title" />
+
         @if ($isAdmin && ! $season->is_published)
             <div class="rounded-xl border border-gold/30 bg-gold/10 text-gold px-5 py-3 font-bold text-sm anim-fade-up">
                 👁️ وضع المعاينة — غير منشور للجمهور بعد.

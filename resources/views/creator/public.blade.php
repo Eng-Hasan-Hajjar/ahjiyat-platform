@@ -1,11 +1,15 @@
 @extends('layouts.app')
 
 @section('title', $creator->user->name.' - مبدع')
+@section('meta_description', 'أحجيات المبدع '.$creator->user->name.' على أحجيات.')
+@section('canonical', route('creators.show', $creator->slug))
 @section('content_width', 'max-w-5xl')
 
 {{-- E28: صفحة المبدع العامة. اسم + صورة رمزية + نبذة + تاريخ الانضمام كمبدع + أرقام مجمَّعة + أحجياته الظاهرة فقط. بلا بريد/هاتف/حالة إدارية/بيانات خاصة. --}}
 @section('content')
     <div class="space-y-6">
+        <x-share-button kind="creator" :param="$creator->slug" :title="$creator->user->name.' - مبدع على أحجيات'" />
+
         <section class="glass rounded-3xl p-6 md:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-5 anim-fade-up" aria-labelledby="creator-name">
             <x-player-avatar :avatar="$avatar" :frame="$frame" :name="$creator->user->name" size="xl" />
             <div class="min-w-0 text-center sm:text-start">

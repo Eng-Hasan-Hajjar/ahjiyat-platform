@@ -277,3 +277,4 @@ require __DIR__.'/engagement.php';
 require __DIR__.'/sponsorship.php';
 require __DIR__.'/payments.php';
 require __DIR__.'/series.php';
+require __DIR__.'/referrals.php';

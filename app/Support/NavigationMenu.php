@@ -74,6 +74,8 @@ final class NavigationMenu
                 $item('notifications', 'notifications.index', 'bell', 'مركز الإشعارات', ['notifications.*']),
                 $teams,
                 $friends,
+                // E33: دعوة الأصدقاء (للموثَّقين فقط؛ يخفيها مفتاح referrals.enabled).
+                config('referrals.enabled') ? $item('referrals', 'referrals.index', 'friends', 'دعوة الأصدقاء', ['referrals.*']) : null,
             ]))];
             // E28: بوابة الاستوديو (عرض فقط، بلا استعلام لكل طلب): صفحة الطلب تعرض الحالة وتُحيل المبدع المعتمَد للاستوديو.
             $verified && $moreGroups[] = ['title' => 'المبدعون', 'items' => [

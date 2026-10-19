@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\HealthController;
+use App\Http\Middleware\CaptureReferralIntent;
 use App\Http\Middleware\EnsureAccountIsNotFrozen;
 use App\Http\Middleware\RequestObservability;
 use App\Http\Middleware\RestrictBroadcastChannels;
@@ -39,6 +40,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             TrackDeviceFingerprint::class,
             SecurityHeaders::class,
+            // E33: يلتقط ?ref=CODE لزائر ضيف على GET فقط (لا أثر بلا ?ref). بعد StartSession حتمًا (ضمن مجموعة web).
+            CaptureReferralIntent::class,
         ]);
 
         $middleware->api(append: [

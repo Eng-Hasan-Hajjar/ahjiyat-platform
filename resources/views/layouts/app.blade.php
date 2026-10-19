@@ -69,6 +69,13 @@
     <meta property="og:title" content="@yield('title', $metaTitle)">
     <meta property="og:description" content="@yield('meta_description', $metaDescription)">
     <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{ $general['site_name'] }}">
+    <meta property="og:locale" content="ar_AR">
+    {{-- E33: رابط قانوني بلا معاملات (?ref/?c/تتبّع) للصفحات العامة القابلة للمشاركة؛ تحدده كل صفحة بالقسم canonical من route() لا من الطلب. --}}
+    @hasSection('canonical')
+        <link rel="canonical" href="@yield('canonical')">
+        <meta property="og:url" content="@yield('canonical')">
+    @endif
     @if ($ogImageUrl)
         <meta property="og:image" content="{{ $ogImageUrl }}">
     @endif

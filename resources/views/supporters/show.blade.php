@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('title', $supporter->display_name)
+@section('meta_description', 'صفحة الداعم '.$supporter->display_name.' على أحجيات.')
+@section('canonical', route('supporters.show', $supporter->slug))
 @section('content_width', 'max-w-3xl')
 
 {{--
@@ -10,6 +12,8 @@
 @section('content')
     <div class="space-y-6">
         <a href="{{ route('supporters.index') }}" class="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white transition anim-fade-up">→ كل الداعمين</a>
+
+        <x-share-button kind="supporters" :param="$supporter->slug" :title="$supporter->display_name" />
 
         <article class="glass rounded-3xl p-6 md:p-8 anim-fade-up space-y-4">
             <div class="flex items-start gap-4">

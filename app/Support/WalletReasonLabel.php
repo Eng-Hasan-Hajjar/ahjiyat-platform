@@ -23,6 +23,7 @@ final class WalletReasonLabel
     /** @var array<string, string> رمز كامل ← النص المعروض */
     private const EXACT = [
         'competitive_event_reward' => 'جائزة منافسة',
+        'referral_reward' => 'مكافأة دعوة',
     ];
 
     /**

@@ -168,6 +168,9 @@ jobs:
       - name: E32 payments on MySQL (verify / refund / reconciliation / reward integration)
         run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/PaymentsE32
 
+      - name: E33 referrals on MySQL (unique guards / FK policies / idempotent rewards / privacy / performance)
+        run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/ReferralE33
+
       - name: Schema parity against the migrated MySQL database (read-only)
         run: php artisan db:parity --connection=mysql --runtime
 

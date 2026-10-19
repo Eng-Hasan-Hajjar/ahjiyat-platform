@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('title', 'الداعمون والرعاة')
+@section('meta_description', 'الداعمون والرعاة الذين يساندون أحجيات.')
+@section('canonical', route('supporters.index'))
 @section('content_width', 'max-w-5xl')
 
 {{--

@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('title', $revision->title.' - سلسلة من المجتمع')
+@section('meta_description', 'سلسلة أحجيات من المجتمع: '.$revision->title.'. سلاسل المجتمع بلا جوائز اقتصادية.')
+@section('canonical', route('series.show', $series->public_id))
 @section('content_width', 'max-w-3xl')
 
 {{--
@@ -12,6 +14,8 @@
         <a href="{{ route('creators.show', $creator->slug) }}" class="inline-flex items-center gap-1.5 text-sm font-bold text-slate-400 hover:text-white transition motion-reduce:transition-none rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst anim-fade-up">
             <x-ui-icon name="chevron-right" class="w-4 h-4" />{{ $creator->user->name }}
         </a>
+
+        <x-share-button kind="series" :param="$series->public_id" :title="$revision->title" />
 
         <header class="puzzle-card !p-6 md:!p-8 anim-fade-up d-1" data-series-header>
             @if ($coverUrl)

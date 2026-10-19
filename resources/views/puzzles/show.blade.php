@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('title', $puzzle->title ?? 'أحجية')
+@section('meta_description', 'تحدَّ نفسك بأحجية «'.($puzzle->title ?? '').'» على أحجيات.')
+@section('canonical', route('puzzles.show', $puzzle))
 
 @section('content')
 
@@ -9,6 +11,8 @@
            class="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white transition mb-4 anim-fade-up">
             → كل الأحجيات
         </a>
+
+        <x-share-button kind="puzzle" :param="$puzzle" :title="$puzzle->title ?? 'أحجية'" class="mb-4" />
 
         <div class="puzzle-card !p-6 md:!p-9 anim-fade-up d-1">
             <div class="flex flex-wrap items-center gap-2 mb-5">

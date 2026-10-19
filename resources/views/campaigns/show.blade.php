@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('title', $campaign->title)
+@section('meta_description', 'حملة «'.$campaign->title.'» على أحجيات.')
+@section('canonical', route('campaigns.show', $campaign))
 
 @section('content')
     <div class="max-w-4xl mx-auto">
@@ -10,6 +12,8 @@
         </a>
 
         <x-sponsor-strip type="campaign" :target-id="$campaign->id" class="mb-4" />
+
+        <x-share-button kind="campaign" :param="$campaign" :title="$campaign->title" class="mb-4" />
 
         <div class="puzzle-card !p-6 md:!p-9 anim-fade-up d-1">
             @if ($campaign->cover_image)

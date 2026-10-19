@@ -54,6 +54,9 @@ class RegisteredUserController extends Controller
             return $user;
         });
 
+        // E33: إسناد الإحالة بقرار الخادم من «النية» المخزّنة (جلسة/كوكي مشفّر) لا من حقل في الطلب. معزول (لا يرمي) وصامت للزائر.
+        app(\App\Services\Referrals\ReferralAttributionService::class)->attributeFromRequest($user, $request);
+
         event(new Registered($user));
 
         Auth::login($user);

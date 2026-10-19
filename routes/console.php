@@ -56,3 +56,6 @@ $guard(Schedule::call(fn () => app(SchedulerHeartbeat::class)->beat())->everyMin
 
 // E32: إنهاء طلبات الدعم «بانتظار الدفع» المتأخرة (حالة فقط، لا حذف؛ المرسَل/المحقَّق لا ينتهي). غيابه لا يكسر شيئًا: تبقى الطلبات القديمة مفتوحة حتى يُنفَّذ.
 $guard(Schedule::command('payments:expire-stale')->everyFifteenMinutes()->name('payments-expire-stale'), 30);
+
+// E33: استكمال الإحالات المنتظرة لعمر الحساب + إعادة تسليم جوانب مكافآت فاشلة (idempotent). مطابقة referrals:reconcile يدوية للقراءة فقط (لا جدولة تكتب).
+$guard(Schedule::command('referrals:process')->everyThirtyMinutes()->name('referrals-process'), 60);

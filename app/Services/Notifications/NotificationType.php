@@ -27,6 +27,7 @@ namespace App\Services\Notifications;
  *  - E30 رعاية: ContributionService بعد الـcommit → support_confirmed / supporter_tier_changed (للداعم المرتبط بحساب فقط، بلا مبالغ ولا مراجع خاصة)؛ SponsorshipProgramService عند التفعيل → sponsorship_program_started (لداعمي البرنامج فقط)
  *  - E32 دفع الرعاية: SponsorshipPaymentService بعد الـcommit → support_request_received / support_action_required / support_rejected / support_refunded (لصاحب الطلب فقط؛ بلا مبالغ ولا مراجع تحويل ولا بيانات بنكية بالنص). تأكيد الدعم يستعمل support_confirmed القائم (لا إشعار تحقق مكرر)
  *  - E30 سلاسل: CreatorSeriesReviewService بعد الـcommit → series_approved / series_changes_requested / series_rejected / series_hidden (للمبدع)؛ اعتماد سلسلة لمبدع له متابعون (CreatorSeriesAnnouncer ← دفعات بالطابور) → creator_new_series (social)
+ *  - E33 إحالات: ReferralNotifier بعد الـcommit → referral_qualified (للمحيل حين تتأهل إحالته؛ بلا اسم المُحال ولا بياناته) / referral_reward_received (لصاحب الجائزة فقط: مبلغه هو، عبر محفظة الجواهر المعلّقة). لا إشعار على نقرة ولا على تسجيل وحده
  */
 enum NotificationType: string
 {
@@ -79,6 +80,8 @@ enum NotificationType: string
     case SupportActionRequired = 'support_action_required';
     case SupportRejected = 'support_rejected';
     case SupportRefunded = 'support_refunded';
+    case ReferralQualified = 'referral_qualified';
+    case ReferralRewardReceived = 'referral_reward_received';
 
     public function category(): NotificationCategory
     {
@@ -99,7 +102,8 @@ enum NotificationType: string
             self::CreatorApproved, self::CreatorRejected, self::SubmissionApproved, self::SubmissionChangesRequested, self::SubmissionRejected, self::PublicationHidden, self::CreatorNewPublication,
             self::SupportConfirmed, self::SupporterTierChanged, self::SponsorshipProgramStarted,
             self::SupportRequestReceived, self::SupportActionRequired, self::SupportRejected, self::SupportRefunded,
-            self::SeriesApproved, self::SeriesChangesRequested, self::SeriesRejected, self::SeriesHidden, self::CreatorNewSeries => NotificationCategory::Social,
+            self::SeriesApproved, self::SeriesChangesRequested, self::SeriesRejected, self::SeriesHidden, self::CreatorNewSeries,
+            self::ReferralQualified, self::ReferralRewardReceived => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::TeamChampionshipStarted, self::TeamChampionshipResultReady => NotificationCategory::Competitive,
         };
@@ -163,6 +167,8 @@ enum NotificationType: string
             self::SupportActionRequired => 40,
             self::SupportRejected => 41,
             self::SupportRefunded => 42,
+            self::ReferralQualified => 43,
+            self::ReferralRewardReceived => 44,
         };
     }
 
@@ -207,6 +213,8 @@ enum NotificationType: string
             self::SupportActionRequired => '📎',
             self::SupportRejected => '⚠️',
             self::SupportRefunded => '↩️',
+            self::ReferralQualified => '🤝',
+            self::ReferralRewardReceived => '💎',
         };
     }
 
@@ -242,6 +250,7 @@ enum NotificationType: string
             self::SeriesApproved, self::SeriesChangesRequested, self::SeriesRejected, self::SeriesHidden => ['creator.series.index'],
             self::CreatorNewSeries => ['series.show'],
             self::SupportRequestReceived, self::SupportActionRequired, self::SupportRejected, self::SupportRefunded => ['support.payments.show', 'support.history'],
+            self::ReferralQualified, self::ReferralRewardReceived => ['referrals.index'],
         };
     }
 
@@ -297,6 +306,8 @@ enum NotificationType: string
             self::SupportActionRequired => 'طلب دعمك يحتاج إلى توضيح منك',
             self::SupportRejected => 'لم يُقبل طلب دعمك',
             self::SupportRefunded => 'سُجّل استرداد دعمك',
+            self::ReferralQualified => 'أصبحت إحدى دعواتك مؤهَّلة',
+            self::ReferralRewardReceived => 'حصلت على '.(int) ($params['gems'] ?? 0).' جوهرة من الدعوات',
             self::SupporterTierChanged => ! empty($params['up'])
                 ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
                 : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
@@ -358,6 +369,8 @@ enum NotificationType: string
             self::SupportActionRequired => static::withNote('راجع صفحة الطلب وأكمل البيانات المطلوبة ثم أعد الإرسال.', $params),
             self::SupportRejected => static::withNote('لم يُحتسب هذا الطلب كدعم. يمكنك إنشاء طلب جديد متى شئت.', $params),
             self::SupportRefunded => 'سُجّل استرداد دعمك ويُحتسب مستواك من صافي دعمك المؤكَّد. لا تُسحب مكافآت اللاعبين السابقة.',
+            self::ReferralQualified => 'أنهى صديق دعوتَه إلى المنصة خطواته الأولى. الدعوات لا تغيّر ترتيبك ولا نتائج اللعب.',
+            self::ReferralRewardReceived => 'أُضيفت الجواهر إلى رصيدك المعلّق وتصير متاحة بعد فترة الحجز المعتادة.',
             self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
             self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
             self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',

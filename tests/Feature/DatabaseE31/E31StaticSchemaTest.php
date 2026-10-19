@@ -143,7 +143,13 @@ test('U-1: every foreign key has a locally indexed column set and a type-compati
 
 test('U-2/U-3: financial and reward history never cascades accidentally - cascades onto users are guarded or explicitly exempt', function () {
     $guarded = array_keys(FinancialHistoryGuard::HISTORY_TABLES);
-    $exempt = ['wallets' /* يحرسه فحص الرصيد في الحارس */, 'challenge_participants' /* سجل مشاركة مشتق؛ الدفتر الفعلي في currency_transactions */];
+    $exempt = [
+        'wallets' /* يحرسه فحص الرصيد في الحارس */,
+        'challenge_participants' /* سجل مشاركة مشتق؛ الدفتر الفعلي في currency_transactions */,
+        // E33: صف الإحالة لقطة مشتقة (snap_*)؛ الدفتر الفعلي لمكافآتها في currency_transactions المحروس أعلاه، فأي مستخدم نالت محفظته مكافأة إحالة يُمنع حذفه أصلًا.
+        // المُحال بلا مكافأة مسلَّمة لا تاريخ مالي له، وحذفه (حق المحو) يزيل صفّ إحالته فقط؛ المحيل المحذوف يُجعل NULL فيبقى تاريخ المُحال.
+        'user_referrals',
+    ];
     $unguarded = [];
 
     foreach (e31_compiled()['lint']['tables'] as $table => $model) {

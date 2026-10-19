@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('title', $puzzle->title.' - من المجتمع')
+@section('meta_description', 'أحجية من المجتمع بعنوان «'.$puzzle->title.'». أحجيات المجتمع بلا جوائز اقتصادية.')
+@section('canonical', route('community.puzzles.show', $work->public_id))
 @section('content_width', 'max-w-3xl')
 
 {{--
@@ -12,6 +14,8 @@
         <a href="{{ route('community.puzzles.index') }}" class="inline-flex items-center gap-1.5 text-sm font-bold text-slate-400 hover:text-white transition motion-reduce:transition-none rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst anim-fade-up">
             <x-ui-icon name="chevron-right" class="w-4 h-4" />أحجيات المجتمع
         </a>
+
+        <x-share-button kind="community_puzzle" :param="$work->public_id" :title="$puzzle->title" />
 
         @if (! empty($seriesContext))
             {{-- E30: شريط سياق السلسلة (تنقّل فقط): الموضع والسابق والتالي. لا يغيّر اللعب ولا يمنح شيئًا. --}}
