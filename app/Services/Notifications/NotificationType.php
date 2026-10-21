@@ -28,6 +28,9 @@ namespace App\Services\Notifications;
  *  - E32 دفع الرعاية: SponsorshipPaymentService بعد الـcommit → support_request_received / support_action_required / support_rejected / support_refunded (لصاحب الطلب فقط؛ بلا مبالغ ولا مراجع تحويل ولا بيانات بنكية بالنص). تأكيد الدعم يستعمل support_confirmed القائم (لا إشعار تحقق مكرر)
  *  - E30 سلاسل: CreatorSeriesReviewService بعد الـcommit → series_approved / series_changes_requested / series_rejected / series_hidden (للمبدع)؛ اعتماد سلسلة لمبدع له متابعون (CreatorSeriesAnnouncer ← دفعات بالطابور) → creator_new_series (social)
  *  - E33 إحالات: ReferralNotifier بعد الـcommit → referral_qualified (للمحيل حين تتأهل إحالته؛ بلا اسم المُحال ولا بياناته) / referral_reward_received (لصاحب الجائزة فقط: مبلغه هو، عبر محفظة الجواهر المعلّقة). لا إشعار على نقرة ولا على تسجيل وحده
+ *  - E34 LiveOps: LiveOpsReminderService (مجدول ساعيًا، قراءة فقط من حالة اللعب) → mission_expiring / weekly_missions_available / event_starting_soon / comeback_available.
+ *    فئات قائمة فقط (Quest للمهام والعودة، Competitive لبدء المنافسة) فتخضع لتفضيلات المستخدم القائمة؛ **ليست** تذكيرات استعادية (لا تدخل ميزانية E15 ولا قائمتها)
+ *    وبسقف يومي خاص بها يحترم ميزانية E15 أيضًا. بلا لغة ضغط ولا عقوبة ولا مكافأة مشروطة بالعودة.
  */
 enum NotificationType: string
 {
@@ -82,13 +85,17 @@ enum NotificationType: string
     case SupportRefunded = 'support_refunded';
     case ReferralQualified = 'referral_qualified';
     case ReferralRewardReceived = 'referral_reward_received';
+    case MissionExpiring = 'mission_expiring';
+    case WeeklyMissionsAvailable = 'weekly_missions_available';
+    case EventStartingSoon = 'event_starting_soon';
+    case ComebackAvailable = 'comeback_available';
 
     public function category(): NotificationCategory
     {
         return match ($this) {
             self::AchievementUnlocked => NotificationCategory::Achievement,
             self::StreakAtRisk => NotificationCategory::Streak,
-            self::DailyQuestsAvailable => NotificationCategory::Quest,
+            self::DailyQuestsAvailable, self::MissionExpiring, self::WeeklyMissionsAvailable, self::ComebackAvailable => NotificationCategory::Quest,
             self::SecurityPasswordReset => NotificationCategory::Security,
             self::SeasonStarted => NotificationCategory::Season,
             self::CampaignAvailable => NotificationCategory::Campaign,
@@ -105,6 +112,7 @@ enum NotificationType: string
             self::SeriesApproved, self::SeriesChangesRequested, self::SeriesRejected, self::SeriesHidden, self::CreatorNewSeries,
             self::ReferralQualified, self::ReferralRewardReceived => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
+            self::EventStartingSoon,
             self::TeamChampionshipStarted, self::TeamChampionshipResultReady => NotificationCategory::Competitive,
         };
     }
@@ -169,6 +177,10 @@ enum NotificationType: string
             self::SupportRefunded => 42,
             self::ReferralQualified => 43,
             self::ReferralRewardReceived => 44,
+            self::MissionExpiring => 45,
+            self::WeeklyMissionsAvailable => 46,
+            self::EventStartingSoon => 47,
+            self::ComebackAvailable => 48,
         };
     }
 
@@ -215,6 +227,10 @@ enum NotificationType: string
             self::SupportRefunded => '↩️',
             self::ReferralQualified => '🤝',
             self::ReferralRewardReceived => '💎',
+            self::MissionExpiring => '🎯',
+            self::WeeklyMissionsAvailable => '🗓️',
+            self::EventStartingSoon => '⏰',
+            self::ComebackAvailable => '👋',
         };
     }
 
@@ -225,6 +241,7 @@ enum NotificationType: string
             self::AchievementUnlocked => ['progress.show'],
             self::StreakAtRisk => ['puzzles.index'],
             self::DailyQuestsAvailable => ['quests.show'],
+            self::MissionExpiring, self::WeeklyMissionsAvailable, self::ComebackAvailable => ['missions.index'],
             self::SecurityPasswordReset => ['profile.edit'],
             self::SeasonStarted => ['seasons.show'],
             self::CampaignAvailable => ['campaigns.show'],
@@ -234,7 +251,7 @@ enum NotificationType: string
             self::CampaignEndingSoon => ['campaigns.show'],
             self::FriendRequestReceived, self::FriendRequestAccepted => ['friends.index'],
             self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => ['friends.challenges.show'],
-            self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted => ['competitions.show'],
+            self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted, self::EventStartingSoon => ['competitions.show'],
             self::TeamInvitationReceived => ['teams.invitations'],
             self::TeamInvitationAccepted, self::TeamJoinRequestReceived => ['teams.manage', 'teams.show'],
             self::TeamJoinRequestAccepted => ['teams.show'],
@@ -308,6 +325,10 @@ enum NotificationType: string
             self::SupportRefunded => 'سُجّل استرداد دعمك',
             self::ReferralQualified => 'أصبحت إحدى دعواتك مؤهَّلة',
             self::ReferralRewardReceived => 'حصلت على '.(int) ($params['gems'] ?? 0).' جوهرة من الدعوات',
+            self::MissionExpiring => 'مهامك الجارية اليوم',
+            self::WeeklyMissionsAvailable => 'أهداف هذا الأسبوع جاهزة',
+            self::EventStartingSoon => 'تبدأ المنافسة قريبًا: '.($params['title'] ?? ''),
+            self::ComebackAvailable => 'مرحبًا بعودتك',
             self::SupporterTierChanged => ! empty($params['up'])
                 ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
                 : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
@@ -371,6 +392,10 @@ enum NotificationType: string
             self::SupportRefunded => 'سُجّل استرداد دعمك ويُحتسب مستواك من صافي دعمك المؤكَّد. لا تُسحب مكافآت اللاعبين السابقة.',
             self::ReferralQualified => 'أنهى صديق دعوتَه إلى المنصة خطواته الأولى. الدعوات لا تغيّر ترتيبك ولا نتائج اللعب.',
             self::ReferralRewardReceived => 'أُضيفت الجواهر إلى رصيدك المعلّق وتصير متاحة بعد فترة الحجز المعتادة.',
+            self::MissionExpiring => 'لديك '.max(1, (int) ($params['count'] ?? 1)).' مهمة قيد التقدّم تنتهي مع نهاية اليوم (بتوقيت المنصة). أكملها متى شئت؛ لا شيء يُخصم إن لم تفعل.',
+            self::WeeklyMissionsAvailable => 'بدأ أسبوع جديد بأهداف جديدة. اطّلع عليها متى شئت.',
+            self::EventStartingSoon => 'سجّلت في هذه المنافسة، وتبدأ خلال '.($params['hours'] ?? '').' ساعة أو أقل.',
+            self::ComebackAvailable => 'جهّزنا لك خطوات سهلة للعودة: أحجية بسيطة ومهمة خفيفة. كل ما اكتسبته سابقًا محفوظ.',
             self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
             self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
             self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',

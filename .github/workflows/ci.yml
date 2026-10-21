@@ -67,13 +67,14 @@ jobs:
         run: |
           for f in tools/deploy/*.sh tools/backup/*.sh; do bash -n "$f"; done
 
-      - name: Targeted regression suites (E25 + production + operations + E24 performance)
+      - name: Targeted regression suites (E25 + production + operations + E24 performance + E34 liveops)
         run: |
           php artisan test --compact \
             tests/Feature/OperationsE25 \
             tests/Feature/Production \
             tests/Feature/Operations \
-            tests/Feature/PerformanceE24
+            tests/Feature/PerformanceE24 \
+            tests/Feature/LiveOpsE34
 
       - name: Composer audit (تقرير فقط)
         continue-on-error: true
@@ -170,6 +171,14 @@ jobs:
 
       - name: E33 referrals on MySQL (unique guards / FK policies / idempotent rewards / privacy / performance)
         run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/ReferralE33
+
+      # E34: مجموعة جزئية صغيرة تغطي ما يختلف فعلًا على MySQL: التزامن/المفاتيح الفريدة والإجراءات المرجعية، التدوير الحتمي، وحراس الأداء. البقية على SQLite.
+      - name: E34 liveops on MySQL (assignment concurrency / unique guards / FK policies / deterministic rotation / query budgets)
+        run: |
+          php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist \
+            tests/Feature/LiveOpsE34/E34ConcurrencyTest.php \
+            tests/Feature/LiveOpsE34/E34PoolRotationTest.php \
+            tests/Feature/LiveOpsE34/E34PerformanceTest.php
 
       - name: Schema parity against the migrated MySQL database (read-only)
         run: php artisan db:parity --connection=mysql --runtime

@@ -64,6 +64,11 @@
         @endif
     </section>
 
+    {{-- E34: ودجت "اليوم" (قراءة فقط) --}}
+    @isset($missionsWidget)
+        @include('home._missions-widget', ['widget' => $missionsWidget])
+    @endisset
+
     {{-- 3) ما يهمني الآن --}}
     <section aria-labelledby="focus-title" class="anim-fade-up d-2">
         <x-section-header title="ما يهمني الآن" id="focus-title" />

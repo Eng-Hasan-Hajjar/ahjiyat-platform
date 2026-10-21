@@ -4,13 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Puzzle;
 use App\Models\PuzzleCategory;
-use App\Models\QuestDefinition;
 use App\Models\Season;
-use App\Models\UserQuestProgress;
 use App\Services\CampaignProgressService;
 use App\Services\Dashboard\PlayerDashboardService;
 use App\Services\Engagement\QuestPeriodService;
 use App\Services\Engagement\StreakService;
+use App\Services\LiveOps\MissionCenterService;
 use App\Services\PlatformSettingsService;
 use App\Services\Progression\LevelService;
 
@@ -23,6 +22,7 @@ class HomeController extends Controller
         protected QuestPeriodService $periods,
         protected StreakService $streaks,
         protected PlayerDashboardService $dashboardService,
+        protected MissionCenterService $missionCenter,
     ) {}
 
     public function index()
@@ -47,6 +47,7 @@ class HomeController extends Controller
         $myQuestsCompletedToday = 0;
         $myQuestsTotalToday = 0;
         $myStreak = null;
+        $missionsWidget = null;
 
         if (auth()->check()) {
             $myProgression = $this->levels->progressionFor(auth()->user());
@@ -55,14 +56,13 @@ class HomeController extends Controller
             $myNextLevel = $this->levels->nextLevelFor(auth()->user(), $myProgression);
             $myProgressPercent = $this->levels->progressPercentFor(auth()->user(), $myProgression);
 
-            // E13 (بند 374): للعرض فقط - لا إنشاء صفوف تقدُّم جديدة من لوحة التحكم.
-            $dailyPeriod = $this->periods->dailyContext();
-            $myQuestsTotalToday = QuestDefinition::where('period_type', QuestDefinition::PERIOD_DAILY)->where('is_active', true)->count();
-            $myQuestsCompletedToday = UserQuestProgress::where('user_id', auth()->id())
-                ->where('period_key', $dailyPeriod->periodKey)
-                ->whereNotNull('completed_at')
-                ->count();
+            // E13 (بند 374): للعرض فقط - لا إنشاء صفوف تقدُّم جديدة من لوحة التحكم (E34: الأعداد من MissionCenterService::widgetFor أدناه، قراءة فقط أيضًا).
             $myStreak = $this->streaks->streakFor(auth()->user());
+
+            // E34: ودجت "اليوم" - قراءة فقط (لا صفوف تقدّم). الإسناد الكسول لهذا المستخدم وحده؛ الأعداد تعكس مهامه الظاهرة فعلًا (عامة + مُسندة).
+            $missionsWidget = $this->missionCenter->widgetFor(auth()->user(), $myStreak);
+            $myQuestsTotalToday = $missionsWidget['total'];
+            $myQuestsCompletedToday = $missionsWidget['completed'];
         }
 
         $featuredSeason = null;
@@ -99,7 +99,7 @@ class HomeController extends Controller
         return view('home', compact(
             'dailyPuzzle', 'categories', 'featuredSeason', 'featuredSeasonCurrentStep', 'featuredSeasonPercentage', 'home',
             'myProgression', 'myCurrentLevel', 'myNextLevel', 'myProgressPercent',
-            'myQuestsCompletedToday', 'myQuestsTotalToday', 'myStreak', 'dashboard',
+            'myQuestsCompletedToday', 'myQuestsTotalToday', 'myStreak', 'dashboard', 'missionsWidget',
         ));
     }
 }

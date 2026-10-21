@@ -91,6 +91,9 @@ Route::get('/privacy', [PageController::class, 'privacy'])->name('pages.privacy'
 Route::get('/campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
 Route::get('/campaigns/{campaign:slug}', [CampaignController::class, 'show'])->name('campaigns.show');
 
+// E34: تقويم الأحداث العام (تجميع قراءة فقط لمصادر قائمة؛ لا بيانات خاصة، لا كتابة).
+Route::get('/events', \App\Http\Controllers\EventCalendarController::class)->middleware('throttle:events-read')->name('events.index');
+
 Route::get('/seasons', [SeasonController::class, 'index'])->name('seasons.index');
 Route::get('/seasons/{season:slug}', [SeasonController::class, 'show'])->name('seasons.show');
 
@@ -205,7 +208,9 @@ Route::middleware('auth')->group(function () {
 
         // E12: صفحة التقدُّم - قراءة فقط، لا Mutation عبر أي مسار هنا.
         Route::get('/progress', [\App\Http\Controllers\PlayerProgressionController::class, 'show'])->name('progress.show');
-        Route::get('/quests', [\App\Http\Controllers\PlayerQuestsController::class, 'show'])->name('quests.show');
+        // E34: مركز المهام. /missions هو المسار الأساسي؛ /quests القديم يخدم نفس الصفحة (200 بلا تحويل) فلا يكسر روابط/إشعارات/اختبارات قائمة. GET فقط.
+        Route::get('/missions', [\App\Http\Controllers\PlayerQuestsController::class, 'show'])->middleware('throttle:missions-read')->name('missions.index');
+        Route::get('/quests', [\App\Http\Controllers\PlayerQuestsController::class, 'show'])->middleware('throttle:missions-read')->name('quests.show');
 
         // E15: مركز الإشعارات. GET = عرض فقط. كل تعديل POST/PUT/DELETE بـCSRF وبملكية صارمة داخل المتحكّم.
         Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');

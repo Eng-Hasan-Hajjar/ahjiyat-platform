@@ -9,6 +9,7 @@ use App\Services\Progression\Achievements\CampaignStepsCompletedTotalEvaluator;
 use App\Services\Progression\Achievements\PuzzlesSolvedInCategoryEvaluator;
 use App\Services\Progression\Achievements\PuzzlesSolvedTotalEvaluator;
 use App\Services\Progression\Achievements\QualificationsEarnedEvaluator;
+use App\Services\Progression\Achievements\StreakLongestDaysEvaluator;
 
 class AchievementEvaluatorRegistry
 {
@@ -20,6 +21,8 @@ class AchievementEvaluatorRegistry
     public const COMPETITIVE_EVENTS_WON = 'competitive_events_won';
     public const COMPETITIVE_TOP3_FINISHES = 'competitive_top3_finishes';
     public const COMPETITIVE_EVENTS_COMPLETED = 'competitive_events_completed';
+    /** E34: معلم السلسلة اليومية (أطول سلسلة أيام لعب رسمي متتالية؛ المصدر PlayerStreak.longest_streak). */
+    public const STREAK_LONGEST_DAYS = 'streak_longest_days';
 
     public const ALL_TYPES = [
         self::PUZZLES_SOLVED_TOTAL,
@@ -30,6 +33,7 @@ class AchievementEvaluatorRegistry
         self::COMPETITIVE_EVENTS_WON,
         self::COMPETITIVE_TOP3_FINISHES,
         self::COMPETITIVE_EVENTS_COMPLETED,
+        self::STREAK_LONGEST_DAYS,
     ];
 
     public const SCOPED_TYPES = [
@@ -41,6 +45,7 @@ class AchievementEvaluatorRegistry
         'campaign_step_completed' => [self::CAMPAIGN_STEPS_COMPLETED_TOTAL, self::CAMPAIGNS_COMPLETED_TOTAL],
         'qualification_earned' => [self::QUALIFICATIONS_EARNED_TOTAL],
         'competitive_event_finalized' => [self::COMPETITIVE_EVENTS_WON, self::COMPETITIVE_TOP3_FINISHES, self::COMPETITIVE_EVENTS_COMPLETED],
+        'streak_updated' => [self::STREAK_LONGEST_DAYS],
     ];
 
     public function options(): array
@@ -54,6 +59,7 @@ class AchievementEvaluatorRegistry
             self::COMPETITIVE_EVENTS_WON => 'منافسات رسمية فاز بها (المركز الأول)',
             self::COMPETITIVE_TOP3_FINISHES => 'منافسات رسمية أنهاها ضمن المراكز الثلاثة الأولى',
             self::COMPETITIVE_EVENTS_COMPLETED => 'منافسات رسمية معتمَدة بنتيجة صحيحة',
+            self::STREAK_LONGEST_DAYS => 'أطول سلسلة أيام لعب رسمي متتالية (معلم السلسلة)',
         ];
     }
 
@@ -66,6 +72,7 @@ class AchievementEvaluatorRegistry
             self::CAMPAIGN_STEPS_COMPLETED_TOTAL => app(CampaignStepsCompletedTotalEvaluator::class),
             self::CAMPAIGNS_COMPLETED_TOTAL => app(CampaignsCompletedTotalEvaluator::class),
             self::COMPETITIVE_EVENTS_WON, self::COMPETITIVE_TOP3_FINISHES, self::COMPETITIVE_EVENTS_COMPLETED => app(CompetitiveAchievementEvaluator::class),
+            self::STREAK_LONGEST_DAYS => app(StreakLongestDaysEvaluator::class),
             default => null,
         };
     }

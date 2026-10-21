@@ -4,6 +4,7 @@
     $current = min($progress->current_value, $progress->target_value_snapshot);
     $isCompleted = $progress->completed_at !== null;
     $rewardPending = $isCompleted && $progress->reward_granted_at === null;
+    $remaining = $remaining ?? null;
 @endphp
 
 <div class="puzzle-card !p-4">
@@ -18,11 +19,16 @@
             <span class="chip !py-1 !px-2.5 text-xs !text-emerald !border-emerald/40 shrink-0">
                 {{ $rewardPending ? 'مكتملة - جارٍ معالجة المكافأة' : 'مكتملة' }}
             </span>
+        @else
+            <x-status-badge small>قيد التقدّم</x-status-badge>
         @endif
     </div>
 
     <div class="flex items-center justify-between text-xs font-bold text-slate-400 mb-1.5">
-        <span>{{ $current }} / {{ $progress->target_value_snapshot }}</span>
+        <span>{{ $current }} / {{ $progress->target_value_snapshot }} ({{ $percent }}%)</span>
+        @if ($remaining)
+            <span>الوقت المتبقي: {{ $remaining }}</span>
+        @endif
     </div>
 
     <div class="w-full h-2 rounded-full bg-white/5 overflow-hidden mb-3"
@@ -32,7 +38,7 @@
              style="width: {{ $percent }}%"></div>
     </div>
 
-    <div class="flex flex-wrap gap-2 text-xs font-bold">
+    <div class="flex flex-wrap items-center gap-2 text-xs font-bold">
         @if ($quest->xp_reward > 0)
             <span class="chip !py-1 !px-2.5">+{{ $quest->xp_reward }} XP</span>
         @endif
@@ -41,6 +47,9 @@
         @endif
         @if ($quest->reward_store_item_id)
             <span class="chip !py-1 !px-2.5">{{ $quest->rewardStoreItem?->name }}</span>
+        @endif
+        @if ($isCompleted && ! $rewardPending && ($quest->xp_reward > 0 || $quest->reward_currency_amount || $quest->reward_store_item_id))
+            <span class="text-slate-400">تم منح المكافأة</span>
         @endif
     </div>
 </div>

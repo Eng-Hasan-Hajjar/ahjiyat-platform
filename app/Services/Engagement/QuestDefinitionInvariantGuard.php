@@ -23,6 +23,7 @@ class QuestDefinitionInvariantGuard
 
         if (! $isNew) {
             $this->assertUsedFieldsNotMutated($quest);
+            $this->assertPooledPeriodStable($quest);
         }
 
         $this->assertPeriodTypeKnown($quest);
@@ -47,6 +48,14 @@ class QuestDefinitionInvariantGuard
 
         if ($quest->isDirty(self::SENSITIVE_FIELDS)) {
             throw new StoreItemInvariantViolation('لا يمكن تغيير فترة أو شرط أو نطاق أو مكافأة مهمة بدأ لاعبون فعليًا بإحراز تقدُّم بها.');
+        }
+    }
+
+    /** E34: مهمة عضو في مجموعة مهام لا تغيّر فترتها (يجب أن تطابق فترة المجموعة)؛ الاستعلام فقط عند تغيير period_type فعليًا. */
+    protected function assertPooledPeriodStable(QuestDefinition $quest): void
+    {
+        if ($quest->isDirty('period_type') && $quest->missionPools()->exists()) {
+            throw new StoreItemInvariantViolation('لا يمكن تغيير فترة مهمة عضو في مجموعة مهام - أزلها من المجموعة أولًا.');
         }
     }
 

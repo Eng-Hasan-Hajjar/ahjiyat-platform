@@ -48,6 +48,13 @@ class GameplayProgressionService
         // E13: نفس الحدث الموثوق بالضبط - لا تكرار لمنطق XP/الإنجازات أعلاه، فقط Quest+Streak.
         $this->engagement->onPuzzleSolved($user, $attempt);
 
+        // E34: معالم السلسلة عبر نظام الإنجازات نفسه (لا محرك ثانٍ) - بعد تحديث السلسلة مباشرة. معزول: فشله لا يؤثر على اللعب.
+        try {
+            app(\App\Services\LiveOps\StreakMilestoneService::class)->onStreakUpdated($user);
+        } catch (\Throwable $e) {
+            Log::error('فشل تقييم معالم السلسلة', ['attempt_id' => $attempt->id, 'user_id' => $user->id, 'error' => $e->getMessage()]);
+        }
+
         // E33: أول إجراء رسمي ذو معنى لمُحال = حلّ أحجية رسمية صحيحة (هذا المسار لأحجيات رسمية فقط). معزول بالكامل: الفشل لا يؤثر على اللعب.
         try {
             app(\App\Services\Referrals\ReferralQualificationService::class)->onMeaningfulAction($user);

@@ -6,6 +6,7 @@ use App\Models\QuestDefinition;
 use App\Models\User;
 use App\Models\UserQuestProgress;
 use App\Models\XpTransaction;
+use App\Services\LiveOps\MissionAssignmentService;
 use App\Services\Progression\ProgressionRewardService;
 use App\Services\Progression\XpService;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,14 @@ class QuestService
         protected ProgressionRewardService $rewards,
         protected XpService $xp,
     ) {}
+
+    /** E34: يُحمَّل كسولًا (لا تغيير بتوقيع المُنشئ). يحدّد الظهور فقط؛ لا يمسّ التقدّم ولا المكافآت. */
+    protected ?MissionAssignmentService $missions = null;
+
+    protected function missions(): MissionAssignmentService
+    {
+        return $this->missions ??= app(MissionAssignmentService::class);
+    }
 
     /** Lazy Creation صارمة (بند 168-170): لا صف يُنشأ إلا عند فتح فعلي لصفحة المهام أو حدث لعب مرتبط. */
     public function progressFor(User $user, QuestDefinition $quest, ?PeriodContext $period = null): UserQuestProgress
@@ -96,16 +105,47 @@ class QuestService
             return false;
         }
 
+        $period ??= $this->periods->contextFor($quest->period_type);
+
+        // E34: مهمة منتمية لمجموعة مهام تظهر فقط لمن أُسندت له (أو له تقدّم قائم بالفترة). غير المنتمية: سلوك E13 كما هو.
+        if (! $this->missions()->isAllowed($user, $quest, $period)) {
+            return false;
+        }
+
         if ($quest->is_active) {
             return true;
         }
-
-        $period ??= $this->periods->contextFor($quest->period_type);
 
         return UserQuestProgress::where('user_id', $user->id)
             ->where('quest_definition_id', $quest->id)
             ->where('period_key', $period->periodKey)
             ->exists();
+    }
+
+    /**
+     * E34: نسخة **مُجمَّعة** من isVisibleTo لقائمة كاملة (استعلام تعريفات واحد + استعلام تقدّم واحد + إسناد واحد، بلا استعلام لكل مهمة).
+     * المنطق مطابق حرفيًا لـisVisibleTo (النافذة الزمنية الحقيقية، ثم الإسناد، ثم نشطة أو لها تقدّم بالفترة الحالية) ويثبت ذلك اختبار تكافؤ.
+     *
+     * @return \Illuminate\Support\Collection<int, QuestDefinition>
+     */
+    public function visibleQuestsFor(User $user, string $periodType, ?PeriodContext $period = null)
+    {
+        $period ??= $this->periods->contextFor($periodType);
+
+        $progressIds = UserQuestProgress::where('user_id', $user->id)
+            ->where('period_key', $period->periodKey)
+            ->pluck('quest_definition_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return QuestDefinition::where('period_type', $periodType)
+            ->with(['rewardCurrency', 'rewardStoreItem'])
+            ->orderBy('sort_order')->orderBy('id')
+            ->get()
+            ->filter(fn (QuestDefinition $quest) => $this->isWithinTemporalWindowNow($quest)
+                && $this->missions()->isAllowed($user, $quest, $period)
+                && ($quest->is_active || in_array((int) $quest->id, $progressIds, true)))
+            ->values();
     }
 
     /**
@@ -189,6 +229,15 @@ class QuestService
                 $q->where('is_active', true)->orWhereIn('id', $inactiveContinuationIds);
             })
             ->get();
+
+        if ($quests->isEmpty()) {
+            return;
+        }
+
+        // E34: التقييم يقتصر على المهام العامة وعلى المُسندة لهذا المستخدم (أو له تقدّم قائم). الإسناد كسول ولمستخدم واحد فقط.
+        $quests = $quests->filter(
+            fn (QuestDefinition $quest) => $this->missions()->isAllowed($user, $quest, $periodsByType[$quest->period_type])
+        )->values();
 
         if ($quests->isEmpty()) {
             return;

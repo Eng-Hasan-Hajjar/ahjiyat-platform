@@ -265,6 +265,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('referral-share', fn (Request $request) => Limit::perMinute(max(1, (int) config('referrals.limits.share_per_minute')))->by('rfs:'.($request->user()?->id ?: $request->ip())));
         RateLimiter::for('referral-campaign-action', fn (Request $request) => Limit::perMinute(max(1, (int) config('referrals.limits.campaign_action_per_minute')))->by('rfc:'.($request->user()?->id ?: $request->ip())));
 
+        // E34: مركز المهام (لكل مستخدم) وتقويم الأحداث العام (لكل مستخدم/عنوان). قراءة فقط؛ لا إجراء يغيّر حالة عبر GET.
+        RateLimiter::for('missions-read', fn (Request $request) => Limit::perMinute(120)->by('msr:'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('events-read', fn (Request $request) => Limit::perMinute(120)->by('evr:'.($request->user()?->id ?: $request->ip())));
+
         // E11: تجهيز/إزالة تجميليات - UX تتطلب تجربة سريعة (تبديل/معاينة)، لا حساسية مالية هنا.
         RateLimiter::for('cosmetic-equip', function (Request $request) {
             return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());

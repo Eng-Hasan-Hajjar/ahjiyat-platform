@@ -58,7 +58,10 @@ class QuestDefinitionResource extends Resource
                             QuestDefinition::PERIOD_WEEKLY => 'أسبوعية',
                         ])
                         ->required()->native(false)
-                        ->disabled(fn (?QuestDefinition $record) => $record?->isUsed() ?? false),
+                        ->disabled(fn (?QuestDefinition $record) => ($record?->isUsed() ?? false) || ($record?->missionPools()->exists() ?? false))
+                        ->helperText(fn (?QuestDefinition $record) => ($record?->missionPools()->exists() ?? false)
+                            ? 'لا يمكن تغيير الفترة - المهمة عضو في مجموعة مهام (يجب أن تطابق فترة المجموعة). أزلها من المجموعة أولًا.'
+                            : null),
                 ]),
 
             Forms\Components\Section::make('شرط المهمة')
@@ -127,7 +130,7 @@ class QuestDefinitionResource extends Resource
                 ->columns(2)
                 ->schema([
                     Forms\Components\DateTimePicker::make('starts_at')->label('تبدأ في'),
-                    Forms\Components\DateTimePicker::make('ends_at')->label('تنتهي في'),
+                    Forms\Components\DateTimePicker::make('ends_at')->label('تنتهي في')->after('starts_at'),
                     Forms\Components\Placeholder::make('helper')
                         ->label('')
                         ->columnSpanFull()
@@ -146,6 +149,7 @@ class QuestDefinitionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->withCount(['missionPools', 'progress']))
             ->columns([
                 Tables\Columns\TextColumn::make('name')->label('الاسم')->searchable()
                     ->description(fn (QuestDefinition $r) => $r->internal_key),
@@ -156,6 +160,12 @@ class QuestDefinitionResource extends Resource
                     ->wrap(),
                 Tables\Columns\TextColumn::make('target_value')->label('الهدف'),
                 Tables\Columns\IconColumn::make('is_active')->label('نشطة')->boolean(),
+                Tables\Columns\TextColumn::make('schedule')->label('الجدولة')->badge()
+                    ->state(fn (QuestDefinition $r) => self::scheduleLabel($r))
+                    ->color(fn (string $state) => match ($state) {'جارية' => 'success', 'مجدولة' => 'info', 'منتهية' => 'gray', default => 'warning'}),
+                Tables\Columns\TextColumn::make('mission_pools_count')->label('مجموعات')->numeric()
+                    ->description(fn (QuestDefinition $r) => $r->mission_pools_count > 0 ? 'تظهر فقط لمن أُسندت له' : 'عامة'),
+                Tables\Columns\TextColumn::make('progress_count')->label('تقدّم لاعبين')->numeric(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('period_type')->label('الفترة')->options([
@@ -171,6 +181,22 @@ class QuestDefinitionResource extends Resource
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make()->visible(fn (QuestDefinition $record) => ! $record->isUsed())->requiresConfirmation(),
             ]);
+    }
+
+    /** حالة الجدولة الحالية بالعربية: جارية / مجدولة / منتهية / معطّلة. */
+    public static function scheduleLabel(QuestDefinition $r): string
+    {
+        $now = now();
+
+        if (! $r->is_active) {
+            return 'معطّلة';
+        }
+
+        if ($r->starts_at !== null && $now->lt($r->starts_at)) {
+            return 'مجدولة';
+        }
+
+        return $r->ends_at !== null && $now->gt($r->ends_at) ? 'منتهية' : 'جارية';
     }
 
     public static function getPages(): array

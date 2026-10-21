@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class QuestDefinition extends Model
@@ -61,6 +62,12 @@ class QuestDefinition extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** E34: مجموعات المهام التي تنتمي لها هذه المهمة (قراءة/عرض إداري؛ التعديل عبر MissionPoolService فقط). */
+    public function missionPools(): BelongsToMany
+    {
+        return $this->belongsToMany(MissionPool::class, 'mission_pool_quests', 'quest_definition_id', 'mission_pool_id')->withTimestamps();
     }
 
     /** بند 48 (E13 Part2): أي صف تقدُّم - حتى غير مكتمل - يعني بدء استخدام فعلي. */

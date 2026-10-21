@@ -34,6 +34,10 @@ $guard(Schedule::command('teams:process-lifecycle')->hourly()->name('teams-proce
 
 $guard(Schedule::command('notifications:dispatch-reengagement')->hourly()->name('notifications-reengagement'), 120);
 
+// E34: تذكيرات LiveOps المحدودة (مهمة جارية تنتهي مع اليوم، أهداف الأسبوع، بدء منافسة للمسجَّلين، عودة بعد غياب) - ساعيًا بعد تذكيرات E15 كي تُحتسب ميزانيتها أولًا.
+// قراءة فقط + إشعارات، Idempotent بمفتاح دلالي. غيابه لا يكسر شيئًا: لا تصل التذكيرات فقط.
+$guard(Schedule::command('liveops:remind')->hourly()->name('liveops-remind'), 120);
+
 // E15: تنظيف المقروء القديم يوميًا - صحة النظام لا تعتمد عليه.
 $guard(Schedule::command('notifications:prune')->daily()->name('notifications-prune'), 360);
 
