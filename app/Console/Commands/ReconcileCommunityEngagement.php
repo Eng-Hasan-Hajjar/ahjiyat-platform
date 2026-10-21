@@ -9,14 +9,14 @@ class ReconcileCommunityEngagement extends Command
 {
     protected $signature = 'community:reconcile-engagement {--dry-run : كشف الانحراف دون تعديل} {--chunk=500 : حجم دفعة القراءة}';
 
-    protected $description = 'E29: يقارن عدّادات التفاعل (ratings_count/ratings_sum/favorites_count/followers_count) بالصفوف الحقيقية ويصلح الانحراف. الصفوف هي المصدر الوحيد للحقيقة؛ آمن للتكرار.';
+    protected $description = 'E29: يقارن عدّادات التفاعل (ratings_count/ratings_sum/favorites_count/followers_count/saves_count للمجموعات) بالصفوف الحقيقية ويصلح الانحراف. الصفوف هي المصدر الوحيد للحقيقة؛ آمن للتكرار.';
 
     public function handle(EngagementReconciler $reconciler): int
     {
         $dry = (bool) $this->option('dry-run');
         $result = $reconciler->run($dry, max(50, min(5000, (int) $this->option('chunk'))));
 
-        $this->line('أعمال مفحوصة: '.$result['works'].' — مبدعون مفحوصون: '.$result['creators']);
+        $this->line('أعمال مفحوصة: '.$result['works'].' — مبدعون مفحوصون: '.$result['creators'].' — مجموعات مفحوصة: '.($result['collections'] ?? 0));
         $driftCount = count($result['drift']);
         $this->line('انحراف مكتشف: '.$driftCount);
 

@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Engagement\Concerns\ResolvesCommunityWork;
 use App\Http\Requests\Engagement\AddToCollectionRequest;
 use App\Http\Requests\Engagement\CollectionRequest;
+use App\Models\User;
 use App\Models\UserCollection;
+use App\Services\Collections\CollectionAccess;
 use App\Services\Engagement\CollectionService;
 use App\Services\Engagement\EngagementException;
 use App\Services\Engagement\EngagementLists;
@@ -14,7 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 /**
- * E29 - المجموعات الشخصية (خاصة فقط، لا مسار عام). كل مسار {collection} يُحلّ بمعرّف ULID **مع user_id المالك** (غير المالك = 404).
+ * E29 - المجموعات الشخصية (مسارات المالك؛ E35 تضيف الظهور عبر CollectionManageController والقراءة العامة عبر PublicCollectionController، لا هنا). كل مسار {collection} يُحلّ بمعرّف ULID **مع user_id المالك** (غير المالك = 404).
  * المتحكم رقيق: تحقق (FormRequest بقواعد الخدمة) ← خدمة ← عودة.
  */
 class CollectionController extends Controller
@@ -26,7 +28,7 @@ class CollectionController extends Controller
     public function index(Request $request)
     {
         $collections = UserCollection::query()->where('user_id', $request->user()->id)
-            ->select('id', 'public_id', 'title', 'description', 'updated_at')->withCount('items')
+            ->select('id', 'public_id', 'title', 'description', 'visibility', 'saves_count', 'is_moderation_hidden', 'updated_at')->withCount('items')
             ->orderByDesc('updated_at')->orderByDesc('id')
             ->paginate((int) config('engagement.pagination.collections'));
 
@@ -49,13 +51,17 @@ class CollectionController extends Controller
         return redirect()->route('collections.show', $collection->public_id)->with('success', 'أُنشئت المجموعة.');
     }
 
-    public function show(Request $request, EngagementLists $lists, string $collection)
+    public function show(Request $request, EngagementLists $lists, CollectionAccess $access, string $collection)
     {
         $collection = $this->collections->owned($request->user(), $collection);
 
         return view('engagement.collections.show', [
             'collection' => $collection,
             'works' => $lists->collectionItems($collection, (int) config('engagement.pagination.collection_items')),
+            // E35: لوحة الظهور عند المالك (أعداد مشتقة من الظاهر الآن + شرط الملف العام للنشر العام).
+            'visibleCount' => $access->visibleCount((int) $collection->id),
+            'profilePublic' => $request->user()->profile_visibility === User::VISIBILITY_PUBLIC,
+            'minPublicItems' => (int) config('collections.publish.min_visible_items_public'),
         ]);
     }
 

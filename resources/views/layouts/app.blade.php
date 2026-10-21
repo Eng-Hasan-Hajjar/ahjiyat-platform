@@ -20,6 +20,9 @@
     $logoUrl = $brandingUrls['logo_main'];
     $faviconUrl = $brandingUrls['favicon'];
     $ogImageUrl = $brandingUrls['social_share_image'];
+    // E35: صفحة عامة قد تقدّم صورة مشاركة خاصة بها (رابط مخدّم يبنيه الخادم من تخزين الموقع، لا من العميل) عبر @section('og_image')؛ الغياب = الصورة الافتراضية للموقع.
+    $sectionOgImage = trim((string) $__env->yieldContent('og_image'));
+    $ogImageUrl = $sectionOgImage !== '' ? $sectionOgImage : $ogImageUrl;
 
     $metaTitle = $seo['meta_title'] ?: $general['site_name'];
     $metaDescription = $seo['meta_description'] ?: $general['short_description'];

@@ -247,6 +247,13 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('creator-follow', fn (Request $request) => [Limit::perMinute(15)->by('cfl:'.($request->user()?->id ?: $request->ip())), Limit::perHour(100)->by('cflh:'.($request->user()?->id ?: $request->ip()))]);
         RateLimiter::for('collection-actions', fn (Request $request) => [Limit::perMinute(30)->by('cca:'.($request->user()?->id ?: $request->ip())), Limit::perHour(240)->by('ccah:'.($request->user()?->id ?: $request->ip()))]);
 
+        // E35: المجموعات العامة. كلها بمفتاح المستخدم (لا IP) عدا القراءة العامة للضيوف. الحدود من config/collections.php (limits.*). الحفظ/النشر/البلاغ بحدّ ساعة إضافي ضد الإغراق.
+        RateLimiter::for('collection-publish', fn (Request $request) => [Limit::perMinute(max(1, (int) config('collections.limits.publish_per_minute')))->by('ccp:'.($request->user()?->id ?: $request->ip())), Limit::perHour(60)->by('ccph:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('collection-save', fn (Request $request) => [Limit::perMinute(max(1, (int) config('collections.limits.save_per_minute')))->by('ccs:'.($request->user()?->id ?: $request->ip())), Limit::perHour(300)->by('ccsh:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('collection-report', fn (Request $request) => [Limit::perMinute(max(1, (int) config('collections.limits.report_per_minute')))->by('ccr:'.($request->user()?->id ?: $request->ip())), Limit::perHour(20)->by('ccrh:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('collection-reorder', fn (Request $request) => Limit::perMinute(max(1, (int) config('collections.limits.reorder_per_minute')))->by('cco:'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('collection-read', fn (Request $request) => Limit::perMinute(max(1, (int) config('collections.limits.read_per_minute')))->by('ccv:'.($request->user()?->id ?: $request->ip())));
+
         // E30: قراءات الرعاة والسلاسل العامة (صفحات عرض فقط) بحدّ معتدل لكل مستخدم/عنوان؛ إجراءات استوديو السلاسل تُعيد استعمال محدّدات المبدعين (creator-draft-create / creator-submit).
         RateLimiter::for('supporters-read', fn (Request $request) => Limit::perMinute(120)->by('spr:'.($request->user()?->id ?: $request->ip())));
         RateLimiter::for('series-read', fn (Request $request) => Limit::perMinute(120)->by('ser:'.($request->user()?->id ?: $request->ip())));

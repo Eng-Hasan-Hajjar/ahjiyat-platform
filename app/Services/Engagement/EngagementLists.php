@@ -39,9 +39,24 @@ class EngagementLists
         return CreatorPuzzle::query()
             ->join('user_collection_items as i', 'i.creator_puzzle_id', '=', 'creator_puzzles.id')
             ->where('i.user_collection_id', $collection->id)
-            ->select(array_merge(self::COLUMNS, ['i.id as item_id']))
+            ->select(array_merge(self::COLUMNS, ['i.id as item_id', 'i.position as item_position']))
             ->with(self::WITH)
-            ->orderByDesc('i.id')
+            ->orderBy('i.position')->orderBy('i.id')   // E35: ترتيب المالك (position) ثم id: حتمي دائمًا حتى لو تكررت القيمة
+            ->paginate($perPage)->withQueryString();
+    }
+
+    /**
+     * E35: عناصر المجموعة للقراءة **العامة**: الأعمال الظاهرة الآن فقط (المخفي يُحذف من العرض لا يُستبدل بمكان بديل: لا تسريب لوجوده ولا لعنوانه)، بترتيب المالك.
+     * العدّ والترقيم على الظاهر وحده. استعلام قراءة واحد + تحميل مسبق مجمَّع (لا N+1).
+     */
+    public function publicCollectionItems(UserCollection $collection, int $perPage): LengthAwarePaginator
+    {
+        return CreatorPuzzle::query()->visible()
+            ->join('user_collection_items as i', 'i.creator_puzzle_id', '=', 'creator_puzzles.id')
+            ->where('i.user_collection_id', $collection->id)
+            ->select(array_merge(self::COLUMNS, ['i.id as item_id', 'i.position as item_position']))
+            ->with(self::WITH)
+            ->orderBy('i.position')->orderBy('i.id')
             ->paginate($perPage)->withQueryString();
     }
 

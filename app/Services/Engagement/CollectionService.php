@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 /**
- * E29 - المجموعات الشخصية (**خاصة فقط**: لا مشاركة عامة ولا فهرسة ولا بلاغات بهذه المرحلة، قرار مقصود).
+ * E29 - المجموعات الشخصية. (E29: خاصة فقط. **E35**: تتطوّر إلى private|unlisted|public عبر CollectionVisibilityService، والافتراضي والمُرحَّل private؛
+ * هذه الخدمة تبقى المسار الوحيد لتعديل المحتوى/العناصر بقواعد الملكية الصارمة نفسها دون تغيير: owned() محصور بالمالك دائمًا.)
  *
  *  - الملكية: كل قراءة/كتابة تحلّ المجموعة بمعرّفها العام **مع user_id المالك** (غير المالك = ModelNotFound = 404، لا 403 يكشف الوجود). لا IDOR.
  *  - العنوان والوصف نص عادي: تُطبَّع المسافات ثم يتحقق Validator بقواعد NoMarkup (نفس قواعد الطلب HTTP، مصدرها هنا وحده).
@@ -104,8 +105,11 @@ class CollectionService
                 throw new EngagementException('امتلأت هذه المجموعة (الحد الأقصى '.(int) config('engagement.collections.max_items').' أحجية).');
             }
 
+            // E35: العنصر الجديد يُلحق **في النهاية** (position = أكبر موضع + 1) تحت قفل المجموعة نفسه فلا يتكرر الموضع بالتزامن.
+            $nextPosition = (int) UserCollectionItem::query()->where('user_collection_id', $collection->id)->max('position') + 1;
+
             $item = new UserCollectionItem;
-            $item->forceFill(['user_collection_id' => $collection->id, 'creator_puzzle_id' => $work->id, 'created_at' => now()])->save();
+            $item->forceFill(['user_collection_id' => $collection->id, 'creator_puzzle_id' => $work->id, 'position' => $nextPosition, 'created_at' => now()])->save();
             $collection->touch();
 
             return ['changed' => true];

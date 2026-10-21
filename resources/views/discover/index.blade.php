@@ -29,12 +29,14 @@
                 <a href="{{ route('following.index') }}" class="chip !py-1.5 !px-3 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">من أتابعهم</a>
                 <a href="{{ route('favorites.index') }}" class="chip !py-1.5 !px-3 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">مفضلتي</a>
                 <a href="{{ route('collections.index') }}" class="chip !py-1.5 !px-3 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">مجموعاتي</a>
+                <a href="{{ route('collections.saved') }}" class="chip !py-1.5 !px-3 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">مجموعات محفوظة</a>
             </nav>
         @endif
 
         @forelse ($sections as $section)
             <section aria-label="{{ $section['title'] }}" data-discover-section="{{ $section['key'] }}" class="anim-fade-up">
                 <x-section-header :title="$section['title']" :href="$section['href']" :linkLabel="$section['linkLabel'] ?? 'عرض الكل'" />
+                @if (! empty($section['subtitle'])) <p class="-mt-2 mb-3 text-xs text-slate-400 break-words">{{ $section['subtitle'] }}</p> @endif
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     @foreach ($section['cards'] as $card)
                         @include('discover._card', ['card' => $card])

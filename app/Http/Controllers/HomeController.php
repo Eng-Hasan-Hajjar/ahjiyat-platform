@@ -7,6 +7,7 @@ use App\Models\PuzzleCategory;
 use App\Models\Season;
 use App\Services\CampaignProgressService;
 use App\Services\Dashboard\PlayerDashboardService;
+use App\Services\Editorial\EditorialShelves;
 use App\Services\Engagement\QuestPeriodService;
 use App\Services\Engagement\StreakService;
 use App\Services\LiveOps\MissionCenterService;
@@ -23,6 +24,7 @@ class HomeController extends Controller
         protected StreakService $streaks,
         protected PlayerDashboardService $dashboardService,
         protected MissionCenterService $missionCenter,
+        protected EditorialShelves $shelves,
     ) {}
 
     public function index()
@@ -96,10 +98,13 @@ class HomeController extends Controller
         // E22: لوحة اللاعب (عرض فقط) للمصادَقين فقط؛ الضيف بلا أي استعلام إضافي.
         $dashboard = auth()->check() ? $this->dashboardService->forUser(auth()->user()) : null;
 
+        // E35: أرفف تحريرية بموضع الرئيسية (عرض فقط، معزولة الفشل داخل الخدمة).
+        $shelves = $this->shelves->forPlacement('home', auth()->user());
+
         return view('home', compact(
             'dailyPuzzle', 'categories', 'featuredSeason', 'featuredSeasonCurrentStep', 'featuredSeasonPercentage', 'home',
             'myProgression', 'myCurrentLevel', 'myNextLevel', 'myProgressPercent',
-            'myQuestsCompletedToday', 'myQuestsTotalToday', 'myStreak', 'dashboard', 'missionsWidget',
+            'myQuestsCompletedToday', 'myQuestsTotalToday', 'myStreak', 'dashboard', 'missionsWidget', 'shelves',
         ));
     }
 }

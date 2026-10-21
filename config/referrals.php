@@ -81,6 +81,6 @@ return [
     'notifications' => ['enabled' => (bool) env('REFERRALS_NOTIFICATIONS', true)],
 
     // ما يُشارَك: نوع => ['route' => اسم المسار]. بناء الروابط من المسارات المسماة فقط (لا host من الطلب).
-    'share_kinds' => ['puzzle', 'community_puzzle', 'series', 'creator', 'season', 'campaign', 'competition', 'supporters', 'platform'],
+    'share_kinds' => ['puzzle', 'community_puzzle', 'series', 'collection', 'creator', 'season', 'campaign', 'competition', 'supporters', 'platform'],
     'share_targets' => ['native', 'copy', 'whatsapp', 'telegram'],
 ];

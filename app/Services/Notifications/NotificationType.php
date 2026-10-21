@@ -31,6 +31,7 @@ namespace App\Services\Notifications;
  *  - E34 LiveOps: LiveOpsReminderService (مجدول ساعيًا، قراءة فقط من حالة اللعب) → mission_expiring / weekly_missions_available / event_starting_soon / comeback_available.
  *    فئات قائمة فقط (Quest للمهام والعودة، Competitive لبدء المنافسة) فتخضع لتفضيلات المستخدم القائمة؛ **ليست** تذكيرات استعادية (لا تدخل ميزانية E15 ولا قائمتها)
  *    وبسقف يومي خاص بها يحترم ميزانية E15 أيضًا. بلا لغة ضغط ولا عقوبة ولا مكافأة مشروطة بالعودة.
+ *  - E35 مجموعات: CollectionModerationService بعد الـcommit → collection_hidden / collection_restored (لمالك المجموعة فقط، فئة social). لا إشعار على نشر/حفظ/بلاغ/ترتيب/رف: لا لحافظ ولا لصاحب مجموعة ولا للمبلِّغ.
  */
 enum NotificationType: string
 {
@@ -89,6 +90,8 @@ enum NotificationType: string
     case WeeklyMissionsAvailable = 'weekly_missions_available';
     case EventStartingSoon = 'event_starting_soon';
     case ComebackAvailable = 'comeback_available';
+    case CollectionHidden = 'collection_hidden';
+    case CollectionRestored = 'collection_restored';
 
     public function category(): NotificationCategory
     {
@@ -110,6 +113,7 @@ enum NotificationType: string
             self::SupportConfirmed, self::SupporterTierChanged, self::SponsorshipProgramStarted,
             self::SupportRequestReceived, self::SupportActionRequired, self::SupportRejected, self::SupportRefunded,
             self::SeriesApproved, self::SeriesChangesRequested, self::SeriesRejected, self::SeriesHidden, self::CreatorNewSeries,
+            self::CollectionHidden, self::CollectionRestored,
             self::ReferralQualified, self::ReferralRewardReceived => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::EventStartingSoon,
@@ -181,6 +185,8 @@ enum NotificationType: string
             self::WeeklyMissionsAvailable => 46,
             self::EventStartingSoon => 47,
             self::ComebackAvailable => 48,
+            self::CollectionHidden => 49,
+            self::CollectionRestored => 50,
         };
     }
 
@@ -231,6 +237,8 @@ enum NotificationType: string
             self::WeeklyMissionsAvailable => '🗓️',
             self::EventStartingSoon => '⏰',
             self::ComebackAvailable => '👋',
+            self::CollectionHidden => '🚫',
+            self::CollectionRestored => '✅',
         };
     }
 
@@ -268,6 +276,7 @@ enum NotificationType: string
             self::CreatorNewSeries => ['series.show'],
             self::SupportRequestReceived, self::SupportActionRequired, self::SupportRejected, self::SupportRefunded => ['support.payments.show', 'support.history'],
             self::ReferralQualified, self::ReferralRewardReceived => ['referrals.index'],
+            self::CollectionHidden, self::CollectionRestored => ['collections.index', 'collections.show'],
         };
     }
 
@@ -329,6 +338,8 @@ enum NotificationType: string
             self::WeeklyMissionsAvailable => 'أهداف هذا الأسبوع جاهزة',
             self::EventStartingSoon => 'تبدأ المنافسة قريبًا: '.($params['title'] ?? ''),
             self::ComebackAvailable => 'مرحبًا بعودتك',
+            self::CollectionHidden => 'أُخفيت مجموعتك من المنصة: '.($params['title'] ?? ''),
+            self::CollectionRestored => 'استُعيدت مجموعتك: '.($params['title'] ?? ''),
             self::SupporterTierChanged => ! empty($params['up'])
                 ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
                 : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
@@ -396,6 +407,8 @@ enum NotificationType: string
             self::WeeklyMissionsAvailable => 'بدأ أسبوع جديد بأهداف جديدة. اطّلع عليها متى شئت.',
             self::EventStartingSoon => 'سجّلت في هذه المنافسة، وتبدأ خلال '.($params['hours'] ?? '').' ساعة أو أقل.',
             self::ComebackAvailable => 'جهّزنا لك خطوات سهلة للعودة: أحجية بسيطة ومهمة خفيفة. كل ما اكتسبته سابقًا محفوظ.',
+            self::CollectionHidden => static::withNote('أخفاها فريق الإشراف، ولا تظهر للآخرين الآن. يمكنك تعديلها أو حذفها من «مجموعاتي».', $params),
+            self::CollectionRestored => 'رفع فريق الإشراف الإخفاء عن مجموعتك. يعود ظهورها بحسب إعدادك (خاصة / غير مدرجة / عامة).',
             self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
             self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
             self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',

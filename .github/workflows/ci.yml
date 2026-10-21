@@ -180,6 +180,10 @@ jobs:
             tests/Feature/LiveOpsE34/E34PoolRotationTest.php \
             tests/Feature/LiveOpsE34/E34PerformanceTest.php
 
+      # E35: مجموعة جزئية صغيرة لما يختلف فعلًا على MySQL: الترحيل/ملء المواضع القديمة، فرادة الحفظ، قيد البلاغ المفتوح الواحد، المواضع الحتمية، فرادة عناصر الرف، سلامة المفاتيح الأجنبية. البقية على SQLite.
+      - name: E35 public collections on MySQL (backfill / unique save / one open report / positions / shelf item uniqueness / FK integrity)
+        run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/PublicCollectionsE35/E35MysqlSchemaTest.php
+
       - name: Schema parity against the migrated MySQL database (read-only)
         run: php artisan db:parity --connection=mysql --runtime
 

@@ -156,13 +156,14 @@ test('W4: no request-wide mass assignment - no $request->all(), no unguard(), no
     }
 });
 
-test('W5: raw SQL never receives request data, and interpolated raw SQL exists only at the four reviewed server-built sites', function () {
+test('W5: raw SQL never receives request data, and interpolated raw SQL exists only at the five reviewed server-built sites', function () {
     $rawCall = '/(?:whereRaw|selectRaw|orderByRaw|havingRaw|groupByRaw|DB::raw|DB::statement|DB::select|DB::unprepared|DB::insert|DB::update|DB::delete)\s*\(/';
     $allowedInterpolation = [
         'app/Services/Analytics/EconomyAnalyticsService.php',      // تعبير فرق ساعات يُبنى من اسم سائق القاعدة
         'app/Services/Analytics/UserAnalyticsService.php',         // تعبير تجميع زمني يُبنى من match على قيمة داخلية
         'app/Services/Competitive/CompetitiveLifecycleService.php', // استعلام فرعي ثابت
         'app/Services/Teams/TeamChampionshipStandingsService.php', // CASE يُبنى من نقاط الإعداد بعد (int)
+        'app/Services/Collections/CollectionOrderService.php',     // E35: تحديث CASE واحد لمواضع الترتيب؛ القطع ثابتة (' WHEN ? THEN ?') وكل القيم ومعرّفات IN مربوطة (?)، ولا شيء من الطلب يدخل النص
     ];
     $unsafe = [];
     $interpolated = [];

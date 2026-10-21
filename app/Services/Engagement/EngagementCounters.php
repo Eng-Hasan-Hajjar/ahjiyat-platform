@@ -15,6 +15,7 @@ final class EngagementCounters
     private const ALLOWED = [
         'creator_puzzles' => ['ratings_count', 'ratings_sum', 'favorites_count'],
         'creator_profiles' => ['followers_count'],
+        'user_collections' => ['saves_count'], // E35: عدّاد حفظ المجموعات (مميَّزون بقيد فريد)
     ];
 
     /** @param array<string, int> $deltas عمود => فرق (موجب أو سالب) */

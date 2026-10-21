@@ -18,6 +18,7 @@ class ShareLinkBuilder
         'puzzle' => 'puzzles.show',
         'community_puzzle' => 'community.puzzles.show',
         'series' => 'series.show',
+        'collection' => 'collections.public.show',
         'creator' => 'creators.show',
         'season' => 'seasons.show',
         'campaign' => 'campaigns.show',

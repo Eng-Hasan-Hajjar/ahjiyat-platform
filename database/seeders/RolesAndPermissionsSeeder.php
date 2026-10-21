@@ -116,6 +116,11 @@ class RolesAndPermissionsSeeder extends Seeder
         $this->grantIfMissing('content-manager', ['liveops.view', 'liveops.manage']);
         $this->grantIfMissing('moderator', ['liveops.view']);
 
+        // E35: المدير العام يملك الكل؛ المشرف يعرض ويحسم بلاغات المجموعات ويخفيها/يستعيدها (لا يدير الأرفف)؛ مدير المحتوى يدير الأرفف التحريرية ويعرض المجموعات (لا يحسم بلاغاتها).
+        $this->grantIfMissing('administrator', ['collections.view', 'collections.moderate', 'editorial.view', 'editorial.manage']);
+        $this->grantIfMissing('moderator', ['collections.view', 'collections.moderate']);
+        $this->grantIfMissing('content-manager', ['collections.view', 'editorial.view', 'editorial.manage']);
+
         $this->grantIfMissing('moderator', [
             'users.view_security',
             'users.view_activity',

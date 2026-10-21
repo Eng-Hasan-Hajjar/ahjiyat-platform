@@ -6,11 +6,13 @@ use App\Models\CommunityPuzzleFavorite;
 use App\Models\CreatorFollow;
 use App\Models\UserCollection;
 use App\Models\UserCollectionItem;
+use App\Models\UserCollectionReport;
+use App\Models\UserCollectionSave;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
- * E29 - عند حذف حساب: بياناته الشخصية الخاصة (مفضلة، متابعات، مجموعات) تُحذف **مع إنقاص العدّادات العامة**، فلا يبقى رقم عام ينسب لمن لم يعد موجودًا.
+ * E29 - عند حذف حساب: بياناته الشخصية الخاصة (مفضلة، متابعات، مجموعات، وE35: حفظ المجموعات) تُحذف **مع إنقاص العدّادات العامة**، فلا يبقى رقم عام ينسب لمن لم يعد موجودًا.
  * التقييمات تبقى مجهولة (user_id → NULL بقيد القاعدة) لأنها مساهمة في المتوسط لا تحمل هوية: فالمجمَّع صحيح دون إعادة حساب.
  * يُستدعى من مستمع deleting على User (نمط E19 نفسه) ولا يمنع الحذف إن فشل: قيود الحذف التتابعي بالقاعدة تضمن عدم بقاء بيانات شخصية،
  * وأي انحراف عدّاد ينتج يلتقطه community:reconcile-engagement.
@@ -36,7 +38,19 @@ class EngagementCleanup
                 CreatorFollow::query()->whereIn('id', $rows->pluck('id'))->delete();
             });
 
+            // E35: حفظات هذا المستخدم لمجموعات الآخرين تُحذف مع إنقاص saves_count (عدّاد علني لا ينسب لمن لم يعد موجودًا).
+            UserCollectionSave::query()->where('user_id', $user->id)->select('id', 'user_collection_id')->chunkById(500, function ($rows) {
+                foreach ($rows->groupBy('user_collection_id') as $collectionId => $group) {
+                    EngagementCounters::adjust('user_collections', (int) $collectionId, ['saves_count' => -$group->count()]);
+                }
+
+                UserCollectionSave::query()->whereIn('id', $rows->pluck('id'))->delete();
+            });
+
             $collectionIds = UserCollection::query()->where('user_id', $user->id)->pluck('id');
+            // E35: مجموعاته هو: حفظات الآخرين لها وبلاغاتها تُحذف معها (لا يتيمة).
+            UserCollectionSave::query()->whereIn('user_collection_id', $collectionIds)->delete();
+            UserCollectionReport::query()->whereIn('user_collection_id', $collectionIds)->delete();
             UserCollectionItem::query()->whereIn('user_collection_id', $collectionIds)->delete();
             UserCollection::query()->whereIn('id', $collectionIds)->delete();
         });

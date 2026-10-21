@@ -42,7 +42,21 @@ class PlayerProfileController extends Controller
             'team' => app(\App\Services\Teams\TeamMembershipService::class)->publicTeamFor($user),
             // E30: شارة «داعم» مشتقّة (علنية فقط وغير مجهولة)؛ معزولة الفشل ولا تعطّل الملف.
             'supporter' => $this->supporterBadge($user),
+            // E35: مجموعات المجتمع العامة لهذا اللاعب (المُدرَجة علنًا الآن فقط)؛ معزولة الفشل.
+            'collections' => $this->curatedCollections($user, $viewer),
         ]);
+    }
+
+    /** @return \Illuminate\Support\Collection<int, object> */
+    protected function curatedCollections(User $owner, ?User $viewer): \Illuminate\Support\Collection
+    {
+        try {
+            return app(\App\Services\Collections\CuratorCollections::class)->forProfile($owner, $viewer);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return collect();
+        }
     }
 
     /** @return array{name: string, slug: string, tier: string, badge_key: string}|null */

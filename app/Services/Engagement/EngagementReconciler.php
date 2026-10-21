@@ -4,6 +4,7 @@ namespace App\Services\Engagement;
 
 use App\Models\CreatorProfile;
 use App\Models\CreatorPuzzle;
+use App\Models\UserCollection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\DB;
  */
 class EngagementReconciler
 {
-    /** @return array{works: int, creators: int, drift: list<array{table: string, id: int, column: string, stored: int, actual: int}>, fixed: int} */
+    /** @return array{works: int, creators: int, collections: int, drift: list<array{table: string, id: int, column: string, stored: int, actual: int}>, fixed: int} */
     public function run(bool $dryRun = true, int $chunk = 500): array
     {
         $chunk = max(10, $chunk);
@@ -23,6 +24,7 @@ class EngagementReconciler
         $fixed = 0;
         $works = 0;
         $creators = 0;
+        $collections = 0;
 
         CreatorPuzzle::query()->select('id', 'ratings_count', 'ratings_sum', 'favorites_count')->chunkById($chunk, function ($rows) use (&$drift, &$fixed, &$works, $dryRun) {
             $ids = $rows->pluck('id')->all();
@@ -77,7 +79,29 @@ class EngagementReconciler
             }
         });
 
-        return ['works' => $works, 'creators' => $creators, 'drift' => $drift, 'fixed' => $fixed];
+        // E35: saves_count للمجموعات (الصفوف user_collection_saves هي الحقيقة). المجموعات الخاصة بلا حفظ تُفحص أيضًا بلا كلفة (دفعة + تجميع واحد).
+        UserCollection::query()->select('id', 'saves_count')->chunkById($chunk, function ($rows) use (&$drift, &$fixed, &$collections, $dryRun) {
+            $ids = $rows->pluck('id')->all();
+            $collections += count($ids);
+
+            $saves = DB::table('user_collection_saves')->whereIn('user_collection_id', $ids)->groupBy('user_collection_id')
+                ->selectRaw('user_collection_id as id, COUNT(*) as c')->get()->keyBy('id');
+
+            foreach ($rows as $row) {
+                $actual = (int) ($saves[$row->id]->c ?? 0);
+
+                if ((int) $row->saves_count !== $actual) {
+                    $drift[] = ['table' => 'user_collections', 'id' => (int) $row->id, 'column' => 'saves_count', 'stored' => (int) $row->saves_count, 'actual' => $actual];
+
+                    if (! $dryRun) {
+                        $this->repairCollection((int) $row->id);
+                        $fixed++;
+                    }
+                }
+            }
+        });
+
+        return ['works' => $works, 'creators' => $creators, 'collections' => $collections, 'drift' => $drift, 'fixed' => $fixed];
     }
 
     protected function repairWork(int $id): void
@@ -89,6 +113,14 @@ class EngagementReconciler
             $f = DB::table('community_puzzle_favorites')->where('creator_puzzle_id', $id)->count();
 
             DB::table('creator_puzzles')->where('id', $id)->update(['ratings_count' => (int) $r->c, 'ratings_sum' => (int) $r->s, 'favorites_count' => (int) $f]);
+        });
+    }
+
+    protected function repairCollection(int $id): void
+    {
+        DB::transaction(function () use ($id) {
+            DB::table('user_collections')->where('id', $id)->lockForUpdate()->first(['id']);
+            DB::table('user_collections')->where('id', $id)->update(['saves_count' => DB::table('user_collection_saves')->where('user_collection_id', $id)->count()]);
         });
     }
 

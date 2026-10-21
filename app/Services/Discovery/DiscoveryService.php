@@ -10,8 +10,10 @@ use App\Models\Season;
 use App\Models\Team;
 use App\Models\TeamChampionship;
 use App\Models\User;
+use App\Services\Collections\CollectionDiscovery;
 use App\Services\CreatorSeries\CreatorSeriesDiscovery;
 use App\Services\Creators\CommunityDiscovery;
+use App\Services\Editorial\EditorialShelves;
 use Illuminate\Support\Collection;
 
 /**
@@ -22,7 +24,14 @@ use Illuminate\Support\Collection;
  */
 class DiscoveryService
 {
-    public function __construct(protected TrendingService $trending, protected RecommendationService $recommendations, protected CommunityDiscovery $community, protected CreatorSeriesDiscovery $series) {}
+    public function __construct(
+        protected TrendingService $trending,
+        protected RecommendationService $recommendations,
+        protected CommunityDiscovery $community,
+        protected CreatorSeriesDiscovery $series,
+        protected CollectionDiscovery $collections,
+        protected EditorialShelves $shelves,
+    ) {}
 
     /**
      * @return array{sections: list<array>, categories: Collection<int, PuzzleCategory>, personalized: bool}
@@ -40,6 +49,11 @@ class DiscoveryService
             ));
             $this->add($sections, 'for-you', 'مقترحة لك', 'sparkles', route('puzzles.index'), 'كل الأحجيات',
                 array_map(fn (array $r) => $this->puzzleCard($r['puzzle'], $r['reason']), $reco['puzzles']));
+        }
+
+        // E35: أرفف تحريرية يختارها فريق المنصة (موضع discover). تُحَلّ عناصرها حيًّا (المخفي/المحظور يسقط فورًا)، والرف الفارغ لا يظهر. تسبق الرائج.
+        foreach ($this->shelves->forPlacement('discover', $viewer) as $shelf) {
+            $this->add($sections, 'shelf-'.$shelf['key'], $shelf['title'], 'sparkles', null, null, $shelf['cards'], $shelf['subtitle']);
         }
 
         $this->add($sections, 'trending', 'الرائج هذا الأسبوع', 'bolt', route('puzzles.index'), 'كل الأحجيات',
@@ -67,6 +81,9 @@ class DiscoveryService
 
         $this->add($sections, 'community-series-following', 'سلاسل جديدة ممّن تتابعهم', 'grid', route('following.index'), 'كل ما ينشره من أتابعهم', $seriesSections['following']);
         $this->add($sections, 'community-series', 'سلاسل من المجتمع', 'grid', null, null, $seriesSections['new']);
+
+        // E35: «مجموعات من المجتمع» (عامة ∧ غير مخفية ∧ أمين مؤهل ∧ ≥3 أعمال ظاهرة)، وسم «مجموعة»، سقف لكل أمين؛ معزولة الفشل. قسم فارغ لا يظهر.
+        $this->add($sections, 'community-collections', 'مجموعات من المجتمع', 'inventory', null, null, $this->collections->safeCards($viewer));
 
         $seasons = Season::query()->join('campaigns', 'campaigns.id', '=', 'seasons.campaign_id')
             ->select('seasons.id', 'seasons.slug', 'seasons.is_featured', 'campaigns.title as campaign_title')
@@ -103,13 +120,13 @@ class DiscoveryService
     }
 
     /** @param list<array> $sections @param list<DiscoverCard> $cards */
-    protected function add(array &$sections, string $key, string $title, string $icon, ?string $href, ?string $linkLabel, array $cards): void
+    protected function add(array &$sections, string $key, string $title, string $icon, ?string $href, ?string $linkLabel, array $cards, ?string $subtitle = null): void
     {
         if ($cards === []) {
             return;
         }
 
-        $sections[] = ['key' => $key, 'title' => $title, 'icon' => $icon, 'href' => $href, 'linkLabel' => $linkLabel, 'cards' => array_values($cards)];
+        $sections[] = ['key' => $key, 'title' => $title, 'icon' => $icon, 'href' => $href, 'linkLabel' => $linkLabel, 'cards' => array_values($cards), 'subtitle' => $subtitle];
     }
 
     protected function puzzleCard(Puzzle $puzzle, ?string $reason): DiscoverCard

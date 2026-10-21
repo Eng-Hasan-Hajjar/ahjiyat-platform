@@ -22,7 +22,7 @@
                 <textarea id="description" name="description" rows="3" maxlength="{{ (int) config('engagement.collections.description_max') }}" class="input-gem" aria-describedby="description-error">{{ old('description', $collection?->description) }}</textarea>
                 @error('description') <p id="description-error" class="mt-1 text-xs font-bold text-rose" role="alert">{{ $message }}</p> @enderror
             </div>
-            <p class="text-xs text-slate-500">المجموعة خاصة بك دائمًا ولا يراها أحد غيرك.</p>
+            <p class="text-xs text-slate-500">{{ $editing ? 'العنوان والوصف نص عادي. تغيير ظهور المجموعة من صفحتها.' : 'تُنشأ المجموعة خاصة: أنت فقط. يمكنك مشاركتها لاحقًا من صفحتها.' }}</p>
             <div class="flex flex-wrap items-center gap-3">
                 <button type="submit" class="btn-gem !py-2.5 !px-6 text-sm">{{ $editing ? 'حفظ التعديلات' : 'إنشاء المجموعة' }}</button>
                 <a href="{{ $editing ? route('collections.show', $collection->public_id) : route('collections.index') }}" class="text-sm font-bold text-slate-400 hover:text-white underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">إلغاء</a>

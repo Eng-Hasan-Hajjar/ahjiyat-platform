@@ -93,5 +93,7 @@
                 <div><dd class="font-display font-black text-xl text-white">{{ $competitive['best_rank'] ?? '—' }}</dd><dt class="text-xs text-slate-400">أفضل مركز</dt></div>
             </dl>
         </section>
+
+        @include('players._collections')
     </div>
 @endsection
