@@ -55,6 +55,7 @@ class AchievementResource extends Resource
                             Achievement::CATEGORY_QUALIFICATIONS => 'تأهلات',
                             Achievement::CATEGORY_MASTERY => 'إتقان',
                             Achievement::CATEGORY_COMPETITIVE => 'منافسات',
+                            Achievement::CATEGORY_COMMUNITY => 'مجتمع',
                         ])
                         ->default(Achievement::CATEGORY_GENERAL)
                         ->native(false),
@@ -168,6 +169,7 @@ class AchievementResource extends Resource
                     Achievement::CATEGORY_QUALIFICATIONS => 'تأهلات',
                     Achievement::CATEGORY_MASTERY => 'إتقان',
                             Achievement::CATEGORY_COMPETITIVE => 'منافسات',
+                    Achievement::CATEGORY_COMMUNITY => 'مجتمع',
                 ]),
                 Tables\Filters\SelectFilter::make('condition_type')->label('نوع الشرط')
                     ->options(fn () => app(AchievementEvaluatorRegistry::class)->options()),

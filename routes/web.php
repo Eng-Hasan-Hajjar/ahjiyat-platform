@@ -284,3 +284,5 @@ require __DIR__.'/payments.php';
 require __DIR__.'/series.php';
 require __DIR__.'/referrals.php';
 require __DIR__.'/discussions.php';
+// E37: ترتيبات الجودة والسمعة المجتمعية (قراءة عامة فقط).
+require __DIR__.'/reputation.php';

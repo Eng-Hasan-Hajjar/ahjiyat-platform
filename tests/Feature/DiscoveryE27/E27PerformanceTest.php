@@ -78,7 +78,8 @@ test('P2: measured query ceilings hold on a warm cache - search and discovery ad
         ->and($count('search players page') - $basePlayer)->toBeLessThanOrEqual(5)
         ->and($count('search puzzles page') - $basePlayer)->toBeLessThanOrEqual(5);
     // الاكتشاف: قسم بكل استعلام محدود (مقيس 22). +1 منذ E30: قسم «سلاسل جديدة ممّن تتابعهم» (استعلام واحد محدود للمسجَّل؛ المنفرد من الكاش) - ويُقاس هنا بجلسة اللاعب الباقية من النقطة السابقة.
-    expect($count('discover guest'))->toBeLessThanOrEqual(27)->and($count('discover player'))->toBeLessThanOrEqual(29);
+    // E37: +3 للضيف و+4/5 للمسجَّل (قسما «مبدعون مختارون/صاعدون»: مختارون 1 + مرشحو الصاعدين 1 + ترشيح حيّ 1، وللمسجَّل حظر الاتجاهين 2) ⇒ 30 / 34.
+    expect($count('discover guest'))->toBeLessThanOrEqual(31)->and($count('discover player'))->toBeLessThanOrEqual(34);
 });
 
 test('P3: a cold cache costs a few extra queries once - then nothing until it expires', function () {
@@ -92,7 +93,7 @@ test('P3: a cold cache costs a few extra queries once - then nothing until it ex
     expect($cold)->toBeLessThanOrEqual(21)->and($warm)->toBeLessThan($cold)->and($cold - $warm)->toBeLessThanOrEqual(10);   // مجسّ الحجم لكل نوع مرة واحدة (10 أنواع منذ E35)
 
     e27_cold();
-    expect(e27_queries($endpoints['discover guest']))->toBeLessThanOrEqual(30);
+    expect(e27_queries($endpoints['discover guest']))->toBeLessThanOrEqual(34); // E37: +3 فوق 30 (أقسام المبدعين المختارين/الصاعدين)
 });
 
 test('P4: the cold trending computation is logarithmic in the number of attempts and the warm one is free', function () {

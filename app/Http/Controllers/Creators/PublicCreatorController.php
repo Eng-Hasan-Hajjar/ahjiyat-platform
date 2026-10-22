@@ -10,6 +10,8 @@ use App\Services\CreatorSeries\CreatorSeriesVisibilityService;
 use App\Services\Engagement\CreatorFollowService;
 use App\Services\Engagement\EngagementViewerState;
 use App\Services\PlayerIdentity\CosmeticLoadoutService;
+use App\Services\Reputation\CommunityRecognitionPresenter;
+use App\Services\Reputation\ReputationRankings;
 use Illuminate\Http\Request;
 
 /**
@@ -83,6 +85,29 @@ class PublicCreatorController extends Controller
             'followers' => (int) $creator->followers_count,
             'quality' => $this->quality->creatorSummary((int) ($totals->rated ?? 0), (int) ($totals->rated_sum ?? 0)),
             'savedIds' => $this->viewerState->favoriteIds($user, $works->getCollection()->pluck('id')->all()),
+            // E37: اعتراف مجتمعي (إنجازات بلا مكافآت) + شارة «مبدع مختار». معزول الفشل ولا يعتمد عليه عرض الصفحة؛ لا درجات خام ولا مؤشرات خاصة.
+            'reputation' => $this->reputation($creator),
         ]);
+    }
+
+    /** @return array{featured: bool, badges: list<string>}|null */
+    protected function reputation(CreatorProfile $creator): ?array
+    {
+        if (! config('reputation.enabled', true)) {
+            return null;
+        }
+
+        try {
+            $recognition = app(CommunityRecognitionPresenter::class)->forUser((int) $creator->user_id);
+
+            return [
+                'featured' => app(ReputationRankings::class)->isFeatured((int) $creator->id),
+                'badges' => array_values(array_unique(array_merge($recognition['tier'] !== null ? [$recognition['tier']] : [], $recognition['groups']['creator']))),
+            ];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 }

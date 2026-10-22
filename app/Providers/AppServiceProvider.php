@@ -272,6 +272,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('discussion-report', fn (Request $request) => [Limit::perMinute(max(1, (int) config('discussions.limits.report_per_minute')))->by('dsp:'.($request->user()?->id ?: $request->ip())), Limit::perHour(max(1, (int) config('discussions.limits.report_per_hour')))->by('dsph:'.($request->user()?->id ?: $request->ip()))]);
         RateLimiter::for('discussion-read', fn (Request $request) => Limit::perMinute(max(1, (int) config('discussions.limits.read_per_minute')))->by('dsv:'.($request->user()?->id ?: $request->ip())));
 
+        // E37: قراءة صفحة ترتيبات الجودة العامة (قراءة فقط من لقطات مشتقّة مع إعادة فحص حيّ؛ لا إجراء كتابة علني أبدًا).
+        RateLimiter::for('reputation-read', fn (Request $request) => Limit::perMinute(90)->by('rpr:'.($request->user()?->id ?: $request->ip())));
+
         // E30: قراءات الرعاة والسلاسل العامة (صفحات عرض فقط) بحدّ معتدل لكل مستخدم/عنوان؛ إجراءات استوديو السلاسل تُعيد استعمال محدّدات المبدعين (creator-draft-create / creator-submit).
         RateLimiter::for('supporters-read', fn (Request $request) => Limit::perMinute(120)->by('spr:'.($request->user()?->id ?: $request->ip())));
         RateLimiter::for('series-read', fn (Request $request) => Limit::perMinute(120)->by('ser:'.($request->user()?->id ?: $request->ip())));

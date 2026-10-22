@@ -85,6 +85,11 @@ class DiscoveryService
         // E35: «مجموعات من المجتمع» (عامة ∧ غير مخفية ∧ أمين مؤهل ∧ ≥3 أعمال ظاهرة)، وسم «مجموعة»، سقف لكل أمين؛ معزولة الفشل. قسم فارغ لا يظهر.
         $this->add($sections, 'community-collections', 'مجموعات من المجتمع', 'inventory', null, null, $this->collections->safeCards($viewer));
 
+        // E37: «مبدعون مختارون» (تحريري) و«مبدعون صاعدون» (جودة حديثة) بعدد قليل ورابط لصفحة الترتيبات؛ معزولة الفشل، تحترم الحظر. قسم فارغ لا يظهر.
+        $reputation = app(\App\Services\Reputation\ReputationDiscovery::class)->safeSections($viewer);
+        $this->add($sections, 'community-featured-creators', 'مبدعون مختارون', 'trophy', route('community.rankings'), 'ترتيبات المجتمع', $reputation['featured']);
+        $this->add($sections, 'community-rising-creators', 'مبدعون صاعدون', 'sparkles', route('community.rankings'), 'ترتيبات المجتمع', $reputation['rising']);
+
         $seasons = Season::query()->join('campaigns', 'campaigns.id', '=', 'seasons.campaign_id')
             ->select('seasons.id', 'seasons.slug', 'seasons.is_featured', 'campaigns.title as campaign_title')
             ->where('seasons.is_published', true)->orderByDesc('seasons.is_featured')->orderByDesc('seasons.id')

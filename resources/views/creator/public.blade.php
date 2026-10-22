@@ -16,6 +16,11 @@
                 <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                     <h1 id="creator-name" class="font-display font-black text-2xl md:text-3xl text-white break-words">{{ $creator->user->name }}</h1>
                     <x-status-badge tone="primary" icon="palette">مبدع</x-status-badge>
+                    {{-- E37: «مبدع مختار» (إبراز تحريري) + اعتراف مجتمعي من الإنجازات (بلا مكافآت). يُعرض فقط ما فُتح فعلًا. --}}
+                    @if (! empty($reputation['featured'])) <x-status-badge tone="warning" icon="trophy" data-featured-creator>مبدع مختار</x-status-badge> @endif
+                    @foreach (array_slice($reputation['badges'] ?? [], 0, 4) as $badge)
+                        <x-status-badge tone="neutral" :small="true" data-community-recognition>{{ $badge }}</x-status-badge>
+                    @endforeach
                 </div>
                 @if ($creator->bio)
                     <p class="mt-2 text-sm text-slate-300 break-words whitespace-pre-line max-w-2xl">{{ $creator->bio }}</p>

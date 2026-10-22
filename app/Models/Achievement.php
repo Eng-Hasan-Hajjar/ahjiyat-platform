@@ -17,6 +17,7 @@ class Achievement extends Model
     public const CATEGORY_QUALIFICATIONS = 'qualifications';
     public const CATEGORY_MASTERY = 'mastery';
     public const CATEGORY_COMPETITIVE = 'competitive';
+    public const CATEGORY_COMMUNITY = 'community';
 
     protected static function booted(): void
     {

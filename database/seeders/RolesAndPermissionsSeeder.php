@@ -125,6 +125,11 @@ class RolesAndPermissionsSeeder extends Seeder
         $this->grantIfMissing('administrator', ['discussions.view', 'discussions.moderate']);
         $this->grantIfMissing('moderator', ['discussions.view', 'discussions.moderate']);
 
+        // E37: المدير العام يملك الكل؛ مدير المحتوى يعرض مركز السمعة ويختار «مبدعًا مختارًا» (تحريري)؛ المشرف يعرض فقط (لا يغيّر الاعتراف ولا الإبراز). لا دعم ولا مبدع.
+        $this->grantIfMissing('administrator', ['reputation.view', 'reputation.manage', 'reputation.feature']);
+        $this->grantIfMissing('content-manager', ['reputation.view', 'reputation.feature']);
+        $this->grantIfMissing('moderator', ['reputation.view']);
+
         $this->grantIfMissing('moderator', [
             'users.view_security',
             'users.view_activity',

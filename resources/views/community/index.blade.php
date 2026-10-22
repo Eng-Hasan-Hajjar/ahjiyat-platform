@@ -16,6 +16,9 @@
                     <a href="{{ route('following.index') }}" class="chip !py-2 text-sm">من أتابعهم</a>
                     <a href="{{ route('collections.index') }}" class="chip !py-2 text-sm">مجموعاتي</a>
                 @endif
+                @if (config('reputation.enabled', true))
+                    <a href="{{ route('community.rankings') }}" class="chip !py-2 text-sm">ترتيبات المجتمع</a>
+                @endif
                 <a href="{{ route('puzzles.index') }}" class="chip !py-2 text-sm">الأحجيات الرسمية</a>
             </x-slot:actions>
         </x-page-header>

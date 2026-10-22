@@ -28,6 +28,7 @@ class AchievementInvariantGuard
         $this->normalizeScope($achievement);
         $this->assertTargetValue($achievement);
         $this->assertRewardItemNotManual($achievement);
+        $this->assertCommunityRecognitionHasNoRewards($achievement);
     }
 
     public function enforceDeletable(Achievement $achievement): void
@@ -90,6 +91,23 @@ class AchievementInvariantGuard
 
         if ($item !== null && $item->fulfillment_type === StoreItem::FULFILLMENT_MANUAL) {
             throw new StoreItemInvariantViolation('لا يمكن اختيار عنصر يدوي التسليم كمكافأة تلقائية لإنجاز.');
+        }
+    }
+
+    /**
+     * E37: الاعتراف المجتمعي اعتراف لا اقتصاد: لا XP ولا عملة ولا عنصر متجر على أي إنجاز من أنواع الاعتراف
+     * (السمعة لا تُشترى ولا تُحوَّل إلى جواهر/XP ولا تفتح مكافآت؛ حتى لا يصير الاعتراف حافزًا لتضخيم المؤشرات).
+     */
+    protected function assertCommunityRecognitionHasNoRewards(Achievement $achievement): void
+    {
+        if (! in_array($achievement->condition_type, AchievementEvaluatorRegistry::COMMUNITY_TYPES, true)) {
+            return;
+        }
+
+        if ((int) $achievement->xp_reward > 0
+            || $achievement->reward_currency_id !== null || (int) $achievement->reward_currency_amount > 0
+            || $achievement->reward_store_item_id !== null) {
+            throw new StoreItemInvariantViolation('إنجازات الاعتراف المجتمعي لا تحمل مكافآت (لا XP ولا عملة ولا عناصر): السمعة اعتراف لا اقتصاد.');
         }
     }
 }

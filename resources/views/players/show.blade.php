@@ -48,6 +48,15 @@
             </p>
         @endif
 
+        {{-- E37: اعتراف مجتمعي (إنجازات منسّق/مساهم/مبدع المفتوحة). تقدير فقط: بلا مكافآت وبلا درجات وبلا أي أثر اقتصادي. --}}
+        @if (! empty($recognition))
+            <ul class="flex flex-wrap gap-2 anim-fade-up" aria-label="اعتراف مجتمعي" data-community-recognition-list>
+                @foreach ($recognition as $badge)
+                    <li><x-status-badge tone="primary" :small="true" icon="sparkles">{{ $badge }}</x-status-badge></li>
+                @endforeach
+            </ul>
+        @endif
+
         @if (! $isOwner && $friendRelation !== null)
             <section class="glass rounded-2xl px-4 py-3 anim-fade-up" aria-label="العلاقة مع {{ $player->name }}">
                 @include('friends._actions', ['other' => $player, 'relation' => $friendRelation, 'withBlock' => true])

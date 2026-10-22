@@ -68,7 +68,8 @@ test('AA11-108: the creator page is bounded for guests and signed-in viewers', f
     $this->app['auth']->forgetGuards();
 
     // الضيف 8 = رقم E28 (7) + استعلام E30 واحد محدود لقسم «سلاسله» (قاعدة الظهور المركزية، LIMIT ثابت) - لا استعلام تفاعل للضيف؛ المسجَّل +استعلامان فقط فوق الجرس/التقدّم: حالة المتابعة (exists) + مفضلة البطاقات (دفعة واحدة).
-    expect($userMany)->toBe($userOne)->and($userMany)->toBeLessThanOrEqual(18)->and($guestOne)->toBe(8);
+    // E37: +2 للجميع (مبدع مختار: exists واحد + اعتراف الإنجازات المفتوح: استعلام مجمَّع واحد) ⇒ الضيف 10، المسجَّل ≤ 20. لا علاقة لها بعدد الأعمال أو الاعتراف (ثابتة).
+    expect($userMany)->toBe($userOne)->and($userMany)->toBeLessThanOrEqual(20)->and($guestOne)->toBe(10);
 });
 
 test('AA11-109: 1 vs 12 community cards cost the same queries (no N+1), saved state is one batched query', function () {
@@ -97,7 +98,8 @@ test('AA11-110: the discover page query count is bounded with engagement signals
     $cold = e27_queries(fn () => $this->get(route('discover.index'))->assertOk());
 
     // القياس: دافئ 27، بارد 34 لمستخدم مسجَّل لديه متابعة ومفضلة وأعمال مقيَّمة. (+3 فوق E28: الأعلى تقييمًا، من أتابعهم، تفضيلات المشاهد.)
-    expect($warm)->toBeLessThanOrEqual(30)->and($cold)->toBeLessThanOrEqual(38);
+    // E37: +4 على Discover للمسجَّل (قسما «مبدعون مختارون/صاعدون»: المختارون 1 + مرشحو الصاعدين 1 + ترشيح حيّ 1 + حظر الاتجاهين 2 ≈ +4/5) ⇒ دافئ ≤ 34، بارد ≤ 44.
+    expect($warm)->toBeLessThanOrEqual(34)->and($cold)->toBeLessThanOrEqual(44);
 });
 
 test('AA11-111: the star control and engagement panel render for a player without extra per-card work', function () {

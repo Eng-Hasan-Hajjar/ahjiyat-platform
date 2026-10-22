@@ -44,7 +44,33 @@ class PlayerProfileController extends Controller
             'supporter' => $this->supporterBadge($user),
             // E35: مجموعات المجتمع العامة لهذا اللاعب (المُدرَجة علنًا الآن فقط)؛ معزولة الفشل.
             'collections' => $this->curatedCollections($user, $viewer),
+            // E37: اعتراف مجتمعي (منسّق/مساهم/مبدع) من الإنجازات المفتوحة فقط، بلا مكافآت وبلا درجات؛ معزول الفشل.
+            'recognition' => $this->communityRecognition($user),
         ]);
+    }
+
+    /** @return list<string> أسماء اعتراف مجتمعي مفتوح (بحدّ أقصى 6) */
+    protected function communityRecognition(User $user): array
+    {
+        if (! config('reputation.enabled', true)) {
+            return [];
+        }
+
+        try {
+            $recognition = app(\App\Services\Reputation\CommunityRecognitionPresenter::class)->forUser((int) $user->id);
+            $badges = $recognition['badges'];
+
+            // اعتراف «المبدع» يُعرض فقط لمبدع معتمَد الآن (المعلَّق لا يحمل شارة مبدع علنًا؛ الاعتراف التاريخي محفوظ ويعود بالاستعادة).
+            if (! \App\Models\CreatorProfile::query()->where('user_id', $user->id)->where('status', \App\Models\CreatorProfile::STATUS_APPROVED)->exists()) {
+                $badges = array_values(array_diff($badges, $recognition['groups']['creator'], $recognition['tier'] !== null ? [$recognition['tier']] : []));
+            }
+
+            return array_slice($badges, 0, 6);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
     }
 
     /** @return \Illuminate\Support\Collection<int, object> */

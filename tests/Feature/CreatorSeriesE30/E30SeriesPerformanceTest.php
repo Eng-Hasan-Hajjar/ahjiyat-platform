@@ -94,7 +94,8 @@ test('AM15-141: 5 vs 25 items do not explode the query count (series page, studi
         'discover' => fn () => $this->get(route('discover.index'))->assertOk(),
         'creator profile' => fn () => $this->get(route('creators.show', $large->creatorProfile()->value('slug')))->assertOk(),
     ] as $name => $request) {
-        expect($measure($request))->toBeLessThanOrEqual(40, $name.' is not bounded');
+        // E37: +4/5 استعلامات ثابتة على Discover (أقسام المبدعين المختارين/الصاعدين) ⇒ السقف 40 → 46؛ الحدّ ما زال مستقلًا عن عدد العناصر.
+        expect($measure($request))->toBeLessThanOrEqual(46, $name.' is not bounded');
     }
 });
 

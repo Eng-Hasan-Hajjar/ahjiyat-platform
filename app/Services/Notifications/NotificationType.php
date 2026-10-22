@@ -98,6 +98,7 @@ enum NotificationType: string
     case CommentReplyReceived = 'comment_reply_received';
     case NewCommentOnYourContent = 'new_comment_on_your_content';
     case CommentHidden = 'comment_hidden';
+    case FeaturedCreatorSelected = 'featured_creator_selected';
 
     public function category(): NotificationCategory
     {
@@ -120,7 +121,7 @@ enum NotificationType: string
             self::SupportRequestReceived, self::SupportActionRequired, self::SupportRejected, self::SupportRefunded,
             self::SeriesApproved, self::SeriesChangesRequested, self::SeriesRejected, self::SeriesHidden, self::CreatorNewSeries,
             self::CollectionHidden, self::CollectionRestored,
-            self::CommentReplyReceived, self::NewCommentOnYourContent, self::CommentHidden,
+            self::CommentReplyReceived, self::NewCommentOnYourContent, self::CommentHidden, self::FeaturedCreatorSelected,
             self::ReferralQualified, self::ReferralRewardReceived => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::EventStartingSoon,
@@ -197,6 +198,7 @@ enum NotificationType: string
             self::CommentReplyReceived => 51,
             self::NewCommentOnYourContent => 52,
             self::CommentHidden => 53,
+            self::FeaturedCreatorSelected => 54,
         };
     }
 
@@ -252,6 +254,7 @@ enum NotificationType: string
             self::CommentReplyReceived => '💬',
             self::NewCommentOnYourContent => '🗨️',
             self::CommentHidden => '🚫',
+            self::FeaturedCreatorSelected => '⭐',
         };
     }
 
@@ -291,6 +294,7 @@ enum NotificationType: string
             self::ReferralQualified, self::ReferralRewardReceived => ['referrals.index'],
             self::CollectionHidden, self::CollectionRestored => ['collections.index', 'collections.show'],
             self::CommentReplyReceived, self::NewCommentOnYourContent, self::CommentHidden => ['discussions.permalink'],
+            self::FeaturedCreatorSelected => ['creators.show'],
         };
     }
 
@@ -357,6 +361,7 @@ enum NotificationType: string
             self::CommentReplyReceived => 'ردّ جديد على تعليقك'.(! empty($params['title']) ? ' في: '.$params['title'] : ''),
             self::NewCommentOnYourContent => 'تعليق جديد على محتواك'.(! empty($params['title']) ? ': '.$params['title'] : ''),
             self::CommentHidden => 'أُخفي تعليقك من قبل الإشراف',
+            self::FeaturedCreatorSelected => 'اختارك فريق المنصة «مبدعًا مختارًا»',
             self::SupporterTierChanged => ! empty($params['up'])
                 ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
                 : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
@@ -431,6 +436,7 @@ enum NotificationType: string
             self::CommentHidden => ! empty($params['reason'])
                 ? 'السبب: '.$params['reason'].'. لا يظهر تعليقك للآخرين الآن. يمكنك الالتزام بإرشادات المنصة في تعليقاتك القادمة.'
                 : 'لا يظهر تعليقك للآخرين الآن. يمكنك الالتزام بإرشادات المنصة في تعليقاتك القادمة.',
+            self::FeaturedCreatorSelected => 'يظهر ملفك ضمن «مبدعون مختارون» تقديرًا لأعمالك. الاختيار تحريري بقرار الفريق ولا يتأثر بأي دعم أو دفع.',
             self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
             self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
             self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',
