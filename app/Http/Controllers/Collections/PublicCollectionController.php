@@ -7,6 +7,8 @@ use App\Http\Requests\Collections\CollectionReportRequest;
 use App\Services\Collections\CollectionAccess;
 use App\Services\Collections\CollectionReportService;
 use App\Services\Collections\CollectionSaveService;
+use App\Services\Discussions\DiscussionPage;
+use App\Services\Discussions\DiscussionSubjectRegistry;
 use App\Services\Engagement\EngagementException;
 use App\Services\Engagement\EngagementLists;
 use Illuminate\Http\RedirectResponse;
@@ -28,6 +30,8 @@ class PublicCollectionController extends Controller
         protected CollectionAccess $access,
         protected CollectionSaveService $saves,
         protected CollectionReportService $reports,
+        protected DiscussionPage $discussionPage,
+        protected DiscussionSubjectRegistry $discussionSubjects,
     ) {}
 
     public function show(Request $request, EngagementLists $lists, string $collection)
@@ -50,6 +54,8 @@ class PublicCollectionController extends Controller
             'isSaved' => $viewer !== null && ! $isOwner && isset($this->saves->savedAmong($viewer, [(int) $model->id])[(int) $model->id]),
             'hasReported' => $viewer !== null && ! $isOwner && $this->reports->hasOpenReport($viewer, (int) $model->id),
             'coverUrl' => $coverPath !== null ? Storage::url($coverPath) : null,
+            // E36: نقاش المجموعات **العامة** فقط (غير المدرجة/الخاصة بلا نقاش: forCollection يعيد null).
+            'discussion' => $this->discussionPage->for($request, $this->discussionSubjects->forCollection($model)),
         ]);
     }
 

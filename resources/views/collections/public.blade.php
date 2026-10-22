@@ -93,6 +93,11 @@
             <div class="flex justify-center">{{ $works->links() }}</div>
         @endif
 
+        {{-- E36: نقاش المجموعات العامة فقط (غير المدرجة لا نقاش لها: لا يصل إلى هنا شيء). --}}
+        @if (! empty($discussion))
+            @include('discussions._section', ['d' => $discussion])
+        @endif
+
         @auth
             @if (! $isOwner && $canInteract)
                 <details class="glass rounded-2xl p-5 anim-fade-up" data-collection-report>

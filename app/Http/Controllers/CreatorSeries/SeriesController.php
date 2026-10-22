@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\CreatorSeries;
 use App\Services\CreatorSeries\CreatorSeriesProgressService;
 use App\Services\CreatorSeries\CreatorSeriesVisibilityService;
+use App\Services\Discussions\DiscussionPage;
+use App\Services\Discussions\DiscussionSubjectRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,6 +22,8 @@ class SeriesController extends Controller
     public function __construct(
         protected CreatorSeriesVisibilityService $visibility,
         protected CreatorSeriesProgressService $progress,
+        protected DiscussionPage $discussionPage,
+        protected DiscussionSubjectRegistry $discussionSubjects,
     ) {}
 
     public function show(Request $request, string $series)
@@ -54,6 +58,8 @@ class SeriesController extends Controller
             'canPlay' => $canPlay,
             'coverUrl' => $model->publishedCoverUrl(),
             'continueId' => $progress['next_public_id'] ?? $items->first()?->public_id,
+            // E36: قسم النقاش المضمَّن (null = معطَّل أو فشل قراءته).
+            'discussion' => $this->discussionPage->for($request, $this->discussionSubjects->forSeries($model)),
         ]);
     }
 }

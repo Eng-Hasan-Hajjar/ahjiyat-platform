@@ -16,6 +16,8 @@ final class EngagementCounters
         'creator_puzzles' => ['ratings_count', 'ratings_sum', 'favorites_count'],
         'creator_profiles' => ['followers_count'],
         'user_collections' => ['saves_count'], // E35: عدّاد حفظ المجموعات (مميَّزون بقيد فريد)
+        'discussion_threads' => ['comments_count'], // E36: التعليقات الحيّة الظاهرة بالنقاش (تحدّثه خدمات النقاش وحدها)
+        'discussion_comments' => ['likes_count'], // E36: إعجابات مميَّزة (قيد فريد مستخدم/تعليق)
     ];
 
     /** @param array<string, int> $deltas عمود => فرق (موجب أو سالب) */

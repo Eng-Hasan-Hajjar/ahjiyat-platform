@@ -31,6 +31,9 @@ namespace App\Services\Notifications;
  *  - E34 LiveOps: LiveOpsReminderService (مجدول ساعيًا، قراءة فقط من حالة اللعب) → mission_expiring / weekly_missions_available / event_starting_soon / comeback_available.
  *    فئات قائمة فقط (Quest للمهام والعودة، Competitive لبدء المنافسة) فتخضع لتفضيلات المستخدم القائمة؛ **ليست** تذكيرات استعادية (لا تدخل ميزانية E15 ولا قائمتها)
  *    وبسقف يومي خاص بها يحترم ميزانية E15 أيضًا. بلا لغة ضغط ولا عقوبة ولا مكافأة مشروطة بالعودة.
+ *  - E36 نقاشات: DiscussionNotifier بعد الـcommit → comment_reply_received (لكاتب التعليق الجذري حين يُردّ عليه؛ إشعار واحد كحدّ أقصى لكل جذر في نافذة) /
+ *    new_comment_on_your_content (لمالك المحتوى بتعليق جديد؛ إشعار واحد كحدّ أقصى لكل نقاش في نافذة) / comment_hidden (لكاتب التعليق عند إخفائه إشرافيًا)، فئة social.
+ *    لا إشعار على إعجاب ولا بلاغ ولا قفل، ولا ذاتي، ولا اسم للمعلِّق (النص لا يحمل هوية)، وفشله لا يمسّ التعليق.
  *  - E35 مجموعات: CollectionModerationService بعد الـcommit → collection_hidden / collection_restored (لمالك المجموعة فقط، فئة social). لا إشعار على نشر/حفظ/بلاغ/ترتيب/رف: لا لحافظ ولا لصاحب مجموعة ولا للمبلِّغ.
  */
 enum NotificationType: string
@@ -92,6 +95,9 @@ enum NotificationType: string
     case ComebackAvailable = 'comeback_available';
     case CollectionHidden = 'collection_hidden';
     case CollectionRestored = 'collection_restored';
+    case CommentReplyReceived = 'comment_reply_received';
+    case NewCommentOnYourContent = 'new_comment_on_your_content';
+    case CommentHidden = 'comment_hidden';
 
     public function category(): NotificationCategory
     {
@@ -114,6 +120,7 @@ enum NotificationType: string
             self::SupportRequestReceived, self::SupportActionRequired, self::SupportRejected, self::SupportRefunded,
             self::SeriesApproved, self::SeriesChangesRequested, self::SeriesRejected, self::SeriesHidden, self::CreatorNewSeries,
             self::CollectionHidden, self::CollectionRestored,
+            self::CommentReplyReceived, self::NewCommentOnYourContent, self::CommentHidden,
             self::ReferralQualified, self::ReferralRewardReceived => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::EventStartingSoon,
@@ -187,6 +194,9 @@ enum NotificationType: string
             self::ComebackAvailable => 48,
             self::CollectionHidden => 49,
             self::CollectionRestored => 50,
+            self::CommentReplyReceived => 51,
+            self::NewCommentOnYourContent => 52,
+            self::CommentHidden => 53,
         };
     }
 
@@ -239,6 +249,9 @@ enum NotificationType: string
             self::ComebackAvailable => '👋',
             self::CollectionHidden => '🚫',
             self::CollectionRestored => '✅',
+            self::CommentReplyReceived => '💬',
+            self::NewCommentOnYourContent => '🗨️',
+            self::CommentHidden => '🚫',
         };
     }
 
@@ -277,6 +290,7 @@ enum NotificationType: string
             self::SupportRequestReceived, self::SupportActionRequired, self::SupportRejected, self::SupportRefunded => ['support.payments.show', 'support.history'],
             self::ReferralQualified, self::ReferralRewardReceived => ['referrals.index'],
             self::CollectionHidden, self::CollectionRestored => ['collections.index', 'collections.show'],
+            self::CommentReplyReceived, self::NewCommentOnYourContent, self::CommentHidden => ['discussions.permalink'],
         };
     }
 
@@ -340,6 +354,9 @@ enum NotificationType: string
             self::ComebackAvailable => 'مرحبًا بعودتك',
             self::CollectionHidden => 'أُخفيت مجموعتك من المنصة: '.($params['title'] ?? ''),
             self::CollectionRestored => 'استُعيدت مجموعتك: '.($params['title'] ?? ''),
+            self::CommentReplyReceived => 'ردّ جديد على تعليقك'.(! empty($params['title']) ? ' في: '.$params['title'] : ''),
+            self::NewCommentOnYourContent => 'تعليق جديد على محتواك'.(! empty($params['title']) ? ': '.$params['title'] : ''),
+            self::CommentHidden => 'أُخفي تعليقك من قبل الإشراف',
             self::SupporterTierChanged => ! empty($params['up'])
                 ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
                 : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
@@ -409,6 +426,11 @@ enum NotificationType: string
             self::ComebackAvailable => 'جهّزنا لك خطوات سهلة للعودة: أحجية بسيطة ومهمة خفيفة. كل ما اكتسبته سابقًا محفوظ.',
             self::CollectionHidden => static::withNote('أخفاها فريق الإشراف، ولا تظهر للآخرين الآن. يمكنك تعديلها أو حذفها من «مجموعاتي».', $params),
             self::CollectionRestored => 'رفع فريق الإشراف الإخفاء عن مجموعتك. يعود ظهورها بحسب إعدادك (خاصة / غير مدرجة / عامة).',
+            self::CommentReplyReceived => 'ردّ أحد الأعضاء على تعليقك. اطّلع على الرد من النقاش.',
+            self::NewCommentOnYourContent => 'بدأ نقاش جديد أو أُضيف تعليق على محتواك. نرسل لك إشعارًا واحدًا فقط كل فترة حتى لا يغرقك نقاش نشط.',
+            self::CommentHidden => ! empty($params['reason'])
+                ? 'السبب: '.$params['reason'].'. لا يظهر تعليقك للآخرين الآن. يمكنك الالتزام بإرشادات المنصة في تعليقاتك القادمة.'
+                : 'لا يظهر تعليقك للآخرين الآن. يمكنك الالتزام بإرشادات المنصة في تعليقاتك القادمة.',
             self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
             self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
             self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',

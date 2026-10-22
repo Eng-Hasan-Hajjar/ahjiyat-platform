@@ -24,7 +24,8 @@ test('AA11-105: the puzzle page query count is bounded and independent of rating
     $guest = e27_queries(fn () => $this->get(route('community.puzzles.show', $work->public_id))->assertOk());
 
     // القياس الفعلي: لاعب 15 (E28 كان يقيس 17 بحالة محلولة)، ضيف 5 = رقم E28 نفسه: التفاعل لا يضيف استعلامًا واحدًا للضيف (المتوسط والعدّادات أعمدة العمل نفسه).
-    expect($many)->toBe($few)->and($many)->toBeLessThanOrEqual(17)->and($guest)->toBe(5);
+    // E36: قسم النقاش يضيف قراءة نقاش واحدة للجميع (+1) وللمسجَّل قراءتي الحظر المتماثل (+2): القياس الفعلي لاعب 18 (كان 15) وضيف 6 (كان 5). ثابت مهما كان عدد التعليقات (انظر E36-093).
+    expect($many)->toBe($few)->and($many)->toBeLessThanOrEqual(19)->and($guest)->toBe(6);
 });
 
 test('AA11-106: the favorites list is bounded (same queries for 2 and 12 items)', function () {

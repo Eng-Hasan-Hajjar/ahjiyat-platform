@@ -13,6 +13,8 @@ use App\Services\Creators\CommunityPlayService;
 use App\Services\Creators\CommunityReportService;
 use App\Services\CreatorSeries\CreatorSeriesNavigator;
 use App\Services\Creators\CreatorException;
+use App\Services\Discussions\DiscussionPage;
+use App\Services\Discussions\DiscussionSubjectRegistry;
 use App\Services\Engagement\CollectionService;
 use App\Services\Engagement\EngagementViewerState;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +33,8 @@ class CommunityPuzzleController extends Controller
         protected EngagementViewerState $viewerState,
         protected CollectionService $collections,
         protected CreatorSeriesNavigator $seriesNavigator,
+        protected DiscussionPage $discussionPage,
+        protected DiscussionSubjectRegistry $discussionSubjects,
     ) {}
 
     public function index(Request $request)
@@ -83,6 +87,8 @@ class CommunityPuzzleController extends Controller
             'isOwner' => $isOwner,
             'canInteract' => $canInteract,
             'reasons' => CommunityPuzzleReport::REASONS,
+            // E36: قسم النقاش المضمَّن (null = معطَّل أو فشل قراءته؛ الصفحة تُرسَم كاملة بدونه). نقاش لا يمسّ اللعب ولا الاقتصاد.
+            'discussion' => $this->discussionPage->for($request, $this->discussionSubjects->forWork($work)),
         ]);
     }
 

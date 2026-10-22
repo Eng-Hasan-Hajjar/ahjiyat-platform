@@ -33,7 +33,8 @@ test('AM15-140: the public series page runs a small bounded number of queries (g
     $this->actingAs($player);
     $signedIn = e27_queries(fn () => $this->get(route('series.show', $series->public_id))->assertOk());
 
-    expect($guest)->toBeLessThanOrEqual(10)->and($signedIn)->toBeLessThanOrEqual(14);
+    // E36: قسم النقاش على الصفحة يضيف قراءة نقاش واحدة للجميع (+1) وللمسجَّل قراءتي الحظر المتماثل (+2): القياس الفعلي ضيف 6 (كان 5) ومسجَّل 16 (كان 13).
+    expect($guest)->toBeLessThanOrEqual(10)->and($signedIn)->toBeLessThanOrEqual(17);
 });
 
 test('AM15-141: 5 vs 25 items do not explode the query count (series page, studio, creator profile, search, discovery)', function () {

@@ -89,6 +89,11 @@
         {{-- E29: التقييم والمفضلة والمجموعات (المتوسط والعدّادات علنية للجميع؛ التفاعل للموثَّق غير المجمَّد وغير المالك) --}}
         @include('engagement._work_panel', ['work' => $work, 'isOwner' => $isOwner, 'canInteract' => $canInteract, 'viewer' => $viewer, 'collections' => $collections])
 
+        {{-- E36: النقاش (تعليقات وردود وإعجابات). لا جواهر ولا XP؛ null = معطَّل أو تعذّر تحميله فيُرسَم باقي الصفحة. --}}
+        @if (! empty($discussion))
+            @include('discussions._section', ['d' => $discussion])
+        @endif
+
         @auth
             @if (! $isOwner && $canInteract)
                 <details class="glass rounded-2xl p-5 anim-fade-up">

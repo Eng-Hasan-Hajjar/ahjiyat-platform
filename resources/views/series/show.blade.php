@@ -93,5 +93,10 @@
                 @endforeach
             </ol>
         </section>
+
+        {{-- E36: نقاش السلسلة (تعليقات وردود وإعجابات). لا جواهر ولا XP. --}}
+        @if (! empty($discussion))
+            @include('discussions._section', ['d' => $discussion])
+        @endif
     </div>
 @endsection

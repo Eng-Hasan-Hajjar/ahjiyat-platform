@@ -121,6 +121,10 @@ class RolesAndPermissionsSeeder extends Seeder
         $this->grantIfMissing('moderator', ['collections.view', 'collections.moderate']);
         $this->grantIfMissing('content-manager', ['collections.view', 'editorial.view', 'editorial.manage']);
 
+        // E36: المدير العام والمشرف فقط يعرضان النقاشات ويشرفان عليها (إخفاء/استعادة/قفل/بلاغات). لا مدير محتوى ولا دعم ولا مالك محتوى.
+        $this->grantIfMissing('administrator', ['discussions.view', 'discussions.moderate']);
+        $this->grantIfMissing('moderator', ['discussions.view', 'discussions.moderate']);
+
         $this->grantIfMissing('moderator', [
             'users.view_security',
             'users.view_activity',

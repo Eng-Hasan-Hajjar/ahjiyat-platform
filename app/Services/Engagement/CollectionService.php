@@ -71,6 +71,8 @@ class CollectionService
         $collection = $this->owned($user, $publicId);
 
         DB::transaction(function () use ($collection) {
+            // E36: نقاش المجموعة العامة (تعليقات/إعجابات/بلاغات) يُحذف معها فلا يبقى يتيمًا.
+            app(\App\Services\Discussions\DiscussionCleanup::class)->forSubject(\App\Models\DiscussionThread::TYPE_PUBLIC_COLLECTION, (int) $collection->id);
             UserCollectionItem::query()->where('user_collection_id', $collection->id)->delete();
             $collection->delete();
         });

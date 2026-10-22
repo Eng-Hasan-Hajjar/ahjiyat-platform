@@ -46,6 +46,16 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        // E36: قبل E29 (ترتيب التسجيل = ترتيب التنفيذ): إعجابات المستخدم تُنقَص عدّاداتها، وتعليقاته تصير لحودًا محذوفة، ونقاشات مجموعاته العامة تُحذف قبل أن تحذفها E29.
+        // فشل التنظيف لا يمنع الحذف؛ discussions:reconcile يكشف أي يتيم أو انحراف.
+        User::deleting(function (User $user) {
+            try {
+                app(\App\Services\Discussions\DiscussionCleanup::class)->purgeUser($user);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        });
+
         // E29: قبل حذف أي حساب تُنقَص عدّادات ما تفاعل معه (مفضلة/متابعات) فتبقى المجمَّعات دقيقة؛ الصفوف نفسها تتتابع بقيد القاعدة، والتقييمات تبقى مجهولة الهوية.
         // فشل التنظيف لا يمنع الحذف؛ community:reconcile-engagement يصلح أي انحراف.
         User::deleting(function (User $user) {
@@ -253,6 +263,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('collection-report', fn (Request $request) => [Limit::perMinute(max(1, (int) config('collections.limits.report_per_minute')))->by('ccr:'.($request->user()?->id ?: $request->ip())), Limit::perHour(20)->by('ccrh:'.($request->user()?->id ?: $request->ip()))]);
         RateLimiter::for('collection-reorder', fn (Request $request) => Limit::perMinute(max(1, (int) config('collections.limits.reorder_per_minute')))->by('cco:'.($request->user()?->id ?: $request->ip())));
         RateLimiter::for('collection-read', fn (Request $request) => Limit::perMinute(max(1, (int) config('collections.limits.read_per_minute')))->by('ccv:'.($request->user()?->id ?: $request->ip())));
+
+        // E36: النقاشات. كل المحدّدات بمفتاح المستخدم (لا IP مشترك خلف NAT)؛ الكتابة بحدّ دقيقة + ساعة، والقراءة (صفحة ردود/رابط ثابت) بحدّ دقيقة.
+        RateLimiter::for('discussion-comment', fn (Request $request) => [Limit::perMinute(max(1, (int) config('discussions.limits.comment_per_minute')))->by('dsc:'.($request->user()?->id ?: $request->ip())), Limit::perHour(max(1, (int) config('discussions.limits.comment_per_hour')))->by('dsch:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('discussion-reply', fn (Request $request) => [Limit::perMinute(max(1, (int) config('discussions.limits.reply_per_minute')))->by('dsr:'.($request->user()?->id ?: $request->ip())), Limit::perHour(max(1, (int) config('discussions.limits.reply_per_hour')))->by('dsrh:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('discussion-edit', fn (Request $request) => Limit::perMinute(max(1, (int) config('discussions.limits.edit_per_minute')))->by('dse:'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('discussion-like', fn (Request $request) => [Limit::perMinute(max(1, (int) config('discussions.limits.like_per_minute')))->by('dsl:'.($request->user()?->id ?: $request->ip())), Limit::perHour(max(1, (int) config('discussions.limits.like_per_hour')))->by('dslh:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('discussion-report', fn (Request $request) => [Limit::perMinute(max(1, (int) config('discussions.limits.report_per_minute')))->by('dsp:'.($request->user()?->id ?: $request->ip())), Limit::perHour(max(1, (int) config('discussions.limits.report_per_hour')))->by('dsph:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('discussion-read', fn (Request $request) => Limit::perMinute(max(1, (int) config('discussions.limits.read_per_minute')))->by('dsv:'.($request->user()?->id ?: $request->ip())));
 
         // E30: قراءات الرعاة والسلاسل العامة (صفحات عرض فقط) بحدّ معتدل لكل مستخدم/عنوان؛ إجراءات استوديو السلاسل تُعيد استعمال محدّدات المبدعين (creator-draft-create / creator-submit).
         RateLimiter::for('supporters-read', fn (Request $request) => Limit::perMinute(120)->by('spr:'.($request->user()?->id ?: $request->ip())));
