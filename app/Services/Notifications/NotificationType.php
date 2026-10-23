@@ -34,6 +34,8 @@ namespace App\Services\Notifications;
  *  - E36 نقاشات: DiscussionNotifier بعد الـcommit → comment_reply_received (لكاتب التعليق الجذري حين يُردّ عليه؛ إشعار واحد كحدّ أقصى لكل جذر في نافذة) /
  *    new_comment_on_your_content (لمالك المحتوى بتعليق جديد؛ إشعار واحد كحدّ أقصى لكل نقاش في نافذة) / comment_hidden (لكاتب التعليق عند إخفائه إشرافيًا)، فئة social.
  *    لا إشعار على إعجاب ولا بلاغ ولا قفل، ولا ذاتي، ولا اسم للمعلِّق (النص لا يحمل هوية)، وفشله لا يمسّ التعليق.
+ *  - E38 الثقة والسلامة: ModerationNotifier بعد الـcommit → moderation_notice (للمستخدم المعني بإجراء إشرافي: تنبيه/إخفاء/تعليق/تجميد؛ النص ثابت بلا اسم مشرف ولا مبلِّغ ولا تفاصيل داخلية)
+ *    / moderation_appeal_decided (لصاحب الاعتراض عند القرار). فئة security الإلزامية (إشعارات سياسة لا تُغلق)، ووجهتها صفحة «الأمان والإشراف» فقط. **لا إشعار للمبلِّغ** (قرار موثَّق).
  *  - E35 مجموعات: CollectionModerationService بعد الـcommit → collection_hidden / collection_restored (لمالك المجموعة فقط، فئة social). لا إشعار على نشر/حفظ/بلاغ/ترتيب/رف: لا لحافظ ولا لصاحب مجموعة ولا للمبلِّغ.
  */
 enum NotificationType: string
@@ -99,6 +101,8 @@ enum NotificationType: string
     case NewCommentOnYourContent = 'new_comment_on_your_content';
     case CommentHidden = 'comment_hidden';
     case FeaturedCreatorSelected = 'featured_creator_selected';
+    case ModerationNotice = 'moderation_notice';
+    case ModerationAppealDecided = 'moderation_appeal_decided';
 
     public function category(): NotificationCategory
     {
@@ -106,7 +110,7 @@ enum NotificationType: string
             self::AchievementUnlocked => NotificationCategory::Achievement,
             self::StreakAtRisk => NotificationCategory::Streak,
             self::DailyQuestsAvailable, self::MissionExpiring, self::WeeklyMissionsAvailable, self::ComebackAvailable => NotificationCategory::Quest,
-            self::SecurityPasswordReset => NotificationCategory::Security,
+            self::SecurityPasswordReset, self::ModerationNotice, self::ModerationAppealDecided => NotificationCategory::Security,
             self::SeasonStarted => NotificationCategory::Season,
             self::CampaignAvailable => NotificationCategory::Campaign,
             self::StageUnlocked => NotificationCategory::Campaign,
@@ -140,6 +144,8 @@ enum NotificationType: string
     {
         return match ($this) {
             self::SecurityPasswordReset => 1000,
+            self::ModerationNotice => 900,
+            self::ModerationAppealDecided => 890,
             self::StreakAtRisk => 100,
             self::DailyQuestsAvailable => 50,
             self::SeasonStarted => 20,
@@ -255,6 +261,8 @@ enum NotificationType: string
             self::NewCommentOnYourContent => '🗨️',
             self::CommentHidden => '🚫',
             self::FeaturedCreatorSelected => '⭐',
+            self::ModerationNotice => '🛡️',
+            self::ModerationAppealDecided => '⚖️',
         };
     }
 
@@ -295,6 +303,7 @@ enum NotificationType: string
             self::CollectionHidden, self::CollectionRestored => ['collections.index', 'collections.show'],
             self::CommentReplyReceived, self::NewCommentOnYourContent, self::CommentHidden => ['discussions.permalink'],
             self::FeaturedCreatorSelected => ['creators.show'],
+            self::ModerationNotice, self::ModerationAppealDecided => ['account.safety.index'],
         };
     }
 
@@ -362,6 +371,8 @@ enum NotificationType: string
             self::NewCommentOnYourContent => 'تعليق جديد على محتواك'.(! empty($params['title']) ? ': '.$params['title'] : ''),
             self::CommentHidden => 'أُخفي تعليقك من قبل الإشراف',
             self::FeaturedCreatorSelected => 'اختارك فريق المنصة «مبدعًا مختارًا»',
+            self::ModerationNotice => 'إشعار من فريق الإشراف',
+            self::ModerationAppealDecided => 'صدر قرار بشأن اعتراضك',
             self::SupporterTierChanged => ! empty($params['up'])
                 ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
                 : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
@@ -437,6 +448,8 @@ enum NotificationType: string
                 ? 'السبب: '.$params['reason'].'. لا يظهر تعليقك للآخرين الآن. يمكنك الالتزام بإرشادات المنصة في تعليقاتك القادمة.'
                 : 'لا يظهر تعليقك للآخرين الآن. يمكنك الالتزام بإرشادات المنصة في تعليقاتك القادمة.',
             self::FeaturedCreatorSelected => 'يظهر ملفك ضمن «مبدعون مختارون» تقديرًا لأعمالك. الاختيار تحريري بقرار الفريق ولا يتأثر بأي دعم أو دفع.',
+            self::ModerationNotice => 'اتُّخذ إجراء يخص حسابك أو محتواك. افتح صفحة «الأمان والإشراف» لمعرفة التفاصيل وخيارات الاعتراض.',
+            self::ModerationAppealDecided => 'راجع فريق الإشراف اعتراضك. افتح صفحة «الأمان والإشراف» لقراءة القرار.',
             self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
             self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
             self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',

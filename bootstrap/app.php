@@ -3,6 +3,7 @@
 use App\Http\Controllers\HealthController;
 use App\Http\Middleware\CaptureReferralIntent;
 use App\Http\Middleware\EnsureAccountIsNotFrozen;
+use App\Http\Middleware\EnsureSafetyAccess;
 use App\Http\Middleware\RequestObservability;
 use App\Http\Middleware\RestrictBroadcastChannels;
 use App\Http\Middleware\SecurityHeaders;
@@ -53,6 +54,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'account.active' => EnsureAccountIsNotFrozen::class,
+            // E38: صفحة «الأمان والإشراف» (مصادَق أو سياق وصول مقيَّد لحساب مجمَّد). لا يمنح أي وصول خارج /account/safety.
+            'safety.access' => EnsureSafetyAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

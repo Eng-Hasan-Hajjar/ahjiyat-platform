@@ -286,3 +286,5 @@ require __DIR__.'/referrals.php';
 require __DIR__.'/discussions.php';
 // E37: ترتيبات الجودة والسمعة المجتمعية (قراءة عامة فقط).
 require __DIR__.'/reputation.php';
+// E38: صفحة «الأمان والإشراف» للمستخدم (إجراءاته واعتراضاته؛ وصول مقيَّد للحساب المجمَّد). لوحة الإشراف نفسها في Filament.
+require __DIR__.'/safety.php';

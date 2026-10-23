@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\TrustSafety\RestrictedAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,11 +27,16 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         if (Auth::user()->is_frozen) {
+            $frozen = Auth::user();
+
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return back()->withErrors(['email' => 'تم تجميد هذا الحساب مؤقتاً، يرجى التواصل مع الدعم.'])->onlyInput('email');
+            // E38: بيانات الدخول صحيحة لحساب مجمَّد ⇒ سياق وصول مقيَّد (جلسة جديدة، بمدة قصيرة) لصفحة «الأمان والإشراف» وحدها؛ الحارس يبقى غير مصادَق (E26).
+            RestrictedAccess::grant($request->session(), $frozen);
+
+            return back()->withErrors(['email' => 'تم تجميد هذا الحساب مؤقتاً، يرجى التواصل مع الدعم.'])->with('safety_link', true)->onlyInput('email');
         }
 
         Auth::user()->update(['last_seen_at' => now()]);

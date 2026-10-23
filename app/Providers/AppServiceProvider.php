@@ -275,6 +275,13 @@ class AppServiceProvider extends ServiceProvider
         // E37: قراءة صفحة ترتيبات الجودة العامة (قراءة فقط من لقطات مشتقّة مع إعادة فحص حيّ؛ لا إجراء كتابة علني أبدًا).
         RateLimiter::for('reputation-read', fn (Request $request) => Limit::perMinute(90)->by('rpr:'.($request->user()?->id ?: $request->ip())));
 
+        // E38: صفحة «الأمان والإشراف» (قراءة) وتقديم/سحب الاعتراض (أضيقها: اعتراض بالدقيقة والساعة). مفتاح المستخدم المعني (يشمل سياق الوصول المقيَّد للمجمَّد) وإلا IP.
+        RateLimiter::for('safety-read', fn (Request $request) => Limit::perMinute(60)->by('sfr:'.($request->attributes->get('safety_user')?->id ?: $request->ip())));
+        RateLimiter::for('safety-appeal', fn (Request $request) => [
+            Limit::perMinute(3)->by('sfa:'.($request->attributes->get('safety_user')?->id ?: $request->ip())),
+            Limit::perHour(10)->by('sfah:'.($request->attributes->get('safety_user')?->id ?: $request->ip())),
+        ]);
+
         // E30: قراءات الرعاة والسلاسل العامة (صفحات عرض فقط) بحدّ معتدل لكل مستخدم/عنوان؛ إجراءات استوديو السلاسل تُعيد استعمال محدّدات المبدعين (creator-draft-create / creator-submit).
         RateLimiter::for('supporters-read', fn (Request $request) => Limit::perMinute(120)->by('spr:'.($request->user()?->id ?: $request->ip())));
         RateLimiter::for('series-read', fn (Request $request) => Limit::perMinute(120)->by('ser:'.($request->user()?->id ?: $request->ip())));

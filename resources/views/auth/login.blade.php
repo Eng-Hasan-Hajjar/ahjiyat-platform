@@ -5,6 +5,12 @@
 @section('content')
     <h1 class="font-display font-black text-xl text-white mb-6 text-center">تسجيل الدخول</h1>
 
+    @if (session('safety_link'))
+        <div class="mb-5 rounded-xl border border-amethyst/30 bg-amethyst/10 px-4 py-3 text-sm font-semibold">
+            <a href="{{ route('account.safety.index') }}" class="text-amethyst font-bold hover:text-white transition">عرض سبب التقييد وكيفية الاعتراض</a>
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('login') }}" class="space-y-4">
         @csrf
         <div>

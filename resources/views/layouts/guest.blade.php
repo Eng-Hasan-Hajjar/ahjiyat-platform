@@ -55,7 +55,7 @@
 
 <div class="aurora-bg"></div>
 
-<main id="main-content" tabindex="-1" class="w-full max-w-sm focus:outline-none">
+<main id="main-content" tabindex="-1" class="w-full {{ trim($__env->yieldContent('width')) ?: 'max-w-sm' }} focus:outline-none">
     <a href="{{ route('home') }}" class="flex flex-col items-center gap-3 mb-6">
         <span class="gem-facet anim-float w-14 h-14 grid place-items-center text-xl font-black text-white bg-gradient-to-br from-amethyst via-fuchsia-500 to-gold glow-amethyst">✦</span>
         <span class="text-2xl font-black text-gradient-gem">أحجيات</span>

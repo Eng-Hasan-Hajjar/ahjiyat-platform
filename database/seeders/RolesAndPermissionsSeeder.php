@@ -130,6 +130,16 @@ class RolesAndPermissionsSeeder extends Seeder
         $this->grantIfMissing('content-manager', ['reputation.view', 'reputation.feature']);
         $this->grantIfMissing('moderator', ['reputation.view']);
 
+        // E38: المدير العام يملك كل صلاحيات الثقة والسلامة؛ المشرف يعاين ويدير الحالات ويشرف على المحتوى ويراجع الاعتراضات، **دون** تجميد حسابات أو تعليق مبدعين أو إشراف أعلى
+        // (الإجراءات الشديدة تبقى للمدير العام). لا مدير محتوى ولا دعم: لا تصل إليهم هوية المبلِّغين ولا ملفات السلامة.
+        $this->grantIfMissing('administrator', [
+            'trust-safety.view', 'trust-safety.manage-cases', 'trust-safety.moderate-content',
+            'trust-safety.enforce-account', 'trust-safety.review-appeals', 'trust-safety.supervise',
+        ]);
+        $this->grantIfMissing('moderator', [
+            'trust-safety.view', 'trust-safety.manage-cases', 'trust-safety.moderate-content', 'trust-safety.review-appeals',
+        ]);
+
         $this->grantIfMissing('moderator', [
             'users.view_security',
             'users.view_activity',

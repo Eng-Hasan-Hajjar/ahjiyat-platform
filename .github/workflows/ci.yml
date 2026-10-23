@@ -192,6 +192,10 @@ jobs:
       - name: E37 community reputation on MySQL (snapshot uniqueness / atomic upsert / integer exactness / ranking indexes / FK policy / Arabic round-trip / deterministic order)
         run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/ReputationE37/E37MysqlSchemaTest.php
 
+      # E38: مجموعة جزئية صغيرة (≈20 ث) لما يختلف فعلًا على MySQL: قيود «بلاغ في حالة فعّالة واحدة / إجراء فعّال واحد على الهدف / اعتراض فعّال واحد» (active_marker) مع تعايش NULL، سياسة المفاتيح الأجنبية (التاريخ لا يُحذف تتابعيًا وحذف الحساب يُفرِّغ المراجع فقط)، سلامة النص العربي حتى حدود الأعمدة، فهارس الطابور، حتمية ترتيب الطابور واتحاد صندوق البلاغات (UNION ALL)، والحجز الذرّي. البقية على SQLite.
+      - name: E38 trust & safety on MySQL (one active source/action/appeal / FK retention / Arabic round-trip / queue indexes / deterministic union / atomic claim)
+        run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/TrustSafetyE38/E38MysqlSchemaTest.php
+
       - name: Schema parity against the migrated MySQL database (read-only)
         run: php artisan db:parity --connection=mysql --runtime
 

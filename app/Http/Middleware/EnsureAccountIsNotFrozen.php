@@ -25,7 +25,14 @@ class EnsureAccountIsNotFrozen
                 return response()->json(['message' => 'تم تقييد حسابك مؤقتاً. يرجى التواصل مع الدعم.'], 403);
             }
 
-            return back()->with('error', 'تم تقييد حسابك مؤقتاً. يرجى التواصل مع الدعم لمزيد من التفاصيل.');
+            $message = 'تم تقييد حسابك مؤقتاً. يرجى التواصل مع الدعم لمزيد من التفاصيل.';
+
+            // E38: تنقّل (GET/HEAD) لصفحة محمية ← صفحة «الأمان والإشراف» الآمنة (فيها سبب التقييد وطريق الاعتراض). أي طلب كتابة يبقى كما كان (back + error): لا فعل ينفَّذ.
+            if ($request->isMethodSafe() && ! $request->routeIs('account.safety.*')) {
+                return redirect()->route('account.safety.index')->with('error', $message);
+            }
+
+            return back()->with('error', $message);
         }
 
         return $next($request);
