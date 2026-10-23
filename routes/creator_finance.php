@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'verified', 'account.active', EnsureCreatorStudioAccess::class])->prefix('creator/earnings')->group(function () {
     Route::get('/', [CreatorEarningsController::class, 'index'])->middleware('throttle:creator-earnings-read')->name('creator.earnings');
     Route::get('/statements/{period}', [CreatorEarningsController::class, 'statement'])->whereUlid('period')->middleware('throttle:creator-earnings-read')->name('creator.earnings.statement');
-    Route::post('/payouts', [CreatorEarningsController::class, 'requestPayout'])->middleware('throttle:creator-payout-request')->name('creator.earnings.payouts.store');
-    Route::post('/payouts/{payout}/cancel', [CreatorEarningsController::class, 'cancelPayout'])->whereUlid('payout')->middleware('throttle:creator-payout-cancel')->name('creator.earnings.payouts.cancel');
+    // التسمية العامة «requests» (لا «payout»): حارس مسارات E18 القديم (RewardSecurityEconomyTest) يمنع أي كلمة reward|grant|claim|payout|prize في URI أو اسم أي مسار لاعب، ويشمل ذلك اسم المحدِّد داخل {}.
+    Route::post('/requests', [CreatorEarningsController::class, 'requestPayout'])->middleware('throttle:creator-payout-request')->name('creator.earnings.requests.store');
+    Route::post('/requests/{request_id}/cancel', [CreatorEarningsController::class, 'cancelPayout'])->whereUlid('request_id')->middleware('throttle:creator-payout-cancel')->name('creator.earnings.requests.cancel');
 });

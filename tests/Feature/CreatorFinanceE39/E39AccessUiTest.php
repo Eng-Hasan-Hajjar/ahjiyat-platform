@@ -36,8 +36,8 @@ const E39_PAGES = ['/admin/creator-revenue-periods', '/admin/creator-payouts', '
 test('BA15-01: guests are sent to login on every earnings route and nothing is created', function () {
     $this->get('/creator/earnings')->assertRedirect(route('login'));
     $this->get('/creator/earnings/statements/01HZZZZZZZZZZZZZZZZZZZZZZZ')->assertRedirect(route('login'));
-    $this->post('/creator/earnings/payouts', ['amount' => '30.00', 'method' => 'bank_transfer'])->assertRedirect(route('login'));
-    $this->post('/creator/earnings/payouts/01HZZZZZZZZZZZZZZZZZZZZZZZ/cancel')->assertRedirect(route('login'));
+    $this->post('/creator/earnings/requests', ['amount' => '30.00', 'method' => 'bank_transfer'])->assertRedirect(route('login'));
+    $this->post('/creator/earnings/requests/01HZZZZZZZZZZZZZZZZZZZZZZZ/cancel')->assertRedirect(route('login'));
 
     expect(CreatorPayout::query()->count())->toBe(0);
 });
@@ -47,7 +47,7 @@ test('BA15-02: a player, an unverified creator, a pending, suspended or frozen c
     $player = e16User();
 
     $this->actingAs($player)->get('/creator/earnings')->assertRedirect(route('creator.apply'));
-    $this->actingAs($player)->post('/creator/earnings/payouts', ['amount' => '30.00', 'method' => 'bank_transfer'])->assertRedirect(route('creator.apply'));
+    $this->actingAs($player)->post('/creator/earnings/requests', ['amount' => '30.00', 'method' => 'bank_transfer'])->assertRedirect(route('creator.apply'));
 
     $creator->forceFill(['email_verified_at' => null])->save();
     expect($this->actingAs($creator->refresh())->get('/creator/earnings')->getStatusCode())->not->toBe(200);
@@ -61,7 +61,7 @@ test('BA15-02: a player, an unverified creator, a pending, suspended or frozen c
     DB::table('creator_profiles')->where('id', $profile->id)->update(['status' => 'approved']);
     $creator->forceFill(['is_frozen' => true])->save();
     expect($this->actingAs($creator->refresh())->get('/creator/earnings')->getStatusCode())->not->toBe(200)
-        ->and($this->post('/creator/earnings/payouts', ['amount' => '30.00', 'method' => 'bank_transfer'])->getStatusCode())->not->toBe(200)
+        ->and($this->post('/creator/earnings/requests', ['amount' => '30.00', 'method' => 'bank_transfer'])->getStatusCode())->not->toBe(200)
         ->and(CreatorPayout::query()->count())->toBe(0);
 });
 
@@ -71,7 +71,7 @@ test('BA15-03: the restricted safety context of a frozen account opens nothing i
     $context = [RestrictedAccess::KEY => ['user_id' => $creator->id, 'until' => now()->addMinutes(20)->getTimestamp()]];
 
     $this->withSession($context)->get('/creator/earnings')->assertRedirect(route('login'));
-    $this->withSession($context)->post('/creator/earnings/payouts', ['amount' => '30.00', 'method' => 'bank_transfer'])->assertRedirect(route('login'));
+    $this->withSession($context)->post('/creator/earnings/requests', ['amount' => '30.00', 'method' => 'bank_transfer'])->assertRedirect(route('login'));
     expect(CreatorPayout::query()->count())->toBe(0);
 });
 
@@ -137,11 +137,11 @@ test('BA15-09: payout rows are scoped to the signed-in creator and cancelling so
     [$other] = e39_creator();
     $payout = e39_request($creator, '100.00');
 
-    $this->actingAs($other)->post('/creator/earnings/payouts/'.$payout->public_id.'/cancel')->assertNotFound();
+    $this->actingAs($other)->post('/creator/earnings/requests/'.$payout->public_id.'/cancel')->assertNotFound();
     expect($payout->refresh()->status)->toBe('requested');
 
     $this->actingAs($other)->get('/creator/earnings')->assertOk()->assertDontSee('data-payout-row', false);
-    $this->actingAs($creator)->post('/creator/earnings/payouts/'.$payout->public_id.'/cancel')->assertRedirect(route('creator.earnings'))->assertSessionHas('success');
+    $this->actingAs($creator)->post('/creator/earnings/requests/'.$payout->public_id.'/cancel')->assertRedirect(route('creator.earnings'))->assertSessionHas('success');
     expect($payout->refresh()->status)->toBe('cancelled');
 });
 
@@ -149,7 +149,7 @@ test('BA15-10: requesting a payout through the form creates one request for the 
     [$creator, , $account] = e39_funded_creator(3);
     [$other, , $otherAccount] = e39_creator();
 
-    $this->actingAs($creator)->post('/creator/earnings/payouts', [
+    $this->actingAs($creator)->post('/creator/earnings/requests', [
         'amount' => '120.00', 'method' => 'e_wallet',
         'user_id' => $other->id, 'creator_earning_account_id' => $otherAccount->id, 'status' => 'paid', 'amount_minor' => 1, 'external_reference' => 'HACK-0001', 'provider' => 'evil', 'approved_by' => 1,
     ])->assertRedirect(route('creator.earnings'))->assertSessionHas('success');
@@ -164,12 +164,12 @@ test('BA15-11: bad input is answered with a friendly message and reserves nothin
     [$creator, , $account] = e39_funded_creator(3);
     $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class)->actingAs($creator);
 
-    $this->post('/creator/earnings/payouts', ['method' => 'bank_transfer'])->assertSessionHasErrors('amount');
-    $this->post('/creator/earnings/payouts', ['amount' => '30.00'])->assertSessionHasErrors('method');
-    $this->post('/creator/earnings/payouts', ['amount' => str_repeat('9', 40), 'method' => 'bank_transfer'])->assertSessionHasErrors('amount');
-    $this->post('/creator/earnings/payouts', ['amount' => ['x'], 'method' => 'bank_transfer'])->assertSessionHasErrors('amount');
-    $this->post('/creator/earnings/payouts', ['amount' => '1.00', 'method' => 'bank_transfer'])->assertSessionHas('error');
-    $this->post('/creator/earnings/payouts', ['amount' => '30.00', 'method' => 'crypto'])->assertSessionHas('error');
+    $this->post('/creator/earnings/requests', ['method' => 'bank_transfer'])->assertSessionHasErrors('amount');
+    $this->post('/creator/earnings/requests', ['amount' => '30.00'])->assertSessionHasErrors('method');
+    $this->post('/creator/earnings/requests', ['amount' => str_repeat('9', 40), 'method' => 'bank_transfer'])->assertSessionHasErrors('amount');
+    $this->post('/creator/earnings/requests', ['amount' => ['x'], 'method' => 'bank_transfer'])->assertSessionHasErrors('amount');
+    $this->post('/creator/earnings/requests', ['amount' => '1.00', 'method' => 'bank_transfer'])->assertSessionHas('error');
+    $this->post('/creator/earnings/requests', ['amount' => '30.00', 'method' => 'crypto'])->assertSessionHas('error');
 
     expect(CreatorPayout::query()->count())->toBe(0)->and($account->refresh()->available_minor)->toBe(100000);
 });
@@ -179,11 +179,11 @@ test('BA15-12: no earnings mutation is reachable by GET and unsupported verbs ar
     $payout = e39_request($creator, '100.00');
     $this->actingAs($creator);
 
-    $this->get('/creator/earnings/payouts')->assertStatus(405);
-    $this->get('/creator/earnings/payouts/'.$payout->public_id.'/cancel')->assertStatus(405);
+    $this->get('/creator/earnings/requests')->assertStatus(405);
+    $this->get('/creator/earnings/requests/'.$payout->public_id.'/cancel')->assertStatus(405);
     $this->put('/creator/earnings')->assertStatus(405);
-    $this->delete('/creator/earnings/payouts/'.$payout->public_id.'/cancel')->assertStatus(405);
-    $this->delete('/creator/earnings/payouts/'.$payout->public_id)->assertNotFound();
+    $this->delete('/creator/earnings/requests/'.$payout->public_id.'/cancel')->assertStatus(405);
+    $this->delete('/creator/earnings/requests/'.$payout->public_id)->assertNotFound();
 
     foreach (Route::getRoutes() as $route) {
         if (str_starts_with((string) $route->getName(), 'creator.earnings')) {
@@ -207,7 +207,7 @@ test('BA15-13: the global kill switch hides the screens with a 404, refuses requ
 
     $this->actingAs($creator)->get('/creator/earnings')->assertNotFound();
     $this->actingAs($creator)->get('/creator/earnings/statements/'.$period->public_id)->assertNotFound();
-    $this->actingAs($creator)->post('/creator/earnings/payouts', ['amount' => '30.00', 'method' => 'bank_transfer'])->assertSessionHas('error');
+    $this->actingAs($creator)->post('/creator/earnings/requests', ['amount' => '30.00', 'method' => 'bank_transfer'])->assertSessionHas('error');
     $this->actingAs($creator)->get(route('creator.dashboard'))->assertOk()->assertDontSee(route('creator.earnings'), false);
 
     expect(CreatorPayout::query()->count())->toBe(0);
@@ -219,18 +219,18 @@ test('BA15-14: the payout request limiter bites at the fourth attempt and is per
     [$other] = e39_creator();
 
     $this->actingAs($creator);
-    $statuses = e26_hammer($this, 'post', '/creator/earnings/payouts', 5, ['amount' => '1.00', 'method' => 'bank_transfer']);
+    $statuses = e26_hammer($this, 'post', '/creator/earnings/requests', 5, ['amount' => '1.00', 'method' => 'bank_transfer']);
     expect(e26_first_429($statuses))->toBe(4);
 
     auth()->logout();
     $this->actingAs($other);
-    expect($this->post('/creator/earnings/payouts', ['amount' => '1.00', 'method' => 'bank_transfer'])->getStatusCode())->not->toBe(429);
+    expect($this->post('/creator/earnings/requests', ['amount' => '1.00', 'method' => 'bank_transfer'])->getStatusCode())->not->toBe(429);
 });
 
 test('BA15-15: the payout cancel limiter bites at the sixth attempt', function () {
     [$creator] = e39_funded_creator(3);
     $this->actingAs($creator);
-    $statuses = e26_hammer($this, 'post', '/creator/earnings/payouts/01HZZZZZZZZZZZZZZZZZZZZZZZ/cancel', 7);
+    $statuses = e26_hammer($this, 'post', '/creator/earnings/requests/01HZZZZZZZZZZZZZZZZZZZZZZZ/cancel', 7);
 
     expect(e26_first_429($statuses))->toBe(6);
 });
