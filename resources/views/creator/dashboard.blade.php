@@ -7,6 +7,9 @@
         <x-page-header title="استوديو المبدع" icon="palette" subtitle="أنشئ أحجيات المجتمع وتابع حالتها وأرقام لعبها." class="anim-fade-up !mb-0">
             <x-slot:actions>
                 <a href="{{ route('creators.show', $profile->slug) }}" class="btn-secondary !py-2 !px-4 text-sm">صفحتي العامة</a>
+                @if (config('creator_monetization.enabled', true)) {{-- E39: رابط ثابت بلا استعلام؛ الصفحة نفسها تشرح حالة التسييل. --}}
+                    <a href="{{ route('creator.earnings') }}" class="btn-secondary !py-2 !px-4 text-sm">أرباحي</a>
+                @endif
                 @if (config('creator_series.enabled', true)) {{-- E30: رابط واحد فقط للوحة السلاسل؛ لا أي استعلام إضافي بلوحة الأحجيات. --}}
                     <a href="{{ route('creator.series.index') }}" class="btn-secondary !py-2 !px-4 text-sm">سلاسلي</a>
                 @endif

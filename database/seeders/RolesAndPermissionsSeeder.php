@@ -140,6 +140,12 @@ class RolesAndPermissionsSeeder extends Seeder
             'trust-safety.view', 'trust-safety.manage-cases', 'trust-safety.moderate-content', 'trust-safety.review-appeals',
         ]);
 
+        // E39: مالية المبدعين للمدير العام فقط افتراضيًا (لا مشرف ولا مدير محتوى ولا دعم). تفويض أدوار مالية مخصصة يتم من «إدارة الوصول».
+        $this->grantIfMissing('administrator', [
+            'creator-finance.view', 'creator-finance.manage-periods', 'creator-finance.finalize', 'creator-finance.manage-monetization',
+            'creator-finance.review-payouts', 'creator-finance.settle-payouts', 'creator-finance.adjust', 'creator-finance.manage-holds',
+        ]);
+
         $this->grantIfMissing('moderator', [
             'users.view_security',
             'users.view_activity',

@@ -103,6 +103,10 @@ enum NotificationType: string
     case FeaturedCreatorSelected = 'featured_creator_selected';
     case ModerationNotice = 'moderation_notice';
     case ModerationAppealDecided = 'moderation_appeal_decided';
+    case CreatorStatementReady = 'creator_statement_ready';
+    case CreatorPayoutApproved = 'creator_payout_approved';
+    case CreatorPayoutPaid = 'creator_payout_paid';
+    case CreatorPayoutRejected = 'creator_payout_rejected';
 
     public function category(): NotificationCategory
     {
@@ -126,6 +130,7 @@ enum NotificationType: string
             self::SeriesApproved, self::SeriesChangesRequested, self::SeriesRejected, self::SeriesHidden, self::CreatorNewSeries,
             self::CollectionHidden, self::CollectionRestored,
             self::CommentReplyReceived, self::NewCommentOnYourContent, self::CommentHidden, self::FeaturedCreatorSelected,
+            self::CreatorStatementReady, self::CreatorPayoutApproved, self::CreatorPayoutPaid, self::CreatorPayoutRejected,
             self::ReferralQualified, self::ReferralRewardReceived => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::EventStartingSoon,
@@ -146,6 +151,9 @@ enum NotificationType: string
             self::SecurityPasswordReset => 1000,
             self::ModerationNotice => 900,
             self::ModerationAppealDecided => 890,
+            self::CreatorPayoutRejected => 60,
+            self::CreatorPayoutApproved, self::CreatorPayoutPaid => 58,
+            self::CreatorStatementReady => 46,
             self::StreakAtRisk => 100,
             self::DailyQuestsAvailable => 50,
             self::SeasonStarted => 20,
@@ -263,6 +271,10 @@ enum NotificationType: string
             self::FeaturedCreatorSelected => '⭐',
             self::ModerationNotice => '🛡️',
             self::ModerationAppealDecided => '⚖️',
+            self::CreatorStatementReady => '🧾',
+            self::CreatorPayoutApproved => '✅',
+            self::CreatorPayoutPaid => '💸',
+            self::CreatorPayoutRejected => '↩️',
         };
     }
 
@@ -304,6 +316,7 @@ enum NotificationType: string
             self::CommentReplyReceived, self::NewCommentOnYourContent, self::CommentHidden => ['discussions.permalink'],
             self::FeaturedCreatorSelected => ['creators.show'],
             self::ModerationNotice, self::ModerationAppealDecided => ['account.safety.index'],
+            self::CreatorStatementReady, self::CreatorPayoutApproved, self::CreatorPayoutPaid, self::CreatorPayoutRejected => ['creator.earnings'],
         };
     }
 
@@ -373,6 +386,10 @@ enum NotificationType: string
             self::FeaturedCreatorSelected => 'اختارك فريق المنصة «مبدعًا مختارًا»',
             self::ModerationNotice => 'إشعار من فريق الإشراف',
             self::ModerationAppealDecided => 'صدر قرار بشأن اعتراضك',
+            self::CreatorStatementReady => 'كشف أرباحك الجديد جاهز',
+            self::CreatorPayoutApproved => 'اعتُمد طلب دفعتك',
+            self::CreatorPayoutPaid => 'سُجّل صرف دفعتك',
+            self::CreatorPayoutRejected => 'لم يُعتمد طلب دفعتك',
             self::SupporterTierChanged => ! empty($params['up'])
                 ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
                 : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
@@ -450,6 +467,10 @@ enum NotificationType: string
             self::FeaturedCreatorSelected => 'يظهر ملفك ضمن «مبدعون مختارون» تقديرًا لأعمالك. الاختيار تحريري بقرار الفريق ولا يتأثر بأي دعم أو دفع.',
             self::ModerationNotice => 'اتُّخذ إجراء يخص حسابك أو محتواك. افتح صفحة «الأمان والإشراف» لمعرفة التفاصيل وخيارات الاعتراض.',
             self::ModerationAppealDecided => 'راجع فريق الإشراف اعتراضك. افتح صفحة «الأمان والإشراف» لقراءة القرار.',
+            self::CreatorStatementReady => 'أُقفلت فترة إيراد تخصك. افتح صفحة «الأرباح» لمراجعة الكشف.',
+            self::CreatorPayoutApproved => 'اعتمد الفريق طلب دفعتك وينتظر الصرف. تابع حالته في صفحة «الأرباح».',
+            self::CreatorPayoutPaid => 'سجّل الفريق صرف دفعتك. راجع التفاصيل في صفحة «الأرباح».',
+            self::CreatorPayoutRejected => 'أُعيد المبلغ المحجوز إلى رصيدك المتاح. راجع رسالة الفريق في صفحة «الأرباح».',
             self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
             self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
             self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',

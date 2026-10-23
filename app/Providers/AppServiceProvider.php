@@ -27,6 +27,11 @@ class AppServiceProvider extends ServiceProvider
         // E32: سجل مزوّدي الدفع نسخة واحدة (يسمح بحقن مزوّد بالاختبارات/المستقبل دون المساس بالمجال المالي).
         $this->app->singleton(\App\Services\Payments\PaymentProviderRegistry::class);
 
+        // E39: حدّ الصرف الصادر للمبدعين. اليوم يدوي فقط؛ مزوّد آلي مستقبلي = تنفيذ جديد للواجهة وفرع هنا (منفصل عن مزوّدي الدفع الواردين).
+        $this->app->bind(\App\Services\CreatorFinance\CreatorPayoutProvider::class, fn ($app) => match ((string) config('creator_monetization.payout.provider', 'manual')) {
+            default => $app->make(\App\Services\CreatorFinance\ManualCreatorPayoutProvider::class),
+        });
+
         // E31: أسماء الفهارس/المفاتيح المولَّدة تلقائيًا تُقتطع إلى 64 محرفًا على MySQL/MariaDB فقط (SQLite بلا تغيير). انظر MysqlSafeBlueprint.
         $this->app->bind(\Illuminate\Database\Schema\Blueprint::class, \App\Database\MysqlSafeBlueprint::class);
     }
@@ -281,6 +286,11 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(3)->by('sfa:'.($request->attributes->get('safety_user')?->id ?: $request->ip())),
             Limit::perHour(10)->by('sfah:'.($request->attributes->get('safety_user')?->id ?: $request->ip())),
         ]);
+
+        // E39: طلب الدفعة وإلغاؤه (إجراءان ماليان للمبدع) بمفتاح المستخدم: حدّ دقيقة + ساعة (يمنع النقر المتكرر والإغراق). قراءة صفحة الأرباح تستعمل حدّ قراءة المبدع القائم.
+        RateLimiter::for('creator-payout-request', fn (Request $request) => [Limit::perMinute(3)->by('cpq:'.($request->user()?->id ?: $request->ip())), Limit::perHour(10)->by('cpqh:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('creator-payout-cancel', fn (Request $request) => [Limit::perMinute(5)->by('cpc:'.($request->user()?->id ?: $request->ip())), Limit::perHour(20)->by('cpch:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('creator-earnings-read', fn (Request $request) => Limit::perMinute(60)->by('cer:'.($request->user()?->id ?: $request->ip())));
 
         // E30: قراءات الرعاة والسلاسل العامة (صفحات عرض فقط) بحدّ معتدل لكل مستخدم/عنوان؛ إجراءات استوديو السلاسل تُعيد استعمال محدّدات المبدعين (creator-draft-create / creator-submit).
         RateLimiter::for('supporters-read', fn (Request $request) => Limit::perMinute(120)->by('spr:'.($request->user()?->id ?: $request->ip())));

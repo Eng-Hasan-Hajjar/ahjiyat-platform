@@ -30,6 +30,8 @@ final class FinancialHistoryGuard
         'competitive_reward_grants' => ['user_id', 'جوائز الأحداث التنافسية'],
         'sponsorship_reward_bonuses' => ['user_id', 'مكافآت الرعاية'],
         'sponsorship_payments' => ['user_id', 'طلبات دعم ودفع الرعاية'],
+        // E39: حساب أرباح المبدع (FK بـRESTRICT): مستخدم له حساب أرباح لا يُحذف، والبديل المقصود هو التجميد الذي يحفظ الدفتر للتدقيق.
+        'creator_earning_accounts' => ['user_id', 'حساب أرباح المبدع ودفتره ودفعاته'],
     ];
 
     /** @return list<string> أوصاف الأقسام التي فيها سجلّ لهذا المستخدم (فارغة = لا تاريخ مالي). */

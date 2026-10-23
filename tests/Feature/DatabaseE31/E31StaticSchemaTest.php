@@ -6,7 +6,7 @@ use App\Services\Database\MysqlDdlCompiler;
 use App\Services\Database\MysqlDdlLinter;
 use Illuminate\Support\Facades\File;
 
-require_once __DIR__.'/_support.php';
+require_once __DIR__ . '/_support.php';
 
 /*
 | E31 - ترجمة الترحيلات إلى جمل MySQL بلا خادم وتحليلها. تعمل على أي سائق لأن الترجمة تستعمل اتصالًا وهميًا بسائق mysql (وضع pretend).
@@ -28,8 +28,8 @@ function e31_compiled(): array
 function e31_fails(array $lint): array
 {
     return array_values(array_map(
-        fn (array $f) => "{$f['code']} · {$f['table']} · {$f['detail']} · {$f['migration']}",
-        array_filter($lint['findings'], fn (array $f) => $f['level'] === 'fail'),
+        fn(array $f) => "{$f['code']} · {$f['table']} · {$f['detail']} · {$f['migration']}",
+        array_filter($lint['findings'], fn(array $f) => $f['level'] === 'fail'),
     ));
 }
 
@@ -37,7 +37,7 @@ test('AR-1: every migration compiles to MySQL DDL with no errors (schema builds 
     $c = e31_compiled()['compiled'];
 
     expect($c['errors'])->toBe([])
-        ->and($c['migrations'])->toBe(count(glob(database_path('migrations').'/*.php')))
+        ->and($c['migrations'])->toBe(count(glob(database_path('migrations') . '/*.php')))
         ->and(count($c['statements']))->toBeGreaterThan(600);
 });
 
@@ -53,7 +53,7 @@ test('C-1: no generated table, column, index or foreign-key name exceeds 64 char
         array_push($names, ...$m[1]);
     }
 
-    $tooLong = array_values(array_filter(array_unique($names), fn (string $n) => strlen($n) > 64));
+    $tooLong = array_values(array_filter(array_unique($names), fn(string $n) => strlen($n) > 64));
 
     expect($tooLong)->toBe([]);
 });
@@ -81,18 +81,18 @@ test('C-3: the shim is what the container resolves for Blueprint (so historical 
 });
 
 test('C-4: without the E31 wallets guard migrations the static check reports MySQL error 1553 - and with them it is clean', function () {
-    $dir = e31_tmp_dir().DIRECTORY_SEPARATOR.'migrations-noguard';
+    $dir = e31_tmp_dir() . DIRECTORY_SEPARATOR . 'migrations-noguard';
     File::deleteDirectory($dir);
     File::makeDirectory($dir, 0777, true);
 
-    foreach (glob(database_path('migrations').'/*.php') as $file) {
-        if (! str_contains($file, 'e31_')) {
-            copy($file, $dir.DIRECTORY_SEPARATOR.basename($file));
+    foreach (glob(database_path('migrations') . '/*.php') as $file) {
+        if (!str_contains($file, 'e31_')) {
+            copy($file, $dir . DIRECTORY_SEPARATOR . basename($file));
         }
     }
 
     $without = (new MysqlDdlLinter)->analyze((new MysqlDdlCompiler)->compile($dir)['statements']);
-    $codes = array_column(array_filter($without['findings'], fn (array $f) => $f['level'] === 'fail'), 'code');
+    $codes = array_column(array_filter($without['findings'], fn(array $f) => $f['level'] === 'fail'), 'code');
 
     File::deleteDirectory($dir);
 
@@ -144,8 +144,8 @@ test('U-1: every foreign key has a locally indexed column set and a type-compati
 test('U-2/U-3: financial and reward history never cascades accidentally - cascades onto users are guarded or explicitly exempt', function () {
     $guarded = array_keys(FinancialHistoryGuard::HISTORY_TABLES);
     $exempt = [
-        'wallets' /* يحرسه فحص الرصيد في الحارس */,
-        'challenge_participants' /* سجل مشاركة مشتق؛ الدفتر الفعلي في currency_transactions */,
+        'wallets' /* يحرسه فحص الرصيد في الحارس */ ,
+        'challenge_participants' /* سجل مشاركة مشتق؛ الدفتر الفعلي في currency_transactions */ ,
         // E33: صف الإحالة لقطة مشتقة (snap_*)؛ الدفتر الفعلي لمكافآتها في currency_transactions المحروس أعلاه، فأي مستخدم نالت محفظته مكافأة إحالة يُمنع حذفه أصلًا.
         // المُحال بلا مكافأة مسلَّمة لا تاريخ مالي له، وحذفه (حق المحو) يزيل صفّ إحالته فقط؛ المحيل المحذوف يُجعل NULL فيبقى تاريخ المُحال.
         'user_referrals',
@@ -153,16 +153,16 @@ test('U-2/U-3: financial and reward history never cascades accidentally - cascad
     $unguarded = [];
 
     foreach (e31_compiled()['lint']['tables'] as $table => $model) {
-        $cascadesOnUser = collect($model['fks'])->contains(fn (array $fk) => $fk['ref'] === 'users' && $fk['on_delete'] === 'cascade');
+        $cascadesOnUser = collect($model['fks'])->contains(fn(array $fk) => $fk['ref'] === 'users' && $fk['on_delete'] === 'cascade');
 
-        if (! $cascadesOnUser) {
+        if (!$cascadesOnUser) {
             continue;
         }
 
-        $money = collect($model['columns'])->contains(fn (array $c, string $n) => in_array($c['base'], ['int', 'bigint', 'smallint', 'mediumint'], true)
+        $money = collect($model['columns'])->contains(fn(array $c, string $n) => in_array($c['base'], ['int', 'bigint', 'smallint', 'mediumint'], true)
             && preg_match('/(amount|balance|price|minor|bps|gems|earned|redeemed)/', $n) === 1);
 
-        if ($money && ! in_array($table, array_merge($guarded, $exempt), true)) {
+        if ($money && !in_array($table, array_merge($guarded, $exempt), true)) {
             $unguarded[] = $table;
         }
     }
@@ -173,7 +173,7 @@ test('U-2/U-3: financial and reward history never cascades accidentally - cascad
 
 test('U-4: financial history that must survive parent deletion is RESTRICT (programs, supporters, currencies, store items)', function () {
     $tables = e31_compiled()['lint']['tables'];
-    $rule = fn (string $table, string $column) => collect($tables[$table]['fks'])->first(fn (array $fk) => $fk['columns'] === [$column])['on_delete'] ?? 'missing';
+    $rule = fn(string $table, string $column) => collect($tables[$table]['fks'])->first(fn(array $fk) => $fk['columns'] === [$column])['on_delete'] ?? 'missing';
 
     expect($rule('sponsorship_contributions', 'supporter_profile_id'))->toBe('restrict')
         ->and($rule('sponsorship_contributions', 'sponsorship_program_id'))->toBe('restrict')
@@ -189,7 +189,7 @@ test('U-4: financial history that must survive parent deletion is RESTRICT (prog
 
 test('O-1: idempotency and duplicate-protection unique indexes exist (the backstop that retries and races rely on)', function () {
     $tables = e31_compiled()['lint']['tables'];
-    $unique = fn (string $table, array $columns) => collect($tables[$table]['indexes'])->contains(fn (array $i) => $i['unique'] && $i['columns'] === $columns);
+    $unique = fn(string $table, array $columns) => collect($tables[$table]['indexes'])->contains(fn(array $i) => $i['unique'] && $i['columns'] === $columns);
 
     expect($unique('wallets', ['user_id', 'currency_id']))->toBeTrue()
         ->and($unique('currency_transactions', ['idempotency_key']))->toBeTrue()
@@ -207,7 +207,7 @@ test('O-1: idempotency and duplicate-protection unique indexes exist (the backst
 });
 
 test('Q-4: redundant (prefix-covered) indexes are reported, never silently dropped - the audit list is pinned', function () {
-    $redundant = collect(e31_compiled()['lint']['findings'])->where('code', 'redundant_index')->map(fn (array $f) => $f['table'])->sort()->values()->all();
+    $redundant = collect(e31_compiled()['lint']['findings'])->where('code', 'redundant_index')->map(fn(array $f) => $f['table'])->sort()->values()->all();
 
     // تدقيق E31: هذه الفهارس الأربعة مغطّاة ببادئات فهارس أخرى. لم تُحذف عمدًا (تكلفة كتابة صغيرة مقابل خطر تغيير خطط التنفيذ بلا EXPLAIN على بيانات حقيقية).
     // إن زادت القائمة فيجب مراجعة الفهرس الجديد؛ وإن نقصت فهذا مقبول (يحدّث الاختبار).
@@ -230,9 +230,9 @@ test('S-2: the schema never depends on MySQL zero-dates, and CURRENT_TIMESTAMP d
 
 test('P-2: only the four audited entry points use the deadlock retry policy, and the attempt count is small', function () {
     $files = collect(File::allFiles(app_path()))
-        ->filter(fn ($f) => str_contains(File::get($f->getPathname()), 'TransactionPolicy::DEADLOCK_ATTEMPTS'))
-        ->map(fn ($f) => str_replace(['\\', app_path().'/'], ['/', ''], $f->getPathname()))
-        ->reject(fn ($p) => str_ends_with($p, 'Database/TransactionPolicy.php'))
+        ->filter(fn($f) => str_contains(File::get($f->getPathname()), 'TransactionPolicy::DEADLOCK_ATTEMPTS'))
+        ->map(fn($f) => str_replace(str_replace('\\', '/', app_path()) . '/', '', str_replace('\\', '/', $f->getPathname())))
+        ->reject(fn($p) => str_ends_with($p, 'Database/TransactionPolicy.php'))
         ->sort()->values()->all();
 
     expect($files)->toBe([
@@ -243,7 +243,7 @@ test('P-2: only the four audited entry points use the deadlock retry policy, and
     ])->and(\App\Services\Database\TransactionPolicy::DEADLOCK_ATTEMPTS)->toBe(3);
 
     // لا إعادة محاولة بالجملة: لا attempts: مسمّاة في أي مكان آخر.
-    $named = collect(File::allFiles(app_path()))->filter(fn ($f) => preg_match('/DB::transaction\(.*attempts\s*:/s', File::get($f->getPathname())) === 1);
+    $named = collect(File::allFiles(app_path()))->filter(fn($f) => preg_match('/DB::transaction\(.*attempts\s*:/s', File::get($f->getPathname())) === 1);
     expect($named->count())->toBe(0);
 });
 
@@ -257,7 +257,7 @@ test('R-1: raw SQL never uses a reserved MySQL 8 word unqualified (rank)', funct
         if (preg_match_all('/(selectRaw|whereRaw|orderByRaw|groupByRaw|havingRaw|DB::raw|DB::select|DB::statement)\(\s*([\'"`])(.*?)\2/s', $source, $matches)) {
             foreach ($matches[3] as $sql) {
                 if (preg_match('/(?<![\w.`])rank(?![\w(])/i', $sql) === 1) {
-                    $offenders[] = str_replace(app_path().'/', '', $file->getPathname());
+                    $offenders[] = str_replace(str_replace('\\', '/', app_path()) . '/', '', str_replace('\\', '/', $file->getPathname()));
                 }
             }
         }

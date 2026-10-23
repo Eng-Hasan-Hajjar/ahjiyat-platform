@@ -288,3 +288,5 @@ require __DIR__.'/discussions.php';
 require __DIR__.'/reputation.php';
 // E38: صفحة «الأمان والإشراف» للمستخدم (إجراءاته واعتراضاته؛ وصول مقيَّد للحساب المجمَّد). لوحة الإشراف نفسها في Filament.
 require __DIR__.'/safety.php';
+// E39: أرباح المبدع وكشوفه وطلبات الدفع (داخل بوابة استوديو المبدعين نفسها). لوحة المالية الإدارية في Filament.
+require __DIR__.'/creator_finance.php';
