@@ -39,7 +39,7 @@
                 @if ($blocked_reason)
                     <p class="text-sm text-slate-300" data-payout-blocked>{{ $blocked_reason }}</p>
                 @else
-                    <form method="POST" action="{{ route('creator.earnings.payouts.store') }}" class="flex flex-wrap items-end gap-3">
+                    <form method="POST" action="{{ route('creator.earnings.requests.store') }}" class="flex flex-wrap items-end gap-3">
                         @csrf
                         <div>
                             <label for="amount" class="block text-xs font-bold text-slate-300 mb-1">المبلغ</label>
@@ -74,7 +74,7 @@
                             <p class="text-sm text-slate-200 mt-2 whitespace-pre-line">{{ $payout->decision_message }}</p>
                         @endif
                         @if ($payout->status === 'requested')
-                            <form method="POST" action="{{ route('creator.earnings.payouts.cancel', $payout->public_id) }}" class="mt-3">
+                            <form method="POST" action="{{ route('creator.earnings.requests.cancel', $payout->public_id) }}" class="mt-3">
                                 @csrf
                                 <button type="submit" class="btn-secondary !py-1.5 !px-4 text-xs">إلغاء الطلب</button>
                             </form>
