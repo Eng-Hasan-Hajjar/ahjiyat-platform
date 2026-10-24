@@ -43,7 +43,31 @@
         @if ($purchase->status === DP::STATUS_SUBMITTED)
             <p class="mt-4 text-sm text-gold">استلمنا مرجع تحويلك وهو قيد المراجعة. لن يُفتح المسار المميز إلا بعد تأكيد الدفع.</p>
         @endif
+        @if ($receiptUrl)
+            <a href="{{ $receiptUrl }}" class="mt-3 inline-flex text-xs font-bold text-amethyst underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" data-order-receipt>عرض الإيصال</a>
+        @endif
     </section>
+
+    {{-- E41: دفع إلكتروني مستضاف. الحالة المعروضة موثوقة من الخادم فقط؛ لا «نجاح» يُعرض لمجرد العودة من صفحة المزوّد. --}}
+    @if ($hosted)
+        <section class="glass rounded-2xl p-5 mb-6 anim-fade-up d-2" data-pass-hosted data-order-phase="{{ $phase }}">
+            <h2 class="font-display font-black text-lg text-white mb-1">{{ $copy['label'] }}</h2>
+            <p class="text-sm text-slate-300">{{ $copy['message'] }}</p>
+            <p class="mt-2 text-xs text-slate-500">طريقة الدفع: {{ $providerLabel }}.</p>
+            @if ($canContinue)
+                <form method="POST" action="{{ route('commerce.checkout.start', $purchase->public_id) }}" class="mt-4">
+                    @csrf
+                    <button type="submit" class="btn-gem !py-2.5 !px-6 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" data-order-continue>{{ $phase === 'failed' ? 'إعادة محاولة الدفع' : 'متابعة الدفع' }}</button>
+                </form>
+                <p class="mt-2 text-xs text-slate-500">ستنتقل إلى صفحة الدفع الخاصة بمزوّد الدفع. لا نطلب بيانات بطاقتك ولا نحفظها.</p>
+            @elseif ($purchase->status === DP::STATUS_AWAITING && ! $purchase->needsReview())
+                <p class="mt-3 text-xs text-slate-400">الدفع الإلكتروني غير متاح حاليًا. يمكنك إلغاء الطلب أو المحاولة لاحقًا.</p>
+            @endif
+            @if ($purchase->status === DP::STATUS_AWAITING && $purchase->provider_session_id)
+                <a href="{{ route('commerce.checkout.return', $purchase->public_id) }}" class="mt-3 inline-flex text-xs font-bold text-amethyst underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" data-order-check-status>تحقق من حالة الدفع</a>
+            @endif
+        </section>
+    @endif
 
     @if ($instructions && in_array($purchase->status, [DP::STATUS_AWAITING, DP::STATUS_SUBMITTED], true))
         <section class="glass rounded-2xl p-5 mb-6 anim-fade-up d-2" data-pass-instructions>
@@ -64,7 +88,7 @@
         </section>
     @endif
 
-    @if ($purchase->status === DP::STATUS_AWAITING)
+    @if ($purchase->status === DP::STATUS_AWAITING && ! $hosted)
         <section class="glass rounded-2xl p-5 mb-6 anim-fade-up d-3" data-pass-submit>
             <h2 class="font-display font-black text-lg text-white mb-3">بعد التحويل: أرسل تفاصيله</h2>
             <form method="POST" action="{{ route('pass.orders.submit', $purchase->public_id) }}" enctype="multipart/form-data" class="space-y-4">

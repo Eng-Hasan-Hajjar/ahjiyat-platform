@@ -70,3 +70,7 @@ $guard(Schedule::command('referrals:process')->everyThirtyMinutes()->name('refer
 
 // E40: صيانة مسار الأحجيات (تفعيل/إنهاء بالتاريخ، إنهاء طلبات المميز المتأخرة، تذكير مهلة الاستلام). idempotent؛ غيابه لا يكسر شيئًا: تُحسب النافذة بالتاريخ حيًّا في كل قراءة. مطابقة ahjiyat-pass:reconcile يدوية للقراءة فقط.
 $guard(Schedule::command('ahjiyat-pass:process')->everyFifteenMinutes()->name('ahjiyat-pass-process'), 30);
+
+// E41: صيانة التجارة (مزامنة طلبات مستضافة لم يصلها webhook عبر استعلام المزوّد إن دعمه + إعادة محاولة الإشعارات المعزولة). محدودة بدفعة وعمر؛ idempotent؛ لا استطلاع لا نهائي.
+// المطابقة commerce:reconcile يدوية للقراءة فقط؛ انتهاء الطلبات المتأخرة يبقى ضمن ahjiyat-pass:process.
+$guard(Schedule::command('commerce:process')->everyTenMinutes()->name('commerce-process'), 30);

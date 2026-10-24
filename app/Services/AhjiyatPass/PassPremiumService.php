@@ -4,13 +4,16 @@ namespace App\Services\AhjiyatPass;
 
 use App\Models\AhjiyatPass;
 use App\Models\DigitalPurchase;
-use App\Models\DigitalPurchaseEvent;
 use App\Models\SponsorshipPayment;
 use App\Models\User;
-use App\Models\UserPassProgress;
-use App\Models\UserPassRewardClaim;
 use App\Services\AhjiyatPass\Concerns\AuthorizesPass;
+use App\Services\Commerce\CommerceException;
 use App\Services\Commerce\CommercePaymentProvider;
+use App\Services\Commerce\CommercePaymentProviderRegistry;
+use App\Services\Commerce\CommerceProviderState;
+use App\Services\Commerce\CommerceRefundService;
+use App\Services\Commerce\CommerceSyncService;
+use App\Services\Commerce\DigitalPurchaseService;
 use App\Services\OperationalAuditService;
 use App\Services\Payments\PaymentException;
 use App\Services\Payments\PaymentProofService;
@@ -28,6 +31,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *  - الاسترداد: بلا مطالبات مميزة ⇒ سحب آمن وتدقيق؛ بعد مطالبات ⇒ يلزم تأكيد صريح ومراجعة مالية، **لا** سحب صامت للعناصر الممنوحة (تبقى، ويُسجَّل عددها).
  *  - لا بيانات بطاقات: مرجع التحويل/الملاحظة نص قصير مُنقّى، ويُرفض ما يشبه رقم بطاقة (Luhn). الإثبات ملف خاص بقواعد E32.
  *  - الإشعارات بعد الـcommit وبعزل أخطاء. السجل (digital_purchase_events + OperationalAudit) ثابت.
+ *
+ * E41: هذه الخدمة تبقى **واجهة مجال المسار المميز** (طلب/تقديم/إلغاء/تحقق/رفض/استرداد/انتهاء) لكنها لم تعد بوابة دفع: مزوّد الشراء من سجل المزوّدين (الافتراضي أو البديل اليدوي) ويُجمَّد وقت الإنشاء،
+ *  و**منطق الفتح/السحب** صار في مكان واحد (PassPremiumProductHandler عبر DigitalPurchaseService) يشترك فيه التحقق اليدوي ومسار المزوّد الموثوق (webhook/مزامنة) — فلا نسخة ثانية.
+ *  الدفع المستضافة: بدء الجلسة في CommerceCheckoutService، وأحداث المزوّد في CommerceWebhookService، والاسترداد عبر المزوّد في CommerceRefundService.
  */
 class PassPremiumService
 {
@@ -43,7 +50,10 @@ class PassPremiumService
     ];
 
     public function __construct(
-        protected CommercePaymentProvider $provider,
+        protected CommercePaymentProviderRegistry $providers,
+        protected DigitalPurchaseService $core,
+        protected CommerceRefundService $refunds,
+        protected CommerceSyncService $sync,
         protected PassProgressService $progress,
         protected PassNotifier $notifier,
         protected PaymentProofService $proofs,
@@ -57,7 +67,7 @@ class PassPremiumService
      *
      * @throws PassException
      */
-    public function request(User $user, AhjiyatPass $pass, ?string $requestKey = null): DigitalPurchase
+    public function request(User $user, AhjiyatPass $pass, ?string $requestKey = null, bool $manualOnly = false): DigitalPurchase
     {
         if (! (bool) config('ahjiyat_pass.enabled', true)) {
             throw new PassException('disabled', 'مسار الأحجيات غير متاح حاليًا.');
@@ -67,7 +77,7 @@ class PassPremiumService
             throw new PassException('frozen', 'حسابك مقيَّد؛ لا يمكن شراء المسار المميز.');
         }
 
-        if (! $this->provider->isEnabled()) {
+        if (! $this->anyProviderEnabled($manualOnly)) {
             throw new PassException('provider_disabled', 'طريقة الدفع غير متاحة حاليًا.');
         }
 
@@ -80,7 +90,14 @@ class PassPremiumService
             throw new PassException('sales_closed', 'شراء المسار المميز غير متاح الآن.');
         }
 
-        if (PassRules::priceProblem((int) $fresh->premium_price_minor, (string) $fresh->currency) !== null || ! $this->currencyAccepted((string) $fresh->currency)) {
+        if (PassRules::priceProblem((int) $fresh->premium_price_minor, (string) $fresh->currency) !== null || ! PassRules::currencyAllowed((string) $fresh->currency)) {
+            throw new PassException('price_invalid', 'سعر المسار المميز غير مضبوط بشكل صحيح. تواصل مع الدعم.');
+        }
+
+        // مزوّد الشراء الجديد (الافتراضي المفعَّل الذي يقبل العملة وإلا البديل اليدوي) ويُجمَّد في الطلب. تقاطع العملات: المزوّد ∩ التجارة ∩ المسار.
+        try {
+            $provider = $this->providers->forNewPurchase((string) $fresh->currency, $manualOnly);
+        } catch (CommerceException) {
             throw new PassException('price_invalid', 'سعر المسار المميز غير مضبوط بشكل صحيح. تواصل مع الدعم.');
         }
 
@@ -112,7 +129,7 @@ class PassPremiumService
             }
 
             try {
-                return DB::transaction(function () use ($user, $fresh, $requestKey) {
+                return DB::transaction(function () use ($user, $fresh, $requestKey, $provider) {
                     $purchase = new DigitalPurchase;
                     $purchase->forceFill([
                         'user_id' => $user->getKey(),
@@ -122,11 +139,11 @@ class PassPremiumService
                         'product_name' => mb_substr((string) $fresh->name, 0, 160),
                         'amount_minor' => (int) $fresh->premium_price_minor,
                         'currency' => (string) $fresh->currency,
-                        'provider' => $this->provider->key(),
+                        'provider' => $provider->key(),
                         'status' => DigitalPurchase::STATUS_AWAITING,
                         'request_key' => $requestKey,
                         'reference_code' => $this->newReference(),
-                        'expires_at' => now()->addHours(max(1, (int) config('ahjiyat_pass.purchase.expiry_hours', 48))),
+                        'expires_at' => now()->addHours(max(1, $provider->supportsRedirect() ? (int) config('commerce.checkout.purchase_expiry_hours', 24) : (int) config('ahjiyat_pass.purchase.expiry_hours', 48))),
                     ])->save();
 
                     $this->event($purchase, 'created', null, DigitalPurchase::STATUS_AWAITING, $user, null);
@@ -161,6 +178,11 @@ class PassPremiumService
             throw new PassException('frozen', 'حسابك مقيَّد؛ لا يمكن تقديم الدفع.');
         }
 
+        // E41: الطلب المستضاف يُدفع عند المزوّد ويتأكد بتوقيعه؛ لا مرجع تحويل ولا إثبات يدوي له (يفتح المميز مسارًا غير مسار المزوّد!).
+        if ($purchase->isHosted()) {
+            throw new PassException('hosted_purchase', 'هذا الطلب يُدفع عبر صفحة الدفع الإلكتروني ويتأكد تلقائيًا؛ لا حاجة لتقديم مرجع تحويل.');
+        }
+
         $reference = $this->cleanText($transferReference, (int) config('ahjiyat_pass.purchase.transfer_reference_max', 120));
         $note = $this->cleanText($payerNote, (int) config('ahjiyat_pass.purchase.payer_note_max', 255));
 
@@ -174,7 +196,7 @@ class PassPremiumService
             throw new PassException('evidence_required', 'أدخل مرجع التحويل أو أرفق إثباتًا.');
         }
 
-        if ($proof === null && $this->provider->proofRequired()) {
+        if ($proof === null && $this->providerFor($purchase)?->proofRequired()) {
             throw new PassException('proof_required', 'إثبات التحويل مطلوب لإتمام الطلب.');
         }
 
@@ -263,7 +285,8 @@ class PassPremiumService
     // ───────────────────────── المراجعة المالية ─────────────────────────
 
     /**
-     * التحقق المالي: **الطريق الوحيد** لفتح المميز. يتطلب طلبًا مقدَّمًا. تحت قفل (الطلب ثم التقدّم).
+     * التحقق المالي بمراجع مخوَّل: يتطلب طلبًا مقدَّمًا (يدوي)، أو طلبًا مستضافًا عليه علم مراجعة مالية (قبول صريح مع سبب موثَّق).
+     * يمرّ بمسار التحقق الموحَّد نفسه الذي يستعمله المزوّد الموثوق (DigitalPurchaseService::verifyLocked) — لا نسخة ثانية من فتح المميز. تحت قفل (الطلب ثم التقدّم).
      *
      * @throws PassException
      */
@@ -272,49 +295,25 @@ class PassPremiumService
         $this->authorizePass($actor, 'passes.verify-purchases');
 
         $verified = DB::transaction(function () use ($actor, $purchase, $reviewNote) {
-            $locked = DigitalPurchase::query()->whereKey($purchase->getKey())->lockForUpdate()->firstOrFail();
+            $locked = $this->core->lock($purchase);
 
-            if ($locked->status !== DigitalPurchase::STATUS_SUBMITTED) {
+            $reviewed = $locked->status === DigitalPurchase::STATUS_AWAITING && $locked->isHosted() && $locked->needsReview();
+
+            if ($locked->status !== DigitalPurchase::STATUS_SUBMITTED && ! $reviewed) {
                 throw new PassException('invalid_state', 'يمكن التحقق من الطلبات المقدَّمة فقط.');
             }
 
-            if ($locked->product_type !== DigitalPurchase::PRODUCT_PASS_PREMIUM) {
-                throw new PassException('invalid_product', 'منتج غير مدعوم.');
+            $note = $this->cleanText($reviewNote, 1000);
+
+            if ($reviewed && ($note === null || mb_strlen($note) < 5)) {
+                throw new PassException('note_required', 'اكتب سبب قبول هذا الدفع رغم علم المراجعة (5 أحرف على الأقل) للتوثيق.');
             }
 
-            $pass = AhjiyatPass::query()->find($locked->product_id);
-            $buyer = User::query()->find($locked->user_id);
-
-            if ($pass === null || $buyer === null || $pass->locked_at === null) {
-                throw new PassException('pass_missing', 'المسار المرتبط بالطلب غير موجود.');
+            try {
+                $this->core->verifyLocked($locked, $actor, $reviewed ? 'review' : 'manual', $note);
+            } catch (CommerceException $e) {
+                throw new PassException($e->reason, $e->getMessage(), $e->details);
             }
-
-            if ($pass->status === AhjiyatPass::STATUS_ARCHIVED) {
-                throw new PassException('pass_archived', 'المسار مؤرشف؛ ارفض الطلب مع رسالة للمشتري وتصرّف مالياً خارج المنصة.');
-            }
-
-            if ($buyer->is_frozen) {
-                throw new PassException('frozen', 'حساب المشتري مقيَّد؛ لا يُفتح المميز له. راجع الحالة قبل أي قرار.');
-            }
-
-            $progress = $this->progress->ensure($buyer, $pass);
-            $lockedProgress = UserPassProgress::query()->whereKey($progress->getKey())->lockForUpdate()->firstOrFail();
-
-            if ($lockedProgress->hasPremium()) {
-                throw new PassException('already_owned', 'يملك المشتري المميز بالفعل؛ راجع الطلب كمكرر.');
-            }
-
-            $lockedProgress->forceFill(['premium_unlocked_at' => now(), 'premium_purchase_id' => $locked->getKey()])->save();
-
-            $locked->forceFill([
-                'status' => DigitalPurchase::STATUS_VERIFIED,
-                'verified_at' => now(),
-                'verified_by' => $actor->getKey(),
-                'review_note' => $this->cleanText($reviewNote, 1000),
-            ])->save();
-
-            $this->event($locked, 'verified', DigitalPurchase::STATUS_SUBMITTED, DigitalPurchase::STATUS_VERIFIED, $actor, null);
-            $this->audit->log('digital_purchase_verified', $locked, ['reference' => $locked->reference_code, 'product' => $locked->product_public_id, 'amount_minor' => $locked->amount_minor, 'currency' => $locked->currency], $actor);
 
             return $locked;
         });
@@ -363,8 +362,8 @@ class PassPremiumService
     }
 
     /**
-     * استرداد شراء محقَّق (تسجيل داخل المنصة؛ الاسترداد المالي الفعلي خارجي). يسحب المميز آمنًا. إن وُجدت مطالبات مميزة يلزم `$confirmClaimed`:
-     * العناصر الممنوحة **تبقى** (لا سحب صامت) ويُسجَّل عددها لمراجعة مالية/تشغيلية.
+     * استرداد **كامل** لشراء محقَّق. مزوّد يدعم الاسترداد ⇒ يُنفَّذ عبر المزوّد أولًا (لا refunded قبل تأكيده — E41 M2)؛ اليدوي ⇒ تسجيل داخل المنصة بعد استرداد خارجي (E40 كما هو).
+     * المميز يُسحب آمنًا؛ إن وُجدت مطالبات مميزة يلزم `$confirmClaimed`: العناصر الممنوحة **تبقى** (لا سحب صامت) ويُسجَّل عددها لمراجعة مالية/تشغيلية.
      *
      * @throws PassException
      */
@@ -382,46 +381,85 @@ class PassPremiumService
             throw new PassException('note_required', 'اكتب ملاحظة الاسترداد (5 أحرف على الأقل) للتوثيق.');
         }
 
-        return DB::transaction(function () use ($actor, $purchase, $reason, $cleanNote, $confirmClaimed) {
-            $locked = DigitalPurchase::query()->whereKey($purchase->getKey())->lockForUpdate()->firstOrFail();
+        try {
+            if ($this->refunds->supports($purchase)) {
+                // المزوّد أكّد الاسترداد فعلًا (حدث/مزامنة) والطلب محقَّق بسبب عناصر مستلَمة: تسجيل محلي بقرار صريح بلا نداء مزوّد ثانٍ.
+                if ($purchase->providerState() === CommerceProviderState::Refunded) {
+                    return $this->refunds->recordProviderRefunded($actor, $purchase, $reason, $cleanNote, $confirmClaimed);
+                }
 
-            if ($locked->status !== DigitalPurchase::STATUS_VERIFIED) {
-                throw new PassException('invalid_state', 'يمكن استرداد الطلبات المؤكَّدة فقط.');
+                return $this->refunds->refundVerified($actor, $purchase, $reason, $cleanNote, $confirmClaimed);
             }
 
-            $progress = UserPassProgress::query()
-                ->where('user_id', $locked->user_id)
-                ->where('ahjiyat_pass_id', $locked->product_id)
-                ->lockForUpdate()
-                ->first();
+            return DB::transaction(function () use ($actor, $purchase, $reason, $cleanNote, $confirmClaimed) {
+                $locked = $this->core->lock($purchase);
+                $this->core->refundLocked($locked, $actor, $reason, $cleanNote, $confirmClaimed, 'manual');
 
-            $kept = $progress === null ? 0 : UserPassRewardClaim::query()
-                ->where('user_pass_progress_id', $progress->getKey())
-                ->where('track', \App\Models\AhjiyatPassTierReward::TRACK_PREMIUM)
-                ->count();
+                return $locked;
+            });
+        } catch (CommerceException $e) {
+            throw new PassException($e->reason, $e->getMessage(), $e->details);
+        }
+    }
 
-            if ($kept > 0 && ! $confirmClaimed) {
-                throw new PassException('claimed_requires_confirmation', 'استلم المشتري '.$kept.' مكافأة مميزة. الاسترداد لا يسحبها آليًا؛ أكّد المراجعة المالية للمتابعة.', [(string) $kept]);
-            }
+    /**
+     * استرداد دفعة غير مطابقة/متأخرة (علم مراجعة قائم والطلب ليس محقَّقًا) عبر المزوّد ثم إغلاق العلم.
+     *
+     * @throws PassException
+     */
+    public function refundUnmatched(User $actor, DigitalPurchase $purchase, string $note): DigitalPurchase
+    {
+        $this->authorizePass($actor, 'passes.refund-purchases');
 
-            if ($progress !== null && $progress->premium_purchase_id === $locked->getKey()) {
-                $progress->forceFill(['premium_unlocked_at' => null, 'premium_purchase_id' => null])->save();
-            }
+        $cleanNote = $this->cleanText($note, 1000);
 
-            $locked->forceFill([
-                'status' => DigitalPurchase::STATUS_REFUNDED,
-                'refunded_at' => now(),
-                'refunded_by' => $actor->getKey(),
-                'refund_reason' => $reason,
-                'refund_kept_items' => $kept,
-                'review_note' => trim(($locked->review_note ? $locked->review_note."\n" : '').'[استرداد] '.$cleanNote),
-            ])->save();
+        if ($cleanNote === null || mb_strlen($cleanNote) < 5) {
+            throw new PassException('note_required', 'اكتب ملاحظة الاسترداد (5 أحرف على الأقل) للتوثيق.');
+        }
 
-            $this->event($locked, 'refunded', DigitalPurchase::STATUS_VERIFIED, DigitalPurchase::STATUS_REFUNDED, $actor, $reason);
-            $this->audit->log('digital_purchase_refunded', $locked, ['reference' => $locked->reference_code, 'reason' => $reason, 'kept_premium_items' => $kept, 'confirmed' => $confirmClaimed], $actor);
+        try {
+            return $this->refunds->refundUnmatched($actor, $purchase, $cleanNote);
+        } catch (CommerceException $e) {
+            throw new PassException($e->reason, $e->getMessage(), $e->details);
+        }
+    }
 
-            return $locked;
-        });
+    /**
+     * يغلق علم مراجعة مالية بقرار «تجاهل» موثَّق (عولج الأمر خارج المنصة أو لا إجراء مطلوب). لا يغيّر حالة الدفع ولا يفتح المميز؛ التحقق/الاسترداد يمران بإجراءيهما.
+     *
+     * @throws PassException
+     */
+    public function dismissReview(User $actor, DigitalPurchase $purchase, string $note): DigitalPurchase
+    {
+        $this->authorizePass($actor, 'passes.verify-purchases');
+
+        $cleanNote = $this->cleanText($note, 1000);
+
+        if ($cleanNote === null || mb_strlen($cleanNote) < 5) {
+            throw new PassException('note_required', 'اكتب سبب إغلاق المراجعة (5 أحرف على الأقل) للتوثيق.');
+        }
+
+        try {
+            return DB::transaction(function () use ($actor, $purchase, $cleanNote) {
+                $locked = $this->core->lock($purchase);
+                $this->core->resolveLocked($locked, $actor, 'dismissed', $cleanNote);
+
+                return $locked;
+            });
+        } catch (CommerceException $e) {
+            throw new PassException($e->reason, $e->getMessage(), $e->details);
+        }
+    }
+
+    /** مزامنة فورية لحالة طلب مستضاف من المزوّد (إن دعم الاستعلام) عبر المعالج نفسه. @return array{result: string, detail: ?string, state: ?string} */
+    public function syncNow(User $actor, DigitalPurchase $purchase): array
+    {
+        $this->authorizePass($actor, 'passes.verify-purchases');
+
+        $outcome = $this->sync->sync($purchase);
+        $this->audit->log('commerce_manual_sync', $purchase, ['reference' => $purchase->reference_code, 'result' => $outcome['result']], $actor);
+
+        return $outcome;
     }
 
     /** يُنهي صلاحية الطلبات «بانتظار الدفع» المتأخرة فقط (المقدَّم/المحقَّق لا ينتهي آليًا). @return int عدد المنتهية */
@@ -434,6 +472,7 @@ class PassPremiumService
             ->where('status', DigitalPurchase::STATUS_AWAITING)
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', now())
+            ->where(fn ($q) => $q->whereNull('review_flag')->orWhereNotNull('review_resolved_at')) // E41: طلب عليه علم مراجعة مالية قائم لا ينتهي آليًا (قرار مالي أولًا).
             ->orderBy('id')
             ->limit(max(1, $limit))
             ->pluck('id')
@@ -441,7 +480,7 @@ class PassPremiumService
                 $expired += DB::transaction(function () use ($id): int {
                     $locked = DigitalPurchase::query()->whereKey($id)->lockForUpdate()->first();
 
-                    if ($locked === null || $locked->status !== DigitalPurchase::STATUS_AWAITING || $locked->expires_at === null || $locked->expires_at->gt(now())) {
+                    if ($locked === null || $locked->status !== DigitalPurchase::STATUS_AWAITING || $locked->expires_at === null || $locked->expires_at->gt(now()) || $locked->needsReview()) {
                         return 0;
                     }
 
@@ -509,7 +548,7 @@ class PassPremiumService
         return DB::transaction(function () use ($purchase): bool {
             $locked = DigitalPurchase::query()->whereKey($purchase->getKey())->lockForUpdate()->firstOrFail();
 
-            if ($locked->status !== DigitalPurchase::STATUS_AWAITING || $locked->expires_at === null || $locked->expires_at->gt(now())) {
+            if ($locked->status !== DigitalPurchase::STATUS_AWAITING || $locked->expires_at === null || $locked->expires_at->gt(now()) || $locked->needsReview()) {
                 return false;
             }
 
@@ -527,22 +566,26 @@ class PassPremiumService
 
     protected function event(DigitalPurchase $purchase, string $event, ?string $from, ?string $to, ?User $actor, ?string $note): void
     {
-        $row = new DigitalPurchaseEvent;
-        $row->forceFill([
-            'digital_purchase_id' => $purchase->getKey(),
-            'event' => $event,
-            'from_status' => $from,
-            'to_status' => $to,
-            'actor_user_id' => $actor?->getKey(),
-            'note' => $note === null ? null : mb_substr($note, 0, 300),
-        ])->save();
+        $this->core->event($purchase, $event, $from, $to, $actor, $note);
     }
 
-    protected function currencyAccepted(string $currency): bool
+    /** مزوّد الطلب المجمَّد وقت الإنشاء، أو null إن لم يعد مسجَّلًا (لا نفترض مزوّدًا آخر). */
+    protected function providerFor(DigitalPurchase $purchase): ?CommercePaymentProvider
     {
-        $accepted = $this->provider->currencies();
+        return $this->providers->has($purchase->provider) ? $this->providers->get($purchase->provider) : null;
+    }
 
-        return PassRules::currencyAllowed($currency) && ($accepted === null || in_array(strtoupper($currency), $accepted, true));
+    protected function anyProviderEnabled(bool $manualOnly): bool
+    {
+        $keys = $manualOnly ? ['manual'] : array_values(array_unique([$this->providers->defaultKey(), $this->providers->fallbackKey()]));
+
+        foreach ($keys as $key) {
+            if ($this->providers->has($key) && $this->providers->get($key)->isEnabled()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function newReference(): string

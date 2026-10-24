@@ -59,7 +59,8 @@ test('a sold-out item shows no purchase action', function () {
 test('no payment/checkout/webhook routes exist anywhere in the application except the E32 sponsorship donation surface', function () {
     // E32: المتجر والاقتصاد الداخلي (الجواهر) بلا دفع حقيقي. السطح الوحيد المسموح له بمسارات دفع هو دعم الرعاية بالتحويل اليدوي
     // (يتحقق منه مراجع مالي) + لوحة إدارته + Webhook المزوّدين المستقبلي المغلق افتراضيًا. قائمة السماح صريحة وضيقة بالمسار لا بالكلمة.
-    $e32Surface = ['support/', 'payments/staff/', 'api/payments/webhooks/', 'admin/sponsorship-payments', 'admin/payment-settings'];
+    // E41: التجارة الاستهلاكية (شراء المسار المميز) سطح دفع ثانٍ مسموح بمساره الضيق فقط: بدء الدفع المستضاف وwebhook المزوّد. لا يشمل أي مسار للمتجر (store.*).
+    $e32Surface = ['support/', 'payments/staff/', 'api/payments/webhooks/', 'admin/sponsorship-payments', 'admin/payment-settings', 'commerce/checkout/', 'api/commerce/webhooks/'];
 
     $routeUris = collect(\Illuminate\Support\Facades\Route::getRoutes())
         ->map(fn ($route) => $route->uri())

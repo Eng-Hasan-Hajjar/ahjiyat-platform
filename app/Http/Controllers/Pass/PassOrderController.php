@@ -8,14 +8,17 @@ use App\Services\AhjiyatPass\PassException;
 use App\Services\AhjiyatPass\PassLifecycleService;
 use App\Services\AhjiyatPass\PassPageData;
 use App\Services\AhjiyatPass\PassPremiumService;
-use App\Services\Commerce\CommercePaymentProvider;
+use App\Services\Commerce\CommerceCheckoutService;
+use App\Services\Commerce\CommerceException;
+use App\Services\Commerce\CommercePaymentProviderRegistry;
+use App\Services\Commerce\CommercePurchasePresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
- * E40 - شراء المسار المميز (يدوي). **لا سعر ولا عملة ولا مسار ولا مميز من العميل**: المسار الجاري والسعر من الخادم، والمميز لا يُفتح إلا بتحقق مالي بالإدارة.
+ * E40/E41 - شراء المسار المميز (يدوي أو دفع إلكتروني مستضاف عبر مزوّد مسجَّل). **لا سعر ولا عملة ولا مسار ولا مميز من العميل**: المسار الجاري والسعر من الخادم، والمميز لا يُفتح إلا بتحقق مالي بالإدارة.
  * الملكية: الطلب يُحلّ بمعرّف عام ULID **ومحصورًا بالمستخدم** (طلب غيره = 404، لا IDOR). تقديم الطلب لا يمنح شيئًا ويُوصف بصدق في الواجهة.
  */
 class PassOrderController extends Controller
@@ -24,7 +27,9 @@ class PassOrderController extends Controller
         protected PassPremiumService $premium,
         protected PassLifecycleService $lifecycle,
         protected PassPageData $pages,
-        protected CommercePaymentProvider $provider,
+        protected CommercePaymentProviderRegistry $providers,
+        protected CommerceCheckoutService $checkout,
+        protected CommercePurchasePresenter $presenter,
     ) {}
 
     public function premium(Request $request): View|RedirectResponse
@@ -40,20 +45,50 @@ class PassOrderController extends Controller
             return redirect()->route('pass.orders.show', $purchase->public_id);
         }
 
-        return view('pass.premium', $data + ['requestKey' => (string) Str::uuid(), 'providerLabel' => $this->provider->label()]);
+        $currency = (string) $pass->currency;
+        $manual = $this->providers->has('manual') ? $this->providers->get('manual') : null;
+
+        try {
+            $default = $this->providers->forNewPurchase($currency);
+        } catch (CommerceException) {
+            $default = null;
+        }
+
+        return view('pass.premium', $data + [
+            'requestKey' => (string) Str::uuid(),
+            'providerLabel' => ($default ?? $manual)?->label() ?? 'غير متاحة',
+            'hostedDefault' => $default?->supportsRedirect() ?? false,
+            // بديل يدوي متاح بجانب الدفع الإلكتروني (اختيار من المشتري ضمن المزوّدين المفعَّلين؛ السعر والعملة من الخادم دائمًا).
+            'manualAlternative' => ($default?->supportsRedirect() ?? false) && $manual !== null && $manual->isEnabled() && $this->providers->acceptsCurrency($manual, $currency),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $request->validate(['request_key' => ['nullable', 'string', 'min:8', 'max:64']]);
+        $data = $request->validate([
+            'request_key' => ['nullable', 'string', 'min:8', 'max:64'],
+            // اختيار طريقة فقط (لا مزوّد خام ولا مبلغ ولا عملة): يُتحقق منه في الخدمة ضمن المزوّدين المفعَّلين.
+            'method' => ['nullable', 'string', 'in:online,manual'],
+        ]);
         $pass = $this->lifecycle->current();
 
         abort_if($pass === null, 404);
 
         try {
-            $purchase = $this->premium->request($request->user(), $pass, $data['request_key'] ?? null);
+            $purchase = $this->premium->request($request->user(), $pass, $data['request_key'] ?? null, ($data['method'] ?? null) === 'manual');
         } catch (PassException $e) {
             return redirect()->route('pass.premium')->with('error', $e->getMessage());
+        }
+
+        // مزوّد مستضاف: نتابع فورًا إلى صفحة الدفع. تعذّر المزوّد (انقطاع…) ⇒ الطلب سليم ونعيد المستخدم لصفحته مع رسالة قابلة لإعادة المحاولة.
+        if ($purchase->isHosted() && $purchase->status === DigitalPurchase::STATUS_AWAITING) {
+            try {
+                $started = $this->checkout->start($request->user(), $purchase);
+
+                return redirect()->away($started['url']);
+            } catch (CommerceException $e) {
+                return redirect()->route('pass.orders.show', $purchase->public_id)->with('error', $e->getMessage());
+            }
         }
 
         return redirect()->route('pass.orders.show', $purchase->public_id);
@@ -62,12 +97,20 @@ class PassOrderController extends Controller
     public function show(Request $request, string $order): View
     {
         $purchase = $this->owned($request, $order);
+        $provider = $this->providers->has($purchase->provider) ? $this->providers->get($purchase->provider) : null;
+        $copy = $this->presenter->copy($purchase);
 
         return view('pass.order', [
             'purchase' => $purchase,
-            'instructions' => $purchase->status === DigitalPurchase::STATUS_AWAITING || $purchase->status === DigitalPurchase::STATUS_SUBMITTED ? $this->provider->instructionsFor($purchase) : null,
-            'proofRequired' => $this->provider->proofRequired(),
-            'providerLabel' => $this->provider->label(),
+            'instructions' => $provider !== null && ($purchase->status === DigitalPurchase::STATUS_AWAITING || $purchase->status === DigitalPurchase::STATUS_SUBMITTED) ? $provider->instructionsFor($purchase) : null,
+            'proofRequired' => $provider?->proofRequired() ?? false,
+            'providerLabel' => $this->presenter->providerLabel($purchase),
+            // E41 (مستضاف): تقديم يدوي لا يظهر؛ «متابعة الدفع» تظهر ما دام الطلب قابلًا للدفع والمزوّد مفعَّل؛ والحالة الموثوقة وحدها تُعرض (لا نجاح مزيّف).
+            'hosted' => $purchase->isHosted(),
+            'phase' => $this->presenter->phase($purchase),
+            'copy' => $copy,
+            'canContinue' => $purchase->isHosted() && $purchase->status === DigitalPurchase::STATUS_AWAITING && ! $purchase->needsReview() && ($provider?->isEnabled() ?? false) && $provider->supportsRedirect(),
+            'receiptUrl' => in_array($purchase->status, [DigitalPurchase::STATUS_VERIFIED, DigitalPurchase::STATUS_REFUNDED], true) ? route('commerce.receipts.show', $purchase->public_id) : null,
         ]);
     }
 

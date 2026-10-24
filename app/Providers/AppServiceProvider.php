@@ -32,10 +32,10 @@ class AppServiceProvider extends ServiceProvider
             default => $app->make(\App\Services\CreatorFinance\ManualCreatorPayoutProvider::class),
         });
 
-        // E40: مزوّد دفع المشتريات الرقمية (المسار المميز). اليوم يدوي فقط؛ مزوّد إلكتروني مستقبلي = تنفيذ جديد للعقد وفرع هنا (منفصل عن PaymentProvider الخاص بالرعاية).
-        $this->app->bind(\App\Services\Commerce\CommercePaymentProvider::class, fn ($app) => match ((string) config('ahjiyat_pass.premium.provider', 'manual')) {
-            default => $app->make(\App\Services\Commerce\ManualCommercePaymentProvider::class),
-        });
+        // E41: سجل مزوّدي دفع المشتريات الرقمية (E40 كان يربط مزوّدًا واحدًا بالحاوية؛ لم يعد). المزوّدون من config/commerce.php، ويُحلّون بالمفتاح؛ مزوّد الشراء يُجمَّد وقت إنشائه.
+        // منفصل عن PaymentProviderRegistry الخاص بالرعاية (E32). مزوّد حيّ مستقبلي = صنف ينفّذ CommercePaymentProvider + سطر في config/commerce.php دون المساس بـDigitalPurchase.
+        $this->app->singleton(\App\Services\Commerce\CommercePaymentProviderRegistry::class);
+        $this->app->singleton(\App\Services\Commerce\CommerceProductRegistry::class);
 
         // E31: أسماء الفهارس/المفاتيح المولَّدة تلقائيًا تُقتطع إلى 64 محرفًا على MySQL/MariaDB فقط (SQLite بلا تغيير). انظر MysqlSafeBlueprint.
         $this->app->bind(\Illuminate\Database\Schema\Blueprint::class, \App\Database\MysqlSafeBlueprint::class);
@@ -325,6 +325,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('pass-order', fn (Request $request) => [Limit::perMinute(10)->by('pso:'.($request->user()?->id ?: $request->ip())), Limit::perHour(40)->by('psoh:'.($request->user()?->id ?: $request->ip()))]);
         RateLimiter::for('pass-submit', fn (Request $request) => [Limit::perMinute(10)->by('pss:'.($request->user()?->id ?: $request->ip())), Limit::perHour(60)->by('pssh:'.($request->user()?->id ?: $request->ip()))]);
         RateLimiter::for('pass-proof', fn (Request $request) => [Limit::perMinute(5)->by('psp:'.($request->user()?->id ?: $request->ip())), Limit::perHour(20)->by('psph:'.($request->user()?->id ?: $request->ip()))]);
+
+        // E41: التجارة. بدء الدفع المستضاف (يستدعي المزوّد: الأضيق)، استطلاع حالة الشراء (قراءة فقط بفاصل أدنى)، السجل/الإيصال (قراءة)، وwebhook المزوّد (بالـIP+المزوّد؛ سقف سخي كي لا نحجب مزوّدًا شرعيًا).
+        RateLimiter::for('commerce-checkout', fn (Request $request) => [Limit::perMinute(max(1, (int) config('commerce.limits.checkout_per_minute', 6)))->by('cmc:'.($request->user()?->id ?: $request->ip())), Limit::perHour(max(1, (int) config('commerce.limits.checkout_per_hour', 30)))->by('cmch:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('commerce-status', fn (Request $request) => Limit::perMinute(max(1, (int) config('commerce.status.rate_per_minute', 20)))->by('cms:'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('commerce-read', fn (Request $request) => Limit::perMinute(60)->by('cmr:'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('commerce-webhook', fn (Request $request) => Limit::perMinute(max(1, (int) config('commerce.webhooks.rate_per_minute', 600)))->by('cmw:'.$request->ip().':'.(string) $request->route('provider')));
 
         // E11: تجهيز/إزالة تجميليات - UX تتطلب تجربة سريعة (تبديل/معاينة)، لا حساسية مالية هنا.
         RateLimiter::for('cosmetic-equip', function (Request $request) {

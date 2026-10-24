@@ -32,9 +32,16 @@
                 <form method="POST" action="{{ route('pass.orders.store') }}" class="mt-4">
                     @csrf
                     <input type="hidden" name="request_key" value="{{ $requestKey }}">
-                    <button type="submit" class="btn-gem !py-2.5 !px-6 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" data-pass-order-create>إنشاء طلب شراء</button>
+                    <button type="submit" class="btn-gem !py-2.5 !px-6 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" data-pass-order-create>{{ ($hostedDefault ?? false) ? 'متابعة الدفع' : 'إنشاء طلب شراء' }}</button>
+                    @if ($manualAlternative ?? false)
+                        <button type="submit" name="method" value="manual" class="ms-2 text-xs font-bold text-slate-300 underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" data-pass-order-manual>أفضّل التحويل اليدوي</button>
+                    @endif
                 </form>
-                <p class="mt-2 text-xs text-slate-400">طريقة الدفع: {{ $providerLabel }}. إنشاء الطلب لا يخصم شيئًا ولا يفتح المميز؛ يُفتح بعد تأكيد الدفع من الإدارة.</p>
+                @if ($hostedDefault ?? false)
+                    <p class="mt-2 text-xs text-slate-400">طريقة الدفع: {{ $providerLabel }}. ستنتقل إلى صفحة الدفع الخاصة بمزوّد الدفع؛ لا نطلب بيانات بطاقتك ولا نحفظها، ولا يُفتح المميز إلا بعد تأكيد الدفع من المزوّد.</p>
+                @else
+                    <p class="mt-2 text-xs text-slate-400">طريقة الدفع: {{ $providerLabel }}. إنشاء الطلب لا يخصم شيئًا ولا يفتح المميز؛ يُفتح بعد تأكيد الدفع من الإدارة.</p>
+                @endif
             @endif
         @endif
     </section>
@@ -55,7 +62,11 @@
             <li>شراء واحد لهذا المسار فقط. ليس اشتراكًا ولا يتجدد تلقائيًا، ولا شراء شرائح أو نقاط.</li>
             <li>بأثر رجعي: ما بلغته من شرائح تُفتح مكافآته المميزة للاستلام فور تأكيد الدفع.</li>
             <li>مكافآت تجميلية أو وصولية فقط. لا نقد ولا جواهر ولا جوائز حقيقية، ولا أفضلية في الأحجيات أو الترتيب أو المنافسات أو السمعة.</li>
-            <li>الدفع يدوي: تحوّل المبلغ ثم ترسل مرجع التحويل (وإثباتًا إن طُلب)، وتراجعه الإدارة. لا نطلب بيانات بطاقتك ولا رموزًا سرية أبدًا.</li>
+            @if ($hostedDefault ?? false)
+                <li>الدفع عبر صفحة مزوّد الدفع نفسه: لا نطلب بيانات بطاقتك ولا رموزًا سرية أبدًا. يتأكد الدفع من المزوّد وحده، وليس من عودتك إلى الموقع.</li>
+            @else
+                <li>الدفع يدوي: تحوّل المبلغ ثم ترسل مرجع التحويل (وإثباتًا إن طُلب)، وتراجعه الإدارة. لا نطلب بيانات بطاقتك ولا رموزًا سرية أبدًا.</li>
+            @endif
             <li>إن رُفض طلبك ستعرف السبب. الاسترداد يُدار من الإدارة وفق مراجعة؛ ما استلمته من مكافآت يخضع لمراجعة مالية ولا يُسحب آليًا.</li>
         </ul>
     </section>

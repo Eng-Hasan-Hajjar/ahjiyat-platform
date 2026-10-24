@@ -39,6 +39,8 @@ namespace App\Services\Notifications;
  *  - E40 مسار الأحجيات: PassNotifier بعد الـcommit → pass_premium_unlocked (لصاحب الشراء عند تحقق الدفع) / pass_purchase_rejected (عند رفض طلب الشراء) /
  *    pass_claim_window_closing (مرة واحدة لكل لاعب/مسار، فقط لمن لديه مكافآت قابلة للاستلام قبل إغلاق المهلة بساعات محددة). فئة social الاختيارية.
  *    لا إشعار على كل نقطة ولا مهمة ولا شريحة ولا على بدء المسار (لا بث جماعي)، ولا لغة ضغط أو ندرة. النص بلا مبالغ ولا مراجع تحويل.
+ *  - E41 التجارة: CommerceNotifier بعد الـcommit → commerce_failed (فشل/إلغاء الدفع عند المزوّد؛ الطلب يبقى قابلًا لإعادة المحاولة) / commerce_action_required (دفعتك تحتاج مراجعة مالية قبل التفعيل)
+ *    / commerce_refunded (سُجّل استردادك). فئة social الاختيارية. «تم التفعيل» يستعمل pass_premium_unlocked الموجود. بلا مبالغ ولا مراجع مزوّد ولا ملاحظات داخلية، ومفاتيح idempotency دلالية فلا تكرار مع webhook مكرَّر.
  *  - E35 مجموعات: CollectionModerationService بعد الـcommit → collection_hidden / collection_restored (لمالك المجموعة فقط، فئة social). لا إشعار على نشر/حفظ/بلاغ/ترتيب/رف: لا لحافظ ولا لصاحب مجموعة ولا للمبلِّغ.
  */
 enum NotificationType: string
@@ -113,6 +115,9 @@ enum NotificationType: string
     case PassPremiumUnlocked = 'pass_premium_unlocked';
     case PassPurchaseRejected = 'pass_purchase_rejected';
     case PassClaimWindowClosing = 'pass_claim_window_closing';
+    case CommerceFailed = 'commerce_failed';
+    case CommerceActionRequired = 'commerce_action_required';
+    case CommerceRefunded = 'commerce_refunded';
 
     public function category(): NotificationCategory
     {
@@ -138,6 +143,7 @@ enum NotificationType: string
             self::CommentReplyReceived, self::NewCommentOnYourContent, self::CommentHidden, self::FeaturedCreatorSelected,
             self::CreatorStatementReady, self::CreatorPayoutApproved, self::CreatorPayoutPaid, self::CreatorPayoutRejected,
             self::PassPremiumUnlocked, self::PassPurchaseRejected, self::PassClaimWindowClosing,
+            self::CommerceFailed, self::CommerceActionRequired, self::CommerceRefunded,
             self::ReferralQualified, self::ReferralRewardReceived => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::EventStartingSoon,
@@ -164,6 +170,9 @@ enum NotificationType: string
             self::PassPurchaseRejected => 59,
             self::PassPremiumUnlocked => 57,
             self::PassClaimWindowClosing => 45,
+            self::CommerceActionRequired => 61,
+            self::CommerceFailed => 56,
+            self::CommerceRefunded => 55,
             self::StreakAtRisk => 100,
             self::DailyQuestsAvailable => 50,
             self::SeasonStarted => 20,
@@ -288,6 +297,9 @@ enum NotificationType: string
             self::PassPremiumUnlocked => '✨',
             self::PassPurchaseRejected => '⚠️',
             self::PassClaimWindowClosing => '⏳',
+            self::CommerceFailed => '⚠️',
+            self::CommerceActionRequired => '🔎',
+            self::CommerceRefunded => '↩️',
         };
     }
 
@@ -331,6 +343,7 @@ enum NotificationType: string
             self::ModerationNotice, self::ModerationAppealDecided => ['account.safety.index'],
             self::CreatorStatementReady, self::CreatorPayoutApproved, self::CreatorPayoutPaid, self::CreatorPayoutRejected => ['creator.earnings'],
             self::PassPremiumUnlocked, self::PassPurchaseRejected, self::PassClaimWindowClosing => ['pass.index'],
+            self::CommerceFailed, self::CommerceActionRequired, self::CommerceRefunded => ['commerce.purchases.index'],
         };
     }
 
@@ -407,6 +420,9 @@ enum NotificationType: string
             self::PassPremiumUnlocked => 'تم تفعيل المسار المميز'.(! empty($params['pass']) ? ': '.$params['pass'] : ''),
             self::PassPurchaseRejected => 'لم يُؤكَّد طلب شراء المسار المميز',
             self::PassClaimWindowClosing => 'مهلة استلام مكافآت المسار تقترب'.(! empty($params['pass']) ? ': '.$params['pass'] : ''),
+            self::CommerceFailed => 'لم تكتمل عملية الدفع',
+            self::CommerceActionRequired => 'دفعتك قيد المراجعة المالية',
+            self::CommerceRefunded => 'سُجّل استرداد طلبك',
             self::SupporterTierChanged => ! empty($params['up'])
                 ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
                 : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
@@ -491,6 +507,9 @@ enum NotificationType: string
             self::PassPremiumUnlocked => 'تأكّد دفعك وفُتحت مكافآت المسار المميز لما بلغتَه من شرائح. استلمها متى شئت من صفحة المسار.',
             self::PassPurchaseRejected => 'راجع حالة طلبك في صفحة المسار؛ يمكنك تقديم طلب جديد إن كانت المبيعات ما زالت متاحة.',
             self::PassClaimWindowClosing => 'لديك مكافآت جاهزة للاستلام وستُغلق مهلة استلامها قريبًا. استلمها من صفحة المسار.',
+            self::CommerceFailed => 'لم يُفعَّل المسار المميز لأن عملية الدفع لم تكتمل. يمكنك إعادة المحاولة من صفحة الطلب متى شئت.',
+            self::CommerceActionRequired => 'وصلتنا عملية دفع تحتاج مراجعة يدوية قبل تفعيل المسار المميز. يتولى الفريق المالي الأمر، ولا يلزمك فعل شيء الآن.',
+            self::CommerceRefunded => 'سُجّل استرداد طلبك. تجد التفاصيل في «مشترياتي».',
             self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
             self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
             self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',

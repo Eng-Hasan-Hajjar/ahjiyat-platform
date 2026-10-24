@@ -26,6 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
             // E32: webhook عام لمزوّدين إلكترونيين مستقبليين (مغلق افتراضيًا). مجموعة api = بلا جلسة/CSRF بطبيعتها، لا استثناء من أي وسيط.
             Route::middleware('api')->group(__DIR__.'/../routes/payments_webhooks.php');
+
+            // E41: webhook التجارة الاستهلاكية (المشتريات الرقمية). مجموعة api = بلا جلسة/CSRF بطبيعتها؛ المصادقة بتوقيع المزوّد حصرًا (لا استثناء عام من CSRF).
+            Route::middleware('api')->group(__DIR__.'/../routes/commerce_webhooks.php');
         },
     )
     // E21: قنوات البثّ الخاصة + مسار /broadcasting/auth (وسيط web، يتطلب مستخدمًا مصادَقًا)

@@ -78,6 +78,10 @@
 | `PAYMENTS_PROOF_RETENTION_DAYS` / `PAYMENTS_DISPUTE_WINDOW_DAYS` | 365 / 90 | تقليم ملفات الإثبات (`payments:prune-proofs --dry-run` أولًا) بعد الحالة النهائية وخارج نافذة النزاع؛ سجل الطلب لا يُحذف |
 | `PAYMENTS_WEBHOOKS_ENABLED` | `false` | مسار Webhook المستقبلي مغلق افتراضيًا؛ لا مزوّد إلكتروني منفَّذ بعد (يتطلب مزوّدًا يتحقق من توقيعه) |
 | `PAYMENTS_NOTIFICATIONS_ENABLED` | `true` | إشعارات صاحب الطلب (استلام/توضيح/رفض/استرداد) |
+| `COMMERCE_ENABLED` / `COMMERCE_DEFAULT_PROVIDER` / `COMMERCE_FALLBACK_PROVIDER` / `COMMERCE_ALLOWED_CURRENCIES` | `true` / `manual` / `manual` / `USD,EUR,TRY` | الدفع الإلكتروني للمشتريات الرقمية (E41): مفتاح إيقاف شامل لبدء checkout المستضاف، المزوّد الافتراضي والبديل، والعملات المسموحة (بلا تحويل). **لا مزوّد حيّ منفَّذ**: المسجَّلان `manual` و`sandbox` ([E41](consumer-commerce-e41.md)). أسرار أي مزوّد حيّ مستقبلي من بيئة الخادم/مدير الأسرار فقط ولا تُوثَّق قيمها هنا |
+| `COMMERCE_WEBHOOKS_ENABLED` / `COMMERCE_WEBHOOK_MAX_BODY_BYTES` / `COMMERCE_WEBHOOK_REPLAY_TOLERANCE` / `COMMERCE_WEBHOOK_RATE_PER_MINUTE` | فارغ (local/testing فقط) / 65536 / 300 / 600 | استقبال webhook التجارة (`POST /api/commerce/webhooks/{provider}`): مغلق افتراضيًا خارج التطوير، أقصى حجم للجسم، نافذة تحمّل الطابع الزمني للتوقيع (ثوانٍ)، وحد المعدّل. التوقيع هو المصادقة ولا يُعطَّل أبدًا |
+| `COMMERCE_SESSION_EXPIRY_MINUTES` / `COMMERCE_PURCHASE_EXPIRY_HOURS` / `COMMERCE_RECONCILE_MAX_FINDINGS` / `COMMERCE_NOTIFICATIONS_ENABLED` | 60 / 24 / 200 / `true` | عمر جلسة الدفع عند المزوّد، عمر الطلب «بانتظار الدفع» المستضاف، سقف نتائج `commerce:reconcile`، وإشعارات التجارة |
+| `COMMERCE_SANDBOX_ENABLED` / `COMMERCE_SANDBOX_ACCEPT_WEBHOOKS` / `COMMERCE_SANDBOX_REFUND_MODE` | فارغ / `true` / `succeeded` | المزوّد التجريبي (محاكاة): **يُرفض في الإنتاج بالكود** مهما كانت القيم، ويفشل `production:check` إن كان مفعَّلًا أو افتراضيًا هناك. `REFUND_MODE`: `succeeded` \| `pending` \| `failed` (اختبار حتمي) |
 
 ## 4) INFRASTRUCTURE-SPECIFIC: تعتمد على بنيتك/مزوّدك
 

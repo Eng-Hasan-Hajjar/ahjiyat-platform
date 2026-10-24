@@ -292,3 +292,5 @@ require __DIR__.'/safety.php';
 require __DIR__.'/creator_finance.php';
 // E40: مسار الأحجيات (Ahjiyat Pass): صفحة اللاعب وشراء المميز اليدوي. لوحة الإدارة في Filament.
 require __DIR__.'/pass.php';
+// E41: التجارة الاستهلاكية (بدء الدفع المستضاف، عودة المزوّد، سجل المشتريات والإيصال، حالة الشراء). webhook المزوّد في routes/commerce_webhooks.php (مجموعة api).
+require __DIR__.'/commerce.php';

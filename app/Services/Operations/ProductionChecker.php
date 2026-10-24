@@ -49,7 +49,7 @@ final class ProductionChecker
 
         $steps = [
             'environment', 'appKey', 'release', 'database', 'migrations', 'cache', 'session', 'redis', 'queue', 'scheduler',
-            'mail', 'broadcasting', 'security', 'logging', 'storage', 'build', 'optimization', 'permissions', 'accounts',
+            'mail', 'broadcasting', 'security', 'logging', 'storage', 'build', 'optimization', 'permissions', 'accounts', 'commerce',
         ];
 
         foreach ($steps as $step) {
@@ -765,6 +765,42 @@ final class ProductionChecker
     // ───────────────────────────── مساعدات ─────────────────────────────
 
     /** true/false وجود الجدول، أو null إن تعذّر الوصول للقاعدة (يُبلَّغ عنه بفحص القاعدة نفسه). */
+    // ───────────────────────────── التجارة (E41) ─────────────────────────────
+
+    /**
+     * مزوّد المحاكاة (sandbox) ليس بوابة دفع: يُرفض بالكود في الإنتاج مهما كان الضبط، لكن بقاء علمه/افتراضه في بيئة إنتاج خطأ تشغيلي يجب أن يظهر صراحة قبل النشر.
+     * لا تُقرأ ولا تُعرض أي أسرار مزوّد هنا (حضور/غياب فقط).
+     */
+    private function commerce(): void
+    {
+        $g = 'التجارة';
+        $flag = config('commerce.providers.sandbox.enabled');
+        $sandboxFlag = $flag !== null && $flag !== '' && filter_var($flag, FILTER_VALIDATE_BOOLEAN);
+        $default = (string) config('commerce.default_provider', 'manual');
+        $fallback = (string) config('commerce.fallback_provider', 'manual');
+
+        if ($this->production && ($sandboxFlag || $default === 'sandbox' || $fallback === 'sandbox')) {
+            $this->fail($g, 'COMMERCE_SANDBOX', 'مزوّد المحاكاة (sandbox) مفعَّل أو معيَّن افتراضيًا/بديلًا في بيئة إنتاج - يُرفض بالكود لكنه خطأ ضبط: أزل COMMERCE_SANDBOX_ENABLED واجعل COMMERCE_DEFAULT_PROVIDER=manual أو مزوّدًا حقيقيًا');
+        } elseif ($default === 'sandbox' || $fallback === 'sandbox') {
+            $this->warn($g, 'COMMERCE_DEFAULT_PROVIDER', 'المزوّد الافتراضي/البديل هو sandbox (محاكاة) - مقبول للتطوير والاختبار فقط');
+        } else {
+            $this->pass($g, 'COMMERCE_DEFAULT_PROVIDER', 'المزوّد الافتراضي ('.$default.') ليس مزوّد محاكاة');
+        }
+
+        $webhooks = config('commerce.webhooks.enabled');
+
+        if ($this->production && $webhooks !== null && $webhooks !== '' && filter_var($webhooks, FILTER_VALIDATE_BOOLEAN)) {
+            $live = collect(app(\App\Services\Commerce\CommercePaymentProviderRegistry::class)->all())
+                ->filter(fn ($provider) => $provider->supportsWebhook() && $provider->acceptsWebhooks())->isNotEmpty();
+
+            $live
+                ? $this->pass($g, 'COMMERCE_WEBHOOKS_ENABLED', 'استقبال webhook التجارة مفعَّل ويوجد مزوّد يستقبله')
+                : $this->warn($g, 'COMMERCE_WEBHOOKS_ENABLED', 'استقبال webhook التجارة مفعَّل ولا يوجد مزوّد يستقبله - عطّله حتى يُضبط مزوّد حقيقي');
+        } else {
+            $this->info($g, 'COMMERCE_WEBHOOKS_ENABLED', 'استقبال webhook التجارة مغلق افتراضيًا خارج بيئات التطوير');
+        }
+    }
+
     private function hasTable(?string $connection, string $table): ?bool
     {
         try {

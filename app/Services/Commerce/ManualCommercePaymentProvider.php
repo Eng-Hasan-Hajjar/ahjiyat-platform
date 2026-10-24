@@ -9,6 +9,7 @@ use App\Services\PlatformSettingsService;
 /**
  * E40 - المزوّد اليدوي للمشتريات الرقمية: الدفع يتم خارج المنصة (تحويل بنكي/حوالة) ثم يقدّم المستخدم مرجع التحويل (وإثباتًا خاصًا إن لزم) ويتحقق مراجع مخوَّل.
  * يعيد استخدام تعليمات التحويل العلنية في إعدادات المنصة (مجموعة payments) كما هي، دون أي أسرار هنا. لا webhook ولا إعادة توجيه ولا استرداد عبر مزوّد.
+ * E41: سلوكه كما كان (يبقى مزوّدًا صالحًا بالكامل)؛ العمليات الإلكترونية الجديدة غير مدعومة صراحةً (ترفع CommerceException('unsupported')) ولا تُستدعى له أصلًا.
  */
 class ManualCommercePaymentProvider implements CommercePaymentProvider
 {
@@ -47,6 +48,28 @@ class ManualCommercePaymentProvider implements CommercePaymentProvider
         return $codes === [] ? null : $codes;
     }
 
+    public function mode(): string
+    {
+        return 'manual';
+    }
+
+    public function isConfigured(): bool
+    {
+        $manual = $this->instructions->manual();
+
+        return $manual['beneficiary'] !== null || $manual['account'] !== null;
+    }
+
+    public function acceptsWebhooks(): bool
+    {
+        return false;
+    }
+
+    public function supportsStatusQuery(): bool
+    {
+        return false;
+    }
+
     public function supportsRedirect(): bool
     {
         return false;
@@ -79,5 +102,25 @@ class ManualCommercePaymentProvider implements CommercePaymentProvider
     public function proofRequired(): bool
     {
         return (bool) config('ahjiyat_pass.purchase.proof_enabled', true) && (bool) $this->instructions->manual()['proof_required'];
+    }
+
+    public function createCheckout(CommerceCheckoutRequest $request): CommerceCheckoutInit
+    {
+        throw new CommerceException('unsupported', 'هذه الطريقة لا تدعم الدفع الإلكتروني المستضاف.');
+    }
+
+    public function verifyWebhook(string $payload, array $headers): CommerceWebhookEvent
+    {
+        throw new CommerceWebhookException('unsupported', 'هذه الطريقة لا تستقبل أحداثًا خارجية.', 404);
+    }
+
+    public function refund(DigitalPurchase $purchase, string $idempotencyKey): CommerceRefundResult
+    {
+        return CommerceRefundResult::failed('unsupported');
+    }
+
+    public function fetchStatus(DigitalPurchase $purchase): ?CommerceProviderStatus
+    {
+        return null;
     }
 }

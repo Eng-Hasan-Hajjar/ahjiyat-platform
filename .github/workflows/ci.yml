@@ -204,6 +204,10 @@ jobs:
       - name: E40 Ahjiyat Pass on MySQL (progress/tier/reward/claim/source_key/open-order/live-slot uniqueness / FK retention / Arabic round-trip / big-integer exactness / deterministic tiers / named indexes)
         run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/AhjiyatPassE40/E40MysqlSchemaTest.php
 
+      # E41: مجموعة جزئية صغيرة (≈20 ث) لما يختلف فعلًا على MySQL: فرادة مراجع المزوّد (جلسة/دفعة/استرداد لكل مزوّد) مع تعايش NULL، فرادة حدث المزوّد، الطلب المفتوح الواحد، النص العربي والرموز التعبيرية حتى حدود الأعمدة الجديدة، دقّة الأعداد الصحيحة الكبيرة، سياسة المفاتيح الأجنبية (سجل المزوّد والتاريخ المالي لا يُحذفان تتابعيًا)، الفهارس المسماة، ولا float/decimal. البقية على SQLite.
+      - name: E41 consumer commerce on MySQL (provider reference/event uniqueness / one open order / FK retention / Arabic round-trip / big-integer exactness / named indexes)
+        run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/CommerceE41/E41MysqlSchemaTest.php
+
       - name: Schema parity against the migrated MySQL database (read-only)
         run: php artisan db:parity --connection=mysql --runtime
 
@@ -230,3 +234,11 @@ jobs:
         env:
           DB_CONNECTION: mysql
         run: php tools/e40/concurrency-probe.php --rounds=4
+
+      # E41: سباق حقيقي بين عمليات PHP على MySQL بالمزوّد التجريبي (بدء checkout مزدوج / الحدث المدفوع نفسه من 4 عمليات / أحداث مدفوع-فاشل-ملغى بترتيب عشوائي / تأكيد-تجاهل-استرداد متزامن لدفعة معلَّمة / استرداد متزامن / مدفوع↔انتهاء / استثناء مُحقَن عند إدراج سجل الحدث) ثم مصالحة تجارة نظيفة.
+      # يمسح قاعدة الاختبار المؤقتة (migrate:fresh) ويرفض أي قاعدة لا ينتهي اسمها بـ_test؛ لذا يأتي بعد مسبار E40 في آخر الخطوات. كاش الملفات المشترك في مجلد مؤقت خاص بالمسبار.
+      - name: E41 real-concurrency probe on MySQL (parallel OS processes)
+        timeout-minutes: 10
+        env:
+          DB_CONNECTION: mysql
+        run: php tools/e41/concurrency-probe.php --rounds=4
