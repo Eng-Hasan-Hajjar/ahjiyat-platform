@@ -24,6 +24,7 @@ class QuestDefinitionInvariantGuard
         if (! $isNew) {
             $this->assertUsedFieldsNotMutated($quest);
             $this->assertPooledPeriodStable($quest);
+            $this->assertPassLinkedFieldsNotMutated($quest);
         }
 
         $this->assertPeriodTypeKnown($quest);
@@ -35,6 +36,10 @@ class QuestDefinitionInvariantGuard
 
     public function enforceDeletable(QuestDefinition $quest): void
     {
+        if (\App\Models\AhjiyatPassMission::query()->where('quest_definition_id', $quest->getKey())->exists()) {
+            throw new StoreItemInvariantViolation('لا يمكن حذف مهمة مرتبطة بمسار الأحجيات - عطِّلها بدلًا من ذلك.');
+        }
+
         if ($quest->isUsed()) {
             throw new StoreItemInvariantViolation('لا يمكن حذف مهمة بدأ لاعبون فعليًا بإحراز تقدُّم بها - عطِّلها بدلًا من ذلك.');
         }
@@ -48,6 +53,26 @@ class QuestDefinitionInvariantGuard
 
         if ($quest->isDirty(self::SENSITIVE_FIELDS)) {
             throw new StoreItemInvariantViolation('لا يمكن تغيير فترة أو شرط أو نطاق أو مكافأة مهمة بدأ لاعبون فعليًا بإحراز تقدُّم بها.');
+        }
+    }
+
+    /**
+     * E40: مهمة مرتبطة بمسار **منشور/مقفل** لا يتغيّر ما يحدّد معنى إكمالها (الفترة/الشرط/الهدف/النطاق): نقاط المسار وقابلية بلوغ شرائحه بُنيت عليها.
+     * الاستعلام فقط عند تعديل أحد هذه الحقول فعليًا؛ المكافآت والعنوان والتفعيل خارج هذا القيد (يلتقط reconcile أي مهمة معطَّلة).
+     */
+    protected function assertPassLinkedFieldsNotMutated(QuestDefinition $quest): void
+    {
+        if (! $quest->isDirty(['period_type', 'condition_type', 'target_value', 'scope_type', 'scope_id'])) {
+            return;
+        }
+
+        $linked = \App\Models\AhjiyatPassMission::query()
+            ->where('quest_definition_id', $quest->getKey())
+            ->whereHas('pass', fn ($q) => $q->whereNotNull('locked_at'))
+            ->exists();
+
+        if ($linked) {
+            throw new StoreItemInvariantViolation('لا يمكن تغيير فترة أو شرط أو هدف أو نطاق مهمة مرتبطة بمسار أحجيات منشور.');
         }
     }
 

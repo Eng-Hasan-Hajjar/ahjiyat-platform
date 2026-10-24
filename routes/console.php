@@ -67,3 +67,6 @@ $guard(Schedule::command('payments:expire-stale')->everyFifteenMinutes()->name('
 
 // E33: استكمال الإحالات المنتظرة لعمر الحساب + إعادة تسليم جوانب مكافآت فاشلة (idempotent). مطابقة referrals:reconcile يدوية للقراءة فقط (لا جدولة تكتب).
 $guard(Schedule::command('referrals:process')->everyThirtyMinutes()->name('referrals-process'), 60);
+
+// E40: صيانة مسار الأحجيات (تفعيل/إنهاء بالتاريخ، إنهاء طلبات المميز المتأخرة، تذكير مهلة الاستلام). idempotent؛ غيابه لا يكسر شيئًا: تُحسب النافذة بالتاريخ حيًّا في كل قراءة. مطابقة ahjiyat-pass:reconcile يدوية للقراءة فقط.
+$guard(Schedule::command('ahjiyat-pass:process')->everyFifteenMinutes()->name('ahjiyat-pass-process'), 30);

@@ -200,6 +200,10 @@ jobs:
       - name: E39 creator finance on MySQL (allocation/account/source_key/open-payout/reference uniqueness / FK retention / Arabic round-trip / big-integer exactness / deterministic remainder / half-open period / named indexes)
         run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/CreatorFinanceE39/E39MysqlSchemaTest.php
 
+      # E40: مجموعة جزئية صغيرة (≈10 ث) لما يختلف فعلًا على MySQL: فرادة التقدّم (لاعب، مسار) والشريحة والمكافأة والمطالبة وsource_key ومفتاح الطلب المفتوح ومسار فعّال واحد (live_slot) مع تعايش NULL، سياسة المفاتيح الأجنبية (التاريخ المالي والتقدّمي لا يُحذف تتابعيًا وحذف حساب إداري يُفرِّغ المراجع فقط)، النص العربي والرموز التعبيرية حتى حدود الأعمدة، دقّة الأعداد الصحيحة الكبيرة (SUM/INT UNSIGNED)، حتمية حساب الشريحة بغض النظر عن ترتيب الإدراج، الفهارس المسماة، ولا float/decimal. البقية على SQLite.
+      - name: E40 Ahjiyat Pass on MySQL (progress/tier/reward/claim/source_key/open-order/live-slot uniqueness / FK retention / Arabic round-trip / big-integer exactness / deterministic tiers / named indexes)
+        run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/AhjiyatPassE40/E40MysqlSchemaTest.php
+
       - name: Schema parity against the migrated MySQL database (read-only)
         run: php artisan db:parity --connection=mysql --runtime
 
@@ -218,3 +222,11 @@ jobs:
         env:
           DB_CONNECTION: mysql
         run: php tools/e39/concurrency-probe.php --rounds=4
+
+      # E40: سباق حقيقي بين عمليات PHP على MySQL (طلب مميز مزدوج / تحقق مزدوج / تحقق↔رفض / مطالبة مزدوجة / استلام الكل المتزامن / استعادة نقاط مزدوجة / استرداد↔مطالبات مميزة / استثناء مُحقَن داخل المطالبة / مزامنة الدورة عند لحظة البدء) ثم مصالحة نظيفة.
+      # يمسح قاعدة الاختبار المؤقتة (migrate:fresh) ويرفض أي قاعدة لا ينتهي اسمها بـ_test؛ لذا يأتي بعد مسبار E39 في آخر الخطوات.
+      - name: E40 real-concurrency probe on MySQL (parallel OS processes)
+        timeout-minutes: 10
+        env:
+          DB_CONNECTION: mysql
+        run: php tools/e40/concurrency-probe.php --rounds=4

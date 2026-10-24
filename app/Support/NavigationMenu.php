@@ -63,6 +63,8 @@ final class NavigationMenu
             $moreGroups[] = ['title' => 'تقدّمي', 'items' => [
                 $item('progress', 'progress.show', 'sparkles', 'تقدّمي وإنجازاتي', ['progress.*']),
                 $item('quests', 'quests.show', 'quests', 'المهام اليومية', ['quests.*']),
+                // E40: مسار التحدي (للموثَّقين؛ يخفيه مفتاح ahjiyat_pass.enabled). اسم المسار الجاري يُعرض داخل الصفحة وتغيّره الإدارة.
+                ...($verified && config('ahjiyat_pass.enabled', true) ? [$item('pass', 'pass.index', 'sparkles', 'مسار التحدي', ['pass.*'])] : []),
             ]];
             $moreGroups[] = ['title' => 'متجري ومحفظتي', 'items' => [
                 $item('store', 'store.index', 'store', 'المتجر', ['store.*']),

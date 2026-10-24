@@ -290,3 +290,5 @@ require __DIR__.'/reputation.php';
 require __DIR__.'/safety.php';
 // E39: أرباح المبدع وكشوفه وطلبات الدفع (داخل بوابة استوديو المبدعين نفسها). لوحة المالية الإدارية في Filament.
 require __DIR__.'/creator_finance.php';
+// E40: مسار الأحجيات (Ahjiyat Pass): صفحة اللاعب وشراء المميز اليدوي. لوحة الإدارة في Filament.
+require __DIR__.'/pass.php';

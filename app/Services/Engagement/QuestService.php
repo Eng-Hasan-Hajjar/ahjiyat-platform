@@ -304,8 +304,24 @@ class QuestService
             return $progress->fresh();
         });
 
+        // E40: مسار الأحجيات يتفاعل مع **إكمال** المهمة فقط (لا يقيّم شيئًا ولا يلمس مكافأتها). خطّاف معزول الفشل تمامًا ويسبق منح المكافأة
+        // حتى لا يعتمد أي منهما على الآخر: فشله لا يمنع/يُرجع مكافأة المهمة، وفشل مكافأتها لا يُضيّع نقاط المسار (تُستعاد من صفحة المسار).
+        if ($progress->completed_at !== null) {
+            $this->notifyAhjiyatPass($user, $progress);
+        }
+
         if ($progress->completed_at !== null && $progress->reward_granted_at === null) {
             $this->grantRewards($user, $quest, $progress);
+        }
+    }
+
+    /** E40: لا يرمي أبدًا. المسار معطَّل/لا مسار فعّال/المهمة ليست مهمة مسار ⇒ عودة فورية بلا كتابة. */
+    protected function notifyAhjiyatPass(User $user, UserQuestProgress $progress): void
+    {
+        try {
+            app(\App\Services\AhjiyatPass\PassPointService::class)->onQuestCompleted($user, $progress);
+        } catch (\Throwable $e) {
+            Log::warning('تعذّر احتساب نقاط مسار الأحجيات (ستُستعاد من صفحة المسار)', ['quest_progress_id' => $progress->id, 'user_id' => $user->id, 'error' => $e->getMessage()]);
         }
     }
 

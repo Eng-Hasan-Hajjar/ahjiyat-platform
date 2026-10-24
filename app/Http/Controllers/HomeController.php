@@ -50,6 +50,7 @@ class HomeController extends Controller
         $myQuestsTotalToday = 0;
         $myStreak = null;
         $missionsWidget = null;
+        $passWidget = null;
 
         if (auth()->check()) {
             $myProgression = $this->levels->progressionFor(auth()->user());
@@ -65,6 +66,15 @@ class HomeController extends Controller
             $missionsWidget = $this->missionCenter->widgetFor(auth()->user(), $myStreak);
             $myQuestsTotalToday = $missionsWidget['total'];
             $myQuestsCompletedToday = $missionsWidget['completed'];
+
+            // E40: ودجت مسار التحدي (للموثَّقين؛ قراءة فقط، معزول الفشل: أي خطأ يخفيه ولا يعطّل الرئيسية).
+            if (auth()->user()->email_verified_at !== null) {
+                try {
+                    $passWidget = app(\App\Services\AhjiyatPass\PassPageData::class)->widgetFor(auth()->user());
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
         }
 
         $featuredSeason = null;
@@ -104,7 +114,7 @@ class HomeController extends Controller
         return view('home', compact(
             'dailyPuzzle', 'categories', 'featuredSeason', 'featuredSeasonCurrentStep', 'featuredSeasonPercentage', 'home',
             'myProgression', 'myCurrentLevel', 'myNextLevel', 'myProgressPercent',
-            'myQuestsCompletedToday', 'myQuestsTotalToday', 'myStreak', 'dashboard', 'missionsWidget', 'shelves',
+            'myQuestsCompletedToday', 'myQuestsTotalToday', 'myStreak', 'dashboard', 'missionsWidget', 'passWidget', 'shelves',
         ));
     }
 }

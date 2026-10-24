@@ -117,7 +117,19 @@ class StoreItem extends Model
 
     public function isPurchasable(): bool
     {
-        return $this->isPubliclyVisible();
+        // E40: عنصر مكافأة مسار الأحجيات حصري للمسار: لا يُشترى من المتجر حتى لو أُضيف له سعر لاحقًا.
+        return $this->isPubliclyVisible() && ! $this->isPassExclusive();
+    }
+
+    /** E40: مرتبط بمكافأة شريحة في أي مسار أحجيات؟ (يُخفى من المتجر العام ولا يُباع.) */
+    public function passRewards(): HasMany
+    {
+        return $this->hasMany(AhjiyatPassTierReward::class, 'store_item_id');
+    }
+
+    public function isPassExclusive(): bool
+    {
+        return $this->passRewards()->exists();
     }
 
     public function remainingStock(): ?int

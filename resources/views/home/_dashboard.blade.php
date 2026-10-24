@@ -69,6 +69,11 @@
         @include('home._missions-widget', ['widget' => $missionsWidget])
     @endisset
 
+    {{-- E40: ودجت مسار التحدي (يظهر عند وجود مسار فعّال أو مكافآت جاهزة للاستلام) --}}
+    @if (! empty($passWidget))
+        @include('home._pass-widget', ['widget' => $passWidget])
+    @endif
+
     {{-- 3) ما يهمني الآن --}}
     <section aria-labelledby="focus-title" class="anim-fade-up d-2">
         <x-section-header title="ما يهمني الآن" id="focus-title" />

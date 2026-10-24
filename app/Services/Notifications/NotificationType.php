@@ -36,6 +36,9 @@ namespace App\Services\Notifications;
  *    لا إشعار على إعجاب ولا بلاغ ولا قفل، ولا ذاتي، ولا اسم للمعلِّق (النص لا يحمل هوية)، وفشله لا يمسّ التعليق.
  *  - E38 الثقة والسلامة: ModerationNotifier بعد الـcommit → moderation_notice (للمستخدم المعني بإجراء إشرافي: تنبيه/إخفاء/تعليق/تجميد؛ النص ثابت بلا اسم مشرف ولا مبلِّغ ولا تفاصيل داخلية)
  *    / moderation_appeal_decided (لصاحب الاعتراض عند القرار). فئة security الإلزامية (إشعارات سياسة لا تُغلق)، ووجهتها صفحة «الأمان والإشراف» فقط. **لا إشعار للمبلِّغ** (قرار موثَّق).
+ *  - E40 مسار الأحجيات: PassNotifier بعد الـcommit → pass_premium_unlocked (لصاحب الشراء عند تحقق الدفع) / pass_purchase_rejected (عند رفض طلب الشراء) /
+ *    pass_claim_window_closing (مرة واحدة لكل لاعب/مسار، فقط لمن لديه مكافآت قابلة للاستلام قبل إغلاق المهلة بساعات محددة). فئة social الاختيارية.
+ *    لا إشعار على كل نقطة ولا مهمة ولا شريحة ولا على بدء المسار (لا بث جماعي)، ولا لغة ضغط أو ندرة. النص بلا مبالغ ولا مراجع تحويل.
  *  - E35 مجموعات: CollectionModerationService بعد الـcommit → collection_hidden / collection_restored (لمالك المجموعة فقط، فئة social). لا إشعار على نشر/حفظ/بلاغ/ترتيب/رف: لا لحافظ ولا لصاحب مجموعة ولا للمبلِّغ.
  */
 enum NotificationType: string
@@ -107,6 +110,9 @@ enum NotificationType: string
     case CreatorPayoutApproved = 'creator_payout_approved';
     case CreatorPayoutPaid = 'creator_payout_paid';
     case CreatorPayoutRejected = 'creator_payout_rejected';
+    case PassPremiumUnlocked = 'pass_premium_unlocked';
+    case PassPurchaseRejected = 'pass_purchase_rejected';
+    case PassClaimWindowClosing = 'pass_claim_window_closing';
 
     public function category(): NotificationCategory
     {
@@ -131,6 +137,7 @@ enum NotificationType: string
             self::CollectionHidden, self::CollectionRestored,
             self::CommentReplyReceived, self::NewCommentOnYourContent, self::CommentHidden, self::FeaturedCreatorSelected,
             self::CreatorStatementReady, self::CreatorPayoutApproved, self::CreatorPayoutPaid, self::CreatorPayoutRejected,
+            self::PassPremiumUnlocked, self::PassPurchaseRejected, self::PassClaimWindowClosing,
             self::ReferralQualified, self::ReferralRewardReceived => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::EventStartingSoon,
@@ -154,6 +161,9 @@ enum NotificationType: string
             self::CreatorPayoutRejected => 60,
             self::CreatorPayoutApproved, self::CreatorPayoutPaid => 58,
             self::CreatorStatementReady => 46,
+            self::PassPurchaseRejected => 59,
+            self::PassPremiumUnlocked => 57,
+            self::PassClaimWindowClosing => 45,
             self::StreakAtRisk => 100,
             self::DailyQuestsAvailable => 50,
             self::SeasonStarted => 20,
@@ -275,6 +285,9 @@ enum NotificationType: string
             self::CreatorPayoutApproved => '✅',
             self::CreatorPayoutPaid => '💸',
             self::CreatorPayoutRejected => '↩️',
+            self::PassPremiumUnlocked => '✨',
+            self::PassPurchaseRejected => '⚠️',
+            self::PassClaimWindowClosing => '⏳',
         };
     }
 
@@ -317,6 +330,7 @@ enum NotificationType: string
             self::FeaturedCreatorSelected => ['creators.show'],
             self::ModerationNotice, self::ModerationAppealDecided => ['account.safety.index'],
             self::CreatorStatementReady, self::CreatorPayoutApproved, self::CreatorPayoutPaid, self::CreatorPayoutRejected => ['creator.earnings'],
+            self::PassPremiumUnlocked, self::PassPurchaseRejected, self::PassClaimWindowClosing => ['pass.index'],
         };
     }
 
@@ -390,6 +404,9 @@ enum NotificationType: string
             self::CreatorPayoutApproved => 'اعتُمد طلب دفعتك',
             self::CreatorPayoutPaid => 'سُجّل صرف دفعتك',
             self::CreatorPayoutRejected => 'لم يُعتمد طلب دفعتك',
+            self::PassPremiumUnlocked => 'تم تفعيل المسار المميز'.(! empty($params['pass']) ? ': '.$params['pass'] : ''),
+            self::PassPurchaseRejected => 'لم يُؤكَّد طلب شراء المسار المميز',
+            self::PassClaimWindowClosing => 'مهلة استلام مكافآت المسار تقترب'.(! empty($params['pass']) ? ': '.$params['pass'] : ''),
             self::SupporterTierChanged => ! empty($params['up'])
                 ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
                 : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
@@ -471,6 +488,9 @@ enum NotificationType: string
             self::CreatorPayoutApproved => 'اعتمد الفريق طلب دفعتك وينتظر الصرف. تابع حالته في صفحة «الأرباح».',
             self::CreatorPayoutPaid => 'سجّل الفريق صرف دفعتك. راجع التفاصيل في صفحة «الأرباح».',
             self::CreatorPayoutRejected => 'أُعيد المبلغ المحجوز إلى رصيدك المتاح. راجع رسالة الفريق في صفحة «الأرباح».',
+            self::PassPremiumUnlocked => 'تأكّد دفعك وفُتحت مكافآت المسار المميز لما بلغتَه من شرائح. استلمها متى شئت من صفحة المسار.',
+            self::PassPurchaseRejected => 'راجع حالة طلبك في صفحة المسار؛ يمكنك تقديم طلب جديد إن كانت المبيعات ما زالت متاحة.',
+            self::PassClaimWindowClosing => 'لديك مكافآت جاهزة للاستلام وستُغلق مهلة استلامها قريبًا. استلمها من صفحة المسار.',
             self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
             self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
             self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',

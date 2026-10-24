@@ -100,6 +100,12 @@ class RolesAndPermissionsSeeder extends Seeder
 
         $this->grantIfMissing('administrator', ['creators.view', 'creators.review', 'creators.manage']);
 
+        // E40: مسار الأحجيات للمدير العام فقط افتراضيًا؛ الأدوار المخصصة (محتوى/مالية) تُفوَّض من «إدارة الوصول».
+        $this->grantIfMissing('administrator', [
+            'passes.view', 'passes.manage', 'passes.manage-rewards', 'passes.manage-missions', 'passes.publish',
+            'passes.view-purchases', 'passes.verify-purchases', 'passes.refund-purchases',
+        ]);
+
         $this->grantIfMissing('moderator', ['creators.view', 'creators.review']);
 
         // E30: فصل مالي. المدير العام يملك كل شيء؛ مدير المحتوى يعرض ويدير الملفات والبرامج فقط (لا تأكيد/استرداد ولا خطة مكافآت)؛ الدعم والمشرف بلا صلاحيات رعاية.

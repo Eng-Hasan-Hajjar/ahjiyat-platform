@@ -25,6 +25,7 @@ class StoreController extends Controller
 
         $items = StoreItem::with(['activePrices.currency'])
             ->where('is_active', true)
+            ->whereDoesntHave('passRewards') // E40: مكافآت مسار الأحجيات حصرية للمسار
             ->get()
             ->filter(fn (StoreItem $item) => $item->isPubliclyVisible())
             ->sortBy('sort_order');
@@ -38,7 +39,7 @@ class StoreController extends Controller
 
     public function show(StoreItem $item)
     {
-        abort_unless($item->isPubliclyVisible(), 404);
+        abort_unless($item->isPubliclyVisible() && ! $item->isPassExclusive(), 404);
 
         $item->load('activePrices.currency');
 

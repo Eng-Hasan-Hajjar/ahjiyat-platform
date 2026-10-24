@@ -32,6 +32,11 @@ class AppServiceProvider extends ServiceProvider
             default => $app->make(\App\Services\CreatorFinance\ManualCreatorPayoutProvider::class),
         });
 
+        // E40: مزوّد دفع المشتريات الرقمية (المسار المميز). اليوم يدوي فقط؛ مزوّد إلكتروني مستقبلي = تنفيذ جديد للعقد وفرع هنا (منفصل عن PaymentProvider الخاص بالرعاية).
+        $this->app->bind(\App\Services\Commerce\CommercePaymentProvider::class, fn ($app) => match ((string) config('ahjiyat_pass.premium.provider', 'manual')) {
+            default => $app->make(\App\Services\Commerce\ManualCommercePaymentProvider::class),
+        });
+
         // E31: أسماء الفهارس/المفاتيح المولَّدة تلقائيًا تُقتطع إلى 64 محرفًا على MySQL/MariaDB فقط (SQLite بلا تغيير). انظر MysqlSafeBlueprint.
         $this->app->bind(\Illuminate\Database\Schema\Blueprint::class, \App\Database\MysqlSafeBlueprint::class);
     }
@@ -313,6 +318,13 @@ class AppServiceProvider extends ServiceProvider
         // E34: مركز المهام (لكل مستخدم) وتقويم الأحداث العام (لكل مستخدم/عنوان). قراءة فقط؛ لا إجراء يغيّر حالة عبر GET.
         RateLimiter::for('missions-read', fn (Request $request) => Limit::perMinute(120)->by('msr:'.($request->user()?->id ?: $request->ip())));
         RateLimiter::for('events-read', fn (Request $request) => Limit::perMinute(120)->by('evr:'.($request->user()?->id ?: $request->ip())));
+
+        // E40: مسار الأحجيات. قراءة الصفحات، استلام مكافأة/الكل، إنشاء طلب المميز، تقديم التحويل، رفع الإثبات (أضيقها). مفتاح الحد = المستخدم المصادَق.
+        RateLimiter::for('pass-read', fn (Request $request) => Limit::perMinute(120)->by('psr:'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('pass-collect', fn (Request $request) => [Limit::perMinute(30)->by('psc:'.($request->user()?->id ?: $request->ip())), Limit::perHour(300)->by('psch:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('pass-order', fn (Request $request) => [Limit::perMinute(10)->by('pso:'.($request->user()?->id ?: $request->ip())), Limit::perHour(40)->by('psoh:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('pass-submit', fn (Request $request) => [Limit::perMinute(10)->by('pss:'.($request->user()?->id ?: $request->ip())), Limit::perHour(60)->by('pssh:'.($request->user()?->id ?: $request->ip()))]);
+        RateLimiter::for('pass-proof', fn (Request $request) => [Limit::perMinute(5)->by('psp:'.($request->user()?->id ?: $request->ip())), Limit::perHour(20)->by('psph:'.($request->user()?->id ?: $request->ip()))]);
 
         // E11: تجهيز/إزالة تجميليات - UX تتطلب تجربة سريعة (تبديل/معاينة)، لا حساسية مالية هنا.
         RateLimiter::for('cosmetic-equip', function (Request $request) {
