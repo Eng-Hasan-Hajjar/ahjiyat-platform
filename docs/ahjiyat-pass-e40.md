@@ -130,7 +130,7 @@
 
 ## 15) البيانات التجريبية والاختبارات
 
-`php artisan db:seed --class=DemoE40Seeder` (محلي/اختبار فقط؛ **يرفض الإنتاج**؛ idempotent): مسار 24 شريحة، 6 مهام، لاعبون مجاني/مميز/متوسط/جديد، شراء مميز واحد محقَّق. الاختبارات: `tests/Feature/AhjiyatPassE40` (234 اختبارًا) + `E40MysqlSchemaTest` على MySQL في CI.
+`php artisan db:seed --class=DemoE40Seeder` (محلي/اختبار فقط؛ **يرفض الإنتاج**؛ idempotent): مسار 24 شريحة، 6 مهام، لاعبون مجاني/مميز/متوسط/جديد، شراء مميز واحد محقَّق. الاختبارات: `tests/Feature/AhjiyatPassE40` (237 اختبارًا) + `E40MysqlSchemaTest` على MySQL في CI.
 
 ## 16) ما لا يغطيه E40
 
