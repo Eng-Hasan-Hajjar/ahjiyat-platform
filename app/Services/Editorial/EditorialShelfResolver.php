@@ -87,7 +87,7 @@ class EditorialShelfResolver
             EditorialContentType::CommunityPuzzle => CreatorPuzzle::query()->visible()->where('published_title', 'like', $like)->orderByDesc('id')->limit($limit)->pluck('published_title', 'id')->all(),
             EditorialContentType::CreatorSeries => $this->series->visibleQuery()->where('creator_series.published_title', 'like', $like)->orderByDesc('creator_series.id')->limit($limit)->pluck('creator_series.published_title', 'creator_series.id')->all(),
             EditorialContentType::Campaign => $this->recommendations->availableCampaigns()->where('campaigns.title', 'like', $like)->orderByDesc('campaigns.id')->limit($limit)->pluck('campaigns.title', 'campaigns.id')->all(),
-            EditorialContentType::Season => Season::query()->join('campaigns', 'campaigns.id', '=', 'seasons.campaign_id')->where('seasons.is_published', true)->where('campaigns.title', 'like', $like)->orderByDesc('seasons.id')->limit($limit)->pluck('campaigns.title', 'seasons.id')->all(),
+            EditorialContentType::Season => Season::query()->join('campaigns', 'campaigns.id', '=', 'seasons.campaign_id')->publiclyVisible()->where('campaigns.title', 'like', $like)->orderByDesc('seasons.id')->limit($limit)->pluck('campaigns.title', 'seasons.id')->all(),
             EditorialContentType::CompetitiveEvent => CompetitiveEvent::query()->public()->where('title', 'like', $like)->orderByDesc('id')->limit($limit)->pluck('title', 'id')->all(),
             EditorialContentType::PublicCollection => $this->collections->listableQuery(null, 1)->where('user_collections.title', 'like', $like)->orderByDesc('user_collections.id')->limit($limit)->pluck('user_collections.title', 'user_collections.id')->all(),
         };
@@ -169,7 +169,7 @@ class EditorialShelfResolver
     {
         return Season::query()->join('campaigns', 'campaigns.id', '=', 'seasons.campaign_id')
             ->select('seasons.id', 'seasons.slug', 'seasons.is_featured', 'campaigns.title as campaign_title')
-            ->where('seasons.is_published', true)->whereIn('seasons.id', $ids)->get()
+            ->publiclyVisible()->whereIn('seasons.id', $ids)->get()
             ->mapWithKeys(fn (Season $s) => [(int) $s->id => new DiscoverCard(
                 (string) $s->getAttribute('campaign_title'), route('seasons.show', $s), 'calendar', null, $s->is_featured ? 'موسم مميّز' : null,
             )])->all();

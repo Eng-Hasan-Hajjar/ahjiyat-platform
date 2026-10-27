@@ -208,6 +208,10 @@ jobs:
       - name: E41 consumer commerce on MySQL (provider reference/event uniqueness / one open order / FK retention / Arabic round-trip / big-integer exactness / named indexes)
         run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/CommerceE41/E41MysqlSchemaTest.php
 
+      # E42: مجموعة جزئية صغيرة (≈30 ث) لما يختلف فعلًا على MySQL: فرادة مفتاح المرحلة داخل الموسم ورابط الكيان لكل نوع مع تعايش NULL، المفاتيح الأجنبية الحقيقية (لا روابط يتيمة)، سياسة الحذف (الموسم يملك مراحله وإعلاناته وروابطه؛ حذف الكيان يزيل الرابط فقط؛ حذف المسار يفكّ الربط)، النص العربي حتى حدود الأعمدة، الفهارس المسماة، ولا float/decimal. البقية على SQLite.
+      - name: E42 season orchestration on MySQL (phase key / content link uniqueness with NULL coexistence / real FKs / deletion policy / Arabic round-trip / named indexes)
+        run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/SeasonE42/E42MysqlSchemaTest.php
+
       - name: Schema parity against the migrated MySQL database (read-only)
         run: php artisan db:parity --connection=mysql --runtime
 
@@ -242,3 +246,11 @@ jobs:
         env:
           DB_CONNECTION: mysql
         run: php tools/e41/concurrency-probe.php --rounds=4
+
+      # E42: سباق حقيقي بين عمليات PHP على MySQL (بدء الموسم مرة واحدة / مراحل متداخلة ومتجاورة / حدود المراحل والمحتوى والإعلانات / ربط مكرر / معالج seasons:process متوازٍ لمرحلة وإعلانات / استثناء مُحقَن داخل معاملة المرحلة) ثم فحوص سلامة نهائية (لا تداخل، لا رابط مكرر، لا إشعار مكرر، تكافؤ المرئية SQL↔PHP).
+      # يمسح قاعدة الاختبار المؤقتة (migrate:fresh) ويرفض أي قاعدة لا ينتهي اسمها بـ_test؛ لذا يأتي بعد مسبار E41 في آخر الخطوات. كاش الملفات المشترك في مجلد مؤقت خاص بالمسبار.
+      - name: E42 real-concurrency probe on MySQL (parallel OS processes)
+        timeout-minutes: 10
+        env:
+          DB_CONNECTION: mysql
+        run: php tools/e42/concurrency-probe.php --rounds=4

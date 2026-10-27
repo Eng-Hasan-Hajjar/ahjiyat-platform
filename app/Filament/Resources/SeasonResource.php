@@ -4,8 +4,14 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\CampaignResource;
 use App\Filament\Resources\SeasonResource\Pages;
+use App\Filament\Resources\SeasonResource\RelationManagers\AnnouncementsRelationManager;
+use App\Filament\Resources\SeasonResource\RelationManagers\ContentItemsRelationManager;
+use App\Filament\Resources\SeasonResource\RelationManagers\PhasesRelationManager;
+use App\Models\AhjiyatPass;
 use App\Models\Campaign;
 use App\Models\Season;
+use App\Services\SeasonLifecycleService;
+use App\Services\Seasons\SeasonTheme;
 use App\Services\SeasonReadinessService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -51,7 +57,9 @@ class SeasonResource extends Resource
                         ->columnSpanFull(),
 
                     Forms\Components\TextInput::make('code')->label('رمز الموسم')->placeholder('S01')->required(),
-                    Forms\Components\TextInput::make('slug')->label('المعرّف بالرابط (slug)')->required()->unique(ignoreRecord: true),
+                    Forms\Components\TextInput::make('slug')->label('المعرّف بالرابط (slug)')->required()->unique(ignoreRecord: true)
+                        ->notIn((array) config('seasons.reserved_slugs', []))
+                        ->validationMessages(['not_in' => 'هذا المعرّف محجوز لمسار بالموقع. اختر معرّفًا آخر.']),
                 ])->columns(2),
 
             Forms\Components\Section::make('الهوية البصرية')
@@ -88,7 +96,7 @@ class SeasonResource extends Resource
 
                     Forms\Components\Select::make('theme_config.preset')
                         ->label('نمط الثيم')
-                        ->options(['generic' => 'عام (هوية المنصة القياسية)', 'aseel' => 'أصيل (غموض وتحقيق رقمي)'])
+                        ->options(fn () => SeasonTheme::presetLabels())
                         ->default('generic')
                         ->native(false)
                         ->required()
@@ -102,6 +110,19 @@ class SeasonResource extends Resource
                         ->content('استخدم زرَّي "إدارة القصة" و"معاينة الموسم" أعلى صفحة القائمة أو أسفل صفحة التعديل بعد الحفظ، للانتقال إلى إدارة المراحل/البوابات/المهام أو معاينة تجربة اللاعب الفعلية.')
                         ->columnSpanFull(),
                 ]),
+
+            Forms\Components\Section::make('الجدولة والمسار')
+                ->description('النافذة الصريحة اختيارية: الحقل الفارغ يتبع تواريخ الحملة الأساسية كما كان. المراحل والمحتوى والإعلانات تُدار من التبويبات أسفل الصفحة بعد الحفظ.')
+                ->schema([
+                    Forms\Components\DateTimePicker::make('starts_at')->label('بداية الموسم')->seconds(false)->helperText('فارغ = تبدأ مع الحملة الأساسية.'),
+                    Forms\Components\DateTimePicker::make('ends_at')->label('نهاية الموسم')->seconds(false)->helperText('فارغ = تنتهي مع الحملة الأساسية.'),
+                    Forms\Components\DateTimePicker::make('announcement_at')->label('موعد ظهور الموسم للجمهور')->seconds(false)->helperText('فارغ = يظهر فور النشر. يجب ألا يتأخر عن البداية.'),
+                    Forms\Components\DateTimePicker::make('archive_at')->label('موعد الأرشفة التلقائية')->seconds(false)->helperText('اختياري. بعده ينتقل الموسم إلى الأرشيف وتُجمَّد نافذته.'),
+                    Forms\Components\Select::make('ahjiyat_pass_id')->label('مسار الأحجيات المرتبط (اختياري)')->searchable()->native(false)->placeholder('بدون مسار')
+                        ->options(fn () => AhjiyatPass::query()->orderByDesc('id')->limit(100)->pluck('name', 'id')->all())
+                        ->helperText('عرض فقط في صفحة الموسم: المسار يملك نقاطه ومكافآته وملكيته.')
+                        ->columnSpanFull(),
+                ])->columns(2),
 
             Forms\Components\Section::make('النشر')
                 ->schema([
@@ -119,6 +140,16 @@ class SeasonResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('code')->label('الرمز'),
                 Tables\Columns\TextColumn::make('campaign.title')->label('الحملة'),
+                Tables\Columns\TextColumn::make('lifecycle_state')
+                    ->label('الحالة')
+                    ->state(fn (Season $record) => app(SeasonLifecycleService::class)->stateLabel(app(SeasonLifecycleService::class)->state($record)))
+                    ->badge()
+                    ->color(fn (Season $record) => match (app(SeasonLifecycleService::class)->state($record)) {
+                        SeasonLifecycleService::STATE_LIVE => 'success',
+                        SeasonLifecycleService::STATE_SCHEDULED => 'warning',
+                        SeasonLifecycleService::STATE_DRAFT => 'gray',
+                        default => 'info',
+                    }),
                 Tables\Columns\IconColumn::make('is_published')->label('منشور')->boolean(),
                 Tables\Columns\IconColumn::make('is_featured')->label('مُبرَز')->boolean(),
                 Tables\Columns\TextColumn::make('readiness')
@@ -141,9 +172,14 @@ class SeasonResource extends Resource
                     ->openUrlInNewTab(),
 
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()->visible(fn (Season $record) => $record->went_live_at === null),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    public static function getRelations(): array
+    {
+        return [PhasesRelationManager::class, ContentItemsRelationManager::class, AnnouncementsRelationManager::class];
     }
 
     public static function getPages(): array

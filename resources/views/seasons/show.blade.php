@@ -21,7 +21,13 @@
             :current-step="$currentStep"
             :percentage="$percentage"
             :campaign-available="$campaignAvailable"
+            :starts-at="$windowStart"
+            :ends-at="$windowEnd"
+            :unavailable-label="$unavailableLabel"
         />
+
+        {{-- E42: مركز الموسم (مراحل/إعلانات/محتوى مرتبط/مسار/جدول). الأقسام الفارغة لا تُرسم فيبقى الموسم القديم كما كان. --}}
+        @include('seasons._hub')
 
         {{-- E30: «برعاية» (بيانات منظَّمة معزولة الفشل؛ بلا رعاة = لا إخراج). --}}
         <x-sponsor-strip type="season" :target-id="$season->id" />

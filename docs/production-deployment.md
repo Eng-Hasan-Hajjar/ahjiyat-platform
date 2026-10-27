@@ -298,3 +298,9 @@ server {
 7. مراقبة: `X-Request-ID` في كل استجابة، وسجل `slow_request` (>1500ms) في السجلات. ابحث عنه: `grep slow_request storage/logs/laravel.log`.
 
 **اختبار دخان بعد النشر:** `GET /up` → 200، `GET /ready` → 200، صفحة الصدارة، غرفة الدردشة العامة (الإرسال والاستقبال اللحظي إن كان Reverb يعمل)، `php artisan schedule:list`.
+
+## تطوّر الموسم (E42)
+- `php artisan migrate` يضيف ثلاثة ترحيلات **إضافية فقط**: أعمدة قابلة لـ`NULL` على `seasons` (`starts_at` و`ends_at` و`announcement_at` و`archive_at` و`ahjiyat_pass_id`) وجداول `season_phases` و`season_announcements` و`season_content_items`. المواسم القائمة تعمل كما كانت (بلا نافذة صريحة تتبع حملتها) ولا تُرسَل إشعارات رجعية.
+- المجدوِل (Cron الواحد `schedule:run`) يشغّل `seasons:process` كل 5 دقائق (مع `seasons:sync-live-state` القائم). غيابه لا يكسر شيئًا: يتأخر إشعار المراحل والإعلانات المجدولة وتجميد نافذة المؤرشف فقط.
+- إشعارات المراحل والإعلانات تمرّ بالصف: مع `QUEUE_CONNECTION=database` شغّل عاملًا (`php artisan queue:work`).
+- لا متغيرات بيئة جديدة ولا صلاحيات جديدة. الإيقاف الطارئ لموسم: «إيقاف النشر» من الإدارة. التفاصيل والتشغيل: `docs/season-evolution-e42.md` و`docs/season-operations-runbook.md`.

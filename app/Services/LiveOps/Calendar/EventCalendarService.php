@@ -100,20 +100,20 @@ class EventCalendarService
         $limit = max(1, (int) config('liveops.calendar.per_source_limit', 30));
         $rows = [];
 
-        // المواسم المنشورة (خطها الزمني = خط حملتها)
-        Season::query()->where('is_published', true)
-            ->whereHas('campaign', fn ($q) => $q->where('is_active', true)
-                ->where(fn ($w) => $w->whereNull('ends_at')->orWhere('ends_at', '>=', $now))
-                ->where(fn ($w) => $w->whereNull('starts_at')->orWhere('starts_at', '<=', $horizon)))
+        // المواسم الظاهرة وغير المنتهية. E42: خطها الزمني = نافذة الموسم الصريحة إن ضُبطت، والطرف الفارغ يتبع حملته (الموسم بلا نافذة صريحة يشترط حملة نشطة كما كان).
+        Season::query()->publiclyVisible($now)->notEnded($now)
+            ->where(fn ($q) => $q->whereNotNull('seasons.starts_at')->orWhereNotNull('seasons.ends_at')->orWhere('campaigns.is_active', true))
+            ->where(fn ($q) => $q->whereRaw('COALESCE(seasons.starts_at, campaigns.starts_at) IS NULL')->orWhereRaw('COALESCE(seasons.starts_at, campaigns.starts_at) <= ?', [$horizon]))
             ->with('campaign:id,title,starts_at,ends_at')
-            ->orderBy('id')->limit($limit)->get()
+            ->orderBy('seasons.id')->limit($limit)->get()
             ->each(function (Season $s) use (&$rows) {
-                $rows[] = $this->row(self::TYPE_SEASON, $s->id, $s->campaign?->title ?? $s->code, $s->campaign?->starts_at, $s->campaign?->ends_at, 'seasons.show', ['season' => $s->slug], 'موسم', $s->banner_image, $s->campaign_id);
+                $rows[] = $this->row(self::TYPE_SEASON, $s->id, $s->campaign?->title ?? $s->code, $s->starts_at ?? $s->campaign?->starts_at, $s->ends_at ?? $s->campaign?->ends_at, 'seasons.show', ['season' => $s->slug], 'موسم', $s->banner_image, $s->campaign_id);
             });
 
-        // الحملات المستقلة (غير المرتبطة بموسم منشور؛ المرتبطة تظهر عبر موسمها بلا تكرار)
+        // الحملات المستقلة (غير المرتبطة بموسم منشور؛ المرتبطة تظهر عبر موسمها بلا تكرار). E42: الحملات الإضافية الموسمية تظهر عبر مركز موسمها لا هنا.
         Campaign::query()->where('is_active', true)
             ->whereDoesntHave('season', fn ($q) => $q->where('is_published', true))
+            ->whereNotIn('id', fn ($q) => $q->select('campaign_id')->from('season_content_items')->whereNotNull('campaign_id'))
             ->where(fn ($w) => $w->whereNull('ends_at')->orWhere('ends_at', '>=', $now))
             ->where(fn ($w) => $w->whereNull('starts_at')->orWhere('starts_at', '<=', $horizon))
             ->orderBy('id')->limit($limit)

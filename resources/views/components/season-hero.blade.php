@@ -4,8 +4,14 @@
     فعلي (لا Broken Image إن لم تُرفَع بعد).
 --}}
 {{-- E23: $heading = h1 (صفحة الموسم) أو h2 حين يُدرَج داخل صفحة لها h1 أصلًا (الرئيسية للضيف) كي لا يتكرر h1 بالصفحة. --}}
-@props(['season', 'campaign', 'availabilityLabel', 'currentStep', 'percentage', 'campaignAvailable' => true, 'heading' => 'h1'])
-@php $headingTag = $heading === 'h2' ? 'h2' : 'h1'; @endphp
+{{-- E42: startsAt/endsAt = نافذة الموسم الفعلية (تاريخ الموسم الصريح أو تواريخ حملته)؛ تُهمَل فتعود الشارات لتواريخ الحملة كما كانت (الرئيسية). unavailableLabel = وسم الرسالة حين تكون الحملة غير متاحة. --}}
+@props(['season', 'campaign', 'availabilityLabel', 'currentStep', 'percentage', 'campaignAvailable' => true, 'heading' => 'h1', 'startsAt' => null, 'endsAt' => null, 'unavailableLabel' => null])
+@php
+    $headingTag = $heading === 'h2' ? 'h2' : 'h1';
+    $heroStart = $startsAt ?? $campaign->starts_at;
+    $heroEnd = $endsAt ?? $campaign->ends_at;
+    $unavailableText = $unavailableLabel ?? $availabilityLabel;
+@endphp
 
 <section class="season-hero {{ $season->themePreset() === 'aseel' ? 'theme-aseel' : '' }} anim-fade-up">
     @if ($season->banner_image && \Illuminate\Support\Facades\Storage::disk('public')->exists($season->banner_image))
@@ -41,10 +47,10 @@
         <div class="flex flex-wrap items-center gap-3 mb-6">
             <span class="chip !py-1.5">{{ $availabilityLabel }}</span>
 
-            @if ($campaign->starts_at?->isFuture())
-                <span class="chip !py-1.5">يبدأ {{ $campaign->starts_at->translatedFormat('j F') }}</span>
-            @elseif ($campaign->ends_at && ! $campaign->ends_at->isPast())
-                <span class="chip !py-1.5">ينتهي {{ $campaign->ends_at->translatedFormat('j F') }}</span>
+            @if ($heroStart?->isFuture())
+                <span class="chip !py-1.5">يبدأ {{ $heroStart->translatedFormat('j F') }}</span>
+            @elseif ($heroEnd && ! $heroEnd->isPast())
+                <span class="chip !py-1.5">ينتهي {{ $heroEnd->translatedFormat('j F') }}</span>
             @endif
 
             @if ($season->grand_prize_description)
@@ -71,7 +77,7 @@
                 {{-- الحملة غير متاحة حالياً (قريباً/انتهت) - لا CTA للعب رغم وجود
                      currentStep تقنياً (isStepUnlocked ستمنعه أصلاً عند الدخول). --}}
                 <div class="rounded-xl border border-white/10 bg-white/5 text-slate-300 px-5 py-3 font-bold inline-block">
-                    {{ $availabilityLabel }}
+                    {{ $unavailableText }}
                 </div>
             @elseif ($currentStep)
                 <a href="{{ route('campaigns.steps.show', [$campaign, $currentStep]) }}" class="btn-gem !py-3 !px-6">

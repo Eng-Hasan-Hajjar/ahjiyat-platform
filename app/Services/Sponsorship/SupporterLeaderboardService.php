@@ -147,10 +147,14 @@ class SupporterLeaderboardService
     /** الموسم «الحالي»: منشور وحملته نشطة ضمن نافذتها، الأحدث فالمميّز أولًا؛ null إن لم يوجد. */
     public function currentSeasonId(): ?int
     {
+        // E42: «الحالي» = ظاهر (نشر + موعد إعلان) وضمن نافذته الفعلية (تاريخ الموسم الصريح، وإلا تاريخ حملته) وغير مؤرشف. الموسم بلا نافذة صريحة يشترط حملة نشطة كما كان.
+        $now = now();
         $id = Season::query()->join('campaigns', 'campaigns.id', '=', 'seasons.campaign_id')
-            ->where('seasons.is_published', true)->where('campaigns.is_active', true)
-            ->where(fn ($q) => $q->whereNull('campaigns.starts_at')->orWhere('campaigns.starts_at', '<=', now()))
-            ->where(fn ($q) => $q->whereNull('campaigns.ends_at')->orWhere('campaigns.ends_at', '>=', now()))
+            ->publiclyVisible($now)
+            ->where(fn ($q) => $q->whereNotNull('seasons.starts_at')->orWhereNotNull('seasons.ends_at')->orWhere('campaigns.is_active', true))
+            ->where(fn ($q) => $q->whereNull('seasons.archive_at')->orWhere('seasons.archive_at', '>', $now))
+            ->where(fn ($q) => $q->whereRaw('COALESCE(seasons.starts_at, campaigns.starts_at) IS NULL')->orWhereRaw('COALESCE(seasons.starts_at, campaigns.starts_at) <= ?', [$now]))
+            ->where(fn ($q) => $q->whereRaw('COALESCE(seasons.ends_at, campaigns.ends_at) IS NULL')->orWhereRaw('COALESCE(seasons.ends_at, campaigns.ends_at) >= ?', [$now]))
             ->orderByDesc('seasons.is_featured')->orderByDesc('seasons.id')->value('seasons.id');
 
         return $id === null ? null : (int) $id;

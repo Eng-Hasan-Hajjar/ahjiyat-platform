@@ -82,11 +82,13 @@ class HomeController extends Controller
         $featuredSeasonPercentage = 0;
 
         if ($home['show_featured_season']) {
+            // E42: المميّز يجب أن يكون ظاهرًا (النشر + موعد الإعلان) ومباشرًا بتعريف SeasonLifecycleService الوحيد (نافذته الصريحة إن وُجدت) وحملته متاحة.
+            $lifecycle = app(\App\Services\SeasonLifecycleService::class);
             $featuredSeason = Season::with('campaign.stages.gates.steps')
-                ->where('is_published', true)
+                ->publiclyVisible()
                 ->where('is_featured', true)
                 ->get()
-                ->first(fn (Season $season) => $this->progress->isCampaignAvailable($season->campaign));
+                ->first(fn (Season $season) => $lifecycle->isLive($season) && $this->progress->isCampaignAvailable($season->campaign));
 
             if ($featuredSeason && auth()->check()) {
                 $user = auth()->user();

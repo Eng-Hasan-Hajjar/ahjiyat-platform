@@ -40,8 +40,8 @@ class SeasonSource extends EloquentSource
     {
         return Season::query()
             ->join('campaigns', 'campaigns.id', '=', 'seasons.campaign_id')
-            ->select('seasons.id', 'seasons.slug', 'seasons.is_featured', 'campaigns.title as campaign_title', 'campaigns.is_active as campaign_active', 'campaigns.starts_at as campaign_starts_at', 'campaigns.ends_at as campaign_ends_at')
-            ->where('seasons.is_published', true);
+            ->select('seasons.id', 'seasons.slug', 'seasons.is_featured', 'seasons.starts_at', 'seasons.ends_at', 'seasons.archive_at', 'campaigns.title as campaign_title', 'campaigns.is_active as campaign_active', 'campaigns.starts_at as campaign_starts_at', 'campaigns.ends_at as campaign_ends_at')
+            ->publiclyVisible();
     }
 
     protected function tieBreak(Builder $query): Builder
@@ -52,10 +52,14 @@ class SeasonSource extends EloquentSource
     protected function toResult(Model $model, int $tier): SearchResult
     {
         /** @var Season $model */
-        $starts = $model->getAttribute('campaign_starts_at');
-        $ends = $model->getAttribute('campaign_ends_at');
+        // E42: نافذة الموسم الصريحة (إن ضُبطت) تحكم الشارة؛ الطرف الفارغ يتبع حملته، والموسم بلا نافذة صريحة يسلك كما كان (الحملة الموقوفة = «غير متاح»).
+        $explicit = $model->getAttribute('starts_at') !== null || $model->getAttribute('ends_at') !== null;
+        $starts = $model->getAttribute('starts_at') ?? $model->getAttribute('campaign_starts_at');
+        $ends = $model->getAttribute('ends_at') ?? $model->getAttribute('campaign_ends_at');
+        $archived = $model->getAttribute('archive_at');
         $badge = match (true) {
-            ! (bool) $model->getAttribute('campaign_active') => 'غير متاح',
+            $archived !== null && \Illuminate\Support\Carbon::parse($archived)->isPast() => 'انتهى',
+            ! $explicit && ! (bool) $model->getAttribute('campaign_active') => 'غير متاح',
             $starts !== null && \Illuminate\Support\Carbon::parse($starts)->isFuture() => 'قريبًا',
             $ends !== null && \Illuminate\Support\Carbon::parse($ends)->isPast() => 'انتهى',
             default => 'مباشر',

@@ -95,6 +95,8 @@ Route::get('/campaigns/{campaign:slug}', [CampaignController::class, 'show'])->n
 Route::get('/events', \App\Http\Controllers\EventCalendarController::class)->middleware('throttle:events-read')->name('events.index');
 
 Route::get('/seasons', [SeasonController::class, 'index'])->name('seasons.index');
+// E42: مسار حرفي يسبق {season:slug} (والمعرّف archive محجوز في config/seasons.php فلا يتصادم مع موسم).
+Route::get('/seasons/archive', [SeasonController::class, 'archive'])->name('seasons.archive');
 Route::get('/seasons/{season:slug}', [SeasonController::class, 'show'])->name('seasons.show');
 
 Route::get('/players/{user:public_id}', [PlayerProfileController::class, 'show'])->name('players.show');

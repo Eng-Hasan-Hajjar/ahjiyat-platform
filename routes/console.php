@@ -44,6 +44,9 @@ $guard(Schedule::command('notifications:prune')->daily()->name('notifications-pr
 // التقاط بدء المواسم الناتج عن مرور الوقت. غيابه لا يكسر شيئًا: البدء بالحفظ الإداري يُلتقَط فورًا بخطافات النماذج.
 $guard(Schedule::command('seasons:sync-live-state')->everyFiveMinutes()->name('seasons-sync-live-state'), 30);
 
+// E42: بدء المراحل (إشعار مرة واحدة)، الإعلانات المجدولة المطلوب إشعارها، وتجميد نافذة الموسم المؤرشف بالزمن. غيابه لا يكسر شيئًا: يتأخر الإشعار/التجميد فقط.
+$guard(Schedule::command('seasons:process')->everyFiveMinutes()->name('seasons-process'), 30);
+
 // التقاط إتاحة الحملات الناتجة عن مرور الوقت. غيابه لا يكسر شيئًا: الإتاحة بالحفظ الإداري تُلتقَط فورًا بخطاف النموذج.
 $guard(Schedule::command('campaigns:sync-availability')->everyFiveMinutes()->name('campaigns-sync-availability'), 30);
 

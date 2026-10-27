@@ -17,6 +17,7 @@ namespace App\Services\Notifications;
  *  - CampaignCompletedForUser (حدث مجال لكل مستخدم، CampaignCompletionService بعد إكمال خطوة حقيقية) → campaign_completed،
  *    أو season_completed إن كانت الحملة مرتبطة بموسم منشور (القرار داخل المستمع: إشعار واحد فقط للإكمال نفسه)
  *  - LifecycleReminderService (مجدول ساعيًا، قراءة فقط) → season_ending_soon / campaign_ending_soon
+ *  - E42 تطوّر الموسم: SeasonProcessor (seasons:process) → season_phase_started (لمشاركي الحملة الأساسية، مرة لكل مرحلة، دون المرحلة الأولى ودون ما فات أمره) / season_announcement_published (فقط حين تطلبه الإدارة صراحةً بصلاحية النشر). فئة Season؛ **ليستا** تذكيرات استعادية. بلا مكافأة ولا لغة ضغط.
  *  - FriendChallenge{Created,Accepted,Completed} (أحداث مجال بعد commit، FriendChallengeService) → friend_challenge_received/accepted/result_ready
  *  - CompetitiveRewardGranted (بعد منح فعلي ناجح بخدمة التوزيع) → competitive_reward_granted
  *  - TeamChallengeCreated/Accepted/Completed, TeamChampionshipStarted (الأمر الدوري)/Finalized (E20) → team_challenge_*, team_championship_* (التحدّيات: social؛ البطولات: competitive)
@@ -55,6 +56,8 @@ enum NotificationType: string
     case CampaignCompleted = 'campaign_completed';
     case SeasonCompleted = 'season_completed';
     case SeasonEndingSoon = 'season_ending_soon';
+    case SeasonPhaseStarted = 'season_phase_started';
+    case SeasonAnnouncementPublished = 'season_announcement_published';
     case CampaignEndingSoon = 'campaign_ending_soon';
     case FriendRequestReceived = 'friend_request_received';
     case FriendRequestAccepted = 'friend_request_accepted';
@@ -130,7 +133,7 @@ enum NotificationType: string
             self::CampaignAvailable => NotificationCategory::Campaign,
             self::StageUnlocked => NotificationCategory::Campaign,
             self::CampaignCompleted => NotificationCategory::Campaign,
-            self::SeasonCompleted, self::SeasonEndingSoon => NotificationCategory::Season,
+            self::SeasonCompleted, self::SeasonEndingSoon, self::SeasonPhaseStarted, self::SeasonAnnouncementPublished => NotificationCategory::Season,
             self::CampaignEndingSoon => NotificationCategory::Campaign,
             self::FriendRequestReceived, self::FriendRequestAccepted, self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady,
             self::TeamInvitationReceived, self::TeamInvitationAccepted, self::TeamJoinRequestReceived, self::TeamJoinRequestAccepted, self::TeamMemberRemoved,
@@ -180,6 +183,8 @@ enum NotificationType: string
             self::StageUnlocked => 14,
             self::CampaignCompleted => 16,
             self::SeasonCompleted => 17,
+            self::SeasonPhaseStarted => 19,
+            self::SeasonAnnouncementPublished => 18,
             self::SeasonEndingSoon, self::CampaignEndingSoon => 70, // بين تحذير السلسلة (100) وتذكير المهام (50)
             self::FriendRequestReceived => 25,
             self::FriendRequestAccepted => 24,
@@ -248,6 +253,8 @@ enum NotificationType: string
             self::StageUnlocked => '🔓',
             self::CampaignCompleted => '✅',
             self::SeasonCompleted => '🏅',
+            self::SeasonPhaseStarted => '📍',
+            self::SeasonAnnouncementPublished => '📣',
             self::SeasonEndingSoon, self::CampaignEndingSoon => '⏳',
             self::FriendRequestReceived, self::FriendRequestAccepted => '🤝',
             self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => '⚔️',
@@ -316,7 +323,7 @@ enum NotificationType: string
             self::CampaignAvailable => ['campaigns.show'],
             self::StageUnlocked => ['campaigns.show', 'seasons.show'],
             self::CampaignCompleted => ['campaigns.show', 'seasons.show'],
-            self::SeasonCompleted, self::SeasonEndingSoon => ['seasons.show'],
+            self::SeasonCompleted, self::SeasonEndingSoon, self::SeasonPhaseStarted, self::SeasonAnnouncementPublished => ['seasons.show'],
             self::CampaignEndingSoon => ['campaigns.show'],
             self::FriendRequestReceived, self::FriendRequestAccepted => ['friends.index'],
             self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady => ['friends.challenges.show'],
@@ -365,6 +372,8 @@ enum NotificationType: string
             self::CampaignCompleted => 'أكملت الحملة بنجاح: '.($params['campaign'] ?? ''),
             self::SeasonCompleted => 'أكملت الموسم بنجاح: '.($params['season'] ?? ''),
             self::SeasonEndingSoon => 'ينتهي الموسم قريبًا: '.($params['name'] ?? ''),
+            self::SeasonPhaseStarted => 'بدأت مرحلة جديدة: '.($params['phase'] ?? ''),
+            self::SeasonAnnouncementPublished => 'إعلان جديد في موسم «'.($params['name'] ?? '').'»',
             self::CampaignEndingSoon => 'تنتهي الحملة قريبًا: '.($params['name'] ?? ''),
             self::FriendRequestReceived => 'أرسل لك '.($params['name'] ?? '').' طلب صداقة',
             self::FriendRequestAccepted => 'قبل '.($params['name'] ?? '').' طلب صداقتك',
@@ -450,6 +459,8 @@ enum NotificationType: string
             self::CampaignCompleted => 'أنهيت جميع مراحل حملة «'.($params['campaign'] ?? '').'».',
             self::SeasonCompleted => 'أنهيت جميع مراحل موسم «'.($params['season'] ?? '').'».',
             self::SeasonEndingSoon => 'ينتهي موسم «'.($params['name'] ?? '').'» خلال '.($params['hours'] ?? '').' ساعة أو أقل، وما زال بإمكانك إكماله.',
+            self::SeasonPhaseStarted => 'انتقل موسم «'.($params['name'] ?? '').'» إلى مرحلة «'.($params['phase'] ?? '').'». تصفّح ما الجديد في الموسم.',
+            self::SeasonAnnouncementPublished => trim((string) ($params['title'] ?? '')) !== '' ? (string) $params['title'] : 'نُشر إعلان جديد ضمن الموسم. تصفّح التفاصيل في صفحة الموسم.',
             self::CampaignEndingSoon => 'تنتهي حملة «'.($params['name'] ?? '').'» خلال '.($params['hours'] ?? '').' ساعة أو أقل، وما زال بإمكانك إكمالها.',
             self::FriendRequestReceived => 'يمكنك قبول الطلب أو رفضه من صفحة الأصدقاء.',
             self::FriendRequestAccepted => 'أصبحتما صديقين.',

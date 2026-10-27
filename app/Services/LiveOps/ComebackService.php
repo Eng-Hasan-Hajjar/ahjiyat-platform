@@ -110,7 +110,7 @@ class ComebackService
 
         if (UserCampaignProgress::query()->where('user_id', $user->id)->exists() && Campaign::query()->where('is_active', true)->exists()) {
             $out[] = ['kind' => 'campaign', 'title' => 'أكمل حملتك من حيث توقفت', 'url' => route('campaigns.index')];
-        } elseif (Season::query()->where('is_published', true)->exists()) {
+        } elseif (Season::query()->publiclyVisible()->exists()) {
             $out[] = ['kind' => 'season', 'title' => 'اطّلع على الموسم الحالي', 'url' => route('seasons.index')];
         }
 

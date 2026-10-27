@@ -65,10 +65,22 @@ test('a published, available season appears on the public index', function () {
 
 
 
-test('season availability is fully derived from the campaign - no separate schedule on Season', function () {
-    expect(Schema::hasColumn('seasons', 'starts_at'))->toBeFalse()
-        ->and(Schema::hasColumn('seasons', 'ends_at'))->toBeFalse()
-        ->and(Schema::hasColumn('seasons', 'is_active'))->toBeFalse();
+// E42 (تعديل مقصود): كان هذا الاختبار يمنع وجود starts_at/ends_at على seasons كليًا. E42 يضيف نافذة موسم اختيارية صريحة،
+// لكنه يُبقي المبدأ: لا حالة مخزَّنة (لا is_active) والـNULL يتبع الحملة الأساسية، فموسم بلا نافذة يسلك كما كان تمامًا.
+test('season availability follows the campaign unless a window is set explicitly - no stored active flag on Season', function () {
+    expect(Schema::hasColumn('seasons', 'is_active'))->toBeFalse()
+        ->and(Schema::hasColumn('seasons', 'status'))->toBeFalse()
+        ->and(Schema::hasColumn('seasons', 'starts_at'))->toBeTrue()
+        ->and(Schema::hasColumn('seasons', 'ends_at'))->toBeTrue();
+
+    $campaign = Campaign::factory()->create(['is_active' => true, 'starts_at' => now()->subDay(), 'ends_at' => now()->addDay()]);
+    $season = Season::factory()->create(['campaign_id' => $campaign->id, 'is_published' => true]);
+
+    // بلا نافذة صريحة: التواريخ فارغة والحالة كلها مشتقّة من الحملة (السلوك القديم حرفيًا).
+    expect($season->starts_at)->toBeNull()->and($season->ends_at)->toBeNull();
+
+    $campaign->update(['starts_at' => now()->addDay(), 'ends_at' => null]);
+    $this->get(route('seasons.show', $season->fresh()))->assertOk()->assertSee('قريباً');
 });
 
 test('the season show page derives its availability label from the campaign schedule, not a stored field', function () {

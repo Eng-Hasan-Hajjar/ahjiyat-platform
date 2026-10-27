@@ -3,6 +3,7 @@
 namespace App\Services\Notifications;
 
 use App\Models\Campaign;
+use App\Models\Season;
 use App\Models\User;
 use App\Services\CampaignLifecycleService;
 use App\Services\CampaignProgressPairs;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\DB;
  * تذكيرا "ينتهي قريبًا" (season_ending_soon / campaign_ending_soon) بمنطق واحد مشترك وقراءة فقط: لا يمسّ أي تقدّم/مهمة/سلسلة/
  * مكافأة، يكتب إشعارات فقط. يُستدعى من أمر مجدول ساعيًا.
  *
- * الخط الزمني: campaign.ends_at (الموسم بلا خط زمني مستقل). تعريف "الحملة متاحة الآن" لا يُنسَخ: CampaignLifecycleService::isAvailable
+ * الخط الزمني: campaign.ends_at، وفي E42 نهاية الموسم الصريحة (seasons.ends_at) إن وُجدت — موسم بلا نهاية صريحة يتبع حملته كما كان تمامًا. تعريف "الحملة متاحة الآن" لا يُنسَخ: CampaignLifecycleService::isAvailable
  * (= CampaignProgressService::isCampaignAvailable). SQL يضيّق المرشَّحين زمنيًا فقط.
  *
  * النوع (واحد لكل حملة، لا تكرار بين النوعين): حملة مرتبطة بموسم منشور ← season_ending_soon (تفضيل المواسم، seasons.show)؛ وإلا
@@ -49,9 +50,16 @@ class LifecycleReminderService
             ->where('is_active', true)->whereNotNull('ends_at')
             ->where('ends_at', '>', $now)->where('ends_at', '<=', $until)
             ->with('season')
-            ->chunkById(50, function ($campaigns) use (&$stats) {
+            ->chunkById(50, function ($campaigns) use (&$stats, $now, $until) {
                 foreach ($campaigns as $campaign) {
                     if (! $this->campaigns->isAvailable($campaign)) {
+                        continue;
+                    }
+
+                    // E42: موسم منشور بنهاية صريحة داخل النافذة يُذكَّر به في runExplicitSeasons (بنهاية الموسم لا الحملة) فلا نكرّره هنا.
+                    $owner = $campaign->season;
+
+                    if ($owner !== null && $owner->is_published && $owner->ends_at !== null && $owner->ends_at->gt($now) && $owner->ends_at->lte($until)) {
                         continue;
                     }
 
@@ -60,14 +68,43 @@ class LifecycleReminderService
                 }
             });
 
+        $this->runExplicitSeasons($now, $until, $stats);
+
         return $stats;
     }
 
-    /** @param  array<string, int>  $stats */
-    protected function remind(Campaign $campaign, array &$stats): void
+    /**
+     * E42: مواسم بنهاية صريحة تقع في النافذة. التذكير هنا بنهاية **الموسم** (نوع season_ending_soon بالمفتاح الدلالي نفسه فلا تكرار مع مسار الحملة)،
+     * بشرط أن يكون الموسم ظاهرًا ومباشرًا وحملته الأساسية متاحة للعب فعلًا (لا نذكّر بما لا يمكن إكماله).
+     *
+     * @param  array<string, int>  $stats
+     */
+    protected function runExplicitSeasons($now, $until, array &$stats): void
     {
-        $season = $campaign->season;
-        $viaSeason = $season !== null && $season->is_published;
+        $lifecycle = app(\App\Services\SeasonLifecycleService::class);
+
+        Season::query()->publiclyVisible($now)
+            ->whereNotNull('seasons.ends_at')->where('seasons.ends_at', '>', $now)->where('seasons.ends_at', '<=', $until)
+            ->where(fn ($q) => $q->whereNull('seasons.archive_at')->orWhere('seasons.archive_at', '>', $now))
+            ->with('campaign')
+            ->chunkById(50, function ($seasons) use ($lifecycle, &$stats) {
+                foreach ($seasons as $season) {
+                    if ($season->campaign === null || ! $lifecycle->isLive($season) || ! $this->campaigns->isAvailable($season->campaign)) {
+                        continue;
+                    }
+
+                    $stats['campaigns']++;
+                    $this->remind($season->campaign, $stats, $season);
+                }
+            });
+    }
+
+    /** @param  array<string, int>  $stats */
+    protected function remind(Campaign $campaign, array &$stats, ?Season $explicitSeason = null): void
+    {
+        $season = $explicitSeason ?? $campaign->season;
+        $viaSeason = $explicitSeason !== null
+            || ($season !== null && $season->is_published && $season->ends_at === null && ($season->announcement_at === null || $season->announcement_at->lte(now())));
 
         $type = $viaSeason ? NotificationType::SeasonEndingSoon : NotificationType::CampaignEndingSoon;
         $prefix = $viaSeason ? 'season-ending-soon' : 'campaign-ending-soon';
