@@ -152,6 +152,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'creator-finance.review-payouts', 'creator-finance.settle-payouts', 'creator-finance.adjust', 'creator-finance.manage-holds',
         ]);
 
+        // E43: سوق المبدعين المميز للمدير العام فقط افتراضيًا (تفويض أدوار مخصصة من «إدارة الوصول»). المشرف يعاين بصلاحية creators.review ولا يملك إجراءات مالية.
+        $this->grantIfMissing('administrator', ['creator-premium.view', 'creator-premium.manage', 'creator-premium.refund']);
+
         $this->grantIfMissing('moderator', [
             'users.view_security',
             'users.view_activity',

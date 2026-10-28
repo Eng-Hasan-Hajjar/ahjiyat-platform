@@ -62,11 +62,13 @@ class CommerceCheckoutController extends Controller
             ->firstOrFail();
     }
 
-    /** صفحة الطلب في مجال المنتج (المسار المميز اليوم). */
+    /** صفحة الطلب في مجال المنتج: المسار المميز (E40)، أو صفحة السلسلة المميزة (E43). */
     protected function backTo(DigitalPurchase $purchase): string
     {
-        return $purchase->product_type === DigitalPurchase::PRODUCT_PASS_PREMIUM
-            ? route('pass.orders.show', $purchase->public_id)
-            : route('commerce.purchases.index');
+        return match ($purchase->product_type) {
+            DigitalPurchase::PRODUCT_PASS_PREMIUM => route('pass.orders.show', $purchase->public_id),
+            DigitalPurchase::PRODUCT_CREATOR_SERIES => route('series.show', $purchase->product_public_id),
+            default => route('commerce.purchases.index'),
+        };
     }
 }

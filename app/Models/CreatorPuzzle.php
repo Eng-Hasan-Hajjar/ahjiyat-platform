@@ -120,6 +120,15 @@ class CreatorPuzzle extends Model
         return $query->where($query->getModel()->getTable().'.is_visible', true);
     }
 
+    /**
+     * E43: يضمّن عمود premium_lock_since (أقدم تفعيل لعرض مميز قافل لهذا العمل، أو NULL = حرّ) في الاستعلام نفسه بلا استعلام إضافي لكل عمل.
+     * مصدر القفل الوحيد: PremiumLockQuery. لا يغيّر الظهور (scopeVisible يبقى سلطة الظهور).
+     */
+    public function scopeWithPremiumLock($query)
+    {
+        return $query->addSelect(['premium_lock_since' => \App\Services\CreatorPremium\PremiumLockQuery::lockSince($query->getModel()->getTable().'.id')]);
+    }
+
     public function isPublished(): bool
     {
         return $this->published_puzzle_id !== null;

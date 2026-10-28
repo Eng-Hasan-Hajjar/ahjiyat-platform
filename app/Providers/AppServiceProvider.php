@@ -332,6 +332,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('commerce-read', fn (Request $request) => Limit::perMinute(60)->by('cmr:'.($request->user()?->id ?: $request->ip())));
         RateLimiter::for('commerce-webhook', fn (Request $request) => Limit::perMinute(max(1, (int) config('commerce.webhooks.rate_per_minute', 600)))->by('cmw:'.$request->ip().':'.(string) $request->route('provider')));
 
+        // E43: طفرات المبدع على عروض السلاسل المميزة (إنشاء/سعر/تفعيل/إيقاف/إغلاق) وقراءة صفحة الأرباح المميزة. المفتاح = المستخدم المصادَق.
+        RateLimiter::for('creator-premium-offer', fn (Request $request) => [
+            Limit::perMinute(max(1, (int) config('creator_premium.limits.offer_changes_per_minute', 10)))->by('cpo:'.($request->user()?->id ?: $request->ip())),
+            Limit::perHour(max(1, (int) config('creator_premium.limits.offer_changes_per_hour', 60)))->by('cpoh:'.($request->user()?->id ?: $request->ip())),
+        ]);
+
         // E11: تجهيز/إزالة تجميليات - UX تتطلب تجربة سريعة (تبديل/معاينة)، لا حساسية مالية هنا.
         RateLimiter::for('cosmetic-equip', function (Request $request) {
             return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());

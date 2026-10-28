@@ -34,6 +34,7 @@
                 @if ($work->publishedCategory) <span class="chip !py-1 !px-3">{{ $work->publishedCategory->name }}</span> @endif
                 <x-difficulty-badge :difficulty="$puzzle->difficulty" />
                 <x-status-badge tone="neutral" :small="true">بلا جوائز</x-status-badge>
+                @if (! empty($premiumBasis)) <x-status-badge tone="warning" :small="true" icon="lock">مميز</x-status-badge> @endif
             </div>
 
             <h1 class="font-display font-black text-2xl md:text-3xl text-white mb-2 leading-tight break-words">{{ $puzzle->title }}</h1>
@@ -59,6 +60,8 @@
                 @if ($isOwner)
                     <div class="rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm text-slate-200" role="status">هذه أحجيتك. لا تُحتسب لك محاولات عليها؛ جرّبها من المعاينة في الاستوديو.
                         <a href="{{ route('creator.puzzles.preview', $work->public_id) }}" class="text-amethyst font-bold underline">افتح المعاينة</a></div>
+                @elseif (! empty($premiumPreview))
+                    <div class="rounded-xl border border-gold/30 bg-gold/10 px-5 py-4 text-sm text-gold font-bold" role="status" data-premium-preview>معاينة: هذه أحجية مميزة ولا تُسجَّل محاولات المعاينة.</div>
                 @elseif (! $canInteract)
                     <div class="rounded-xl border border-gold/30 bg-gold/10 px-5 py-4 text-sm text-gold font-bold" role="status">يلزم بريد إلكتروني موثَّق وحساب غير مجمَّد لتلعب أحجيات المجتمع.</div>
                 @elseif ($state['solved'])

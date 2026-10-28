@@ -37,6 +37,9 @@
                     @elseif ($purchase->product_type === \App\Models\DigitalPurchase::PRODUCT_PASS_PREMIUM)
                         <a href="{{ route('pass.orders.show', $purchase->public_id) }}" class="text-xs font-bold text-amethyst underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">التفاصيل</a>
                     @endif
+                    @if ($purchase->product_type === \App\Models\DigitalPurchase::PRODUCT_CREATOR_SERIES)
+                        <a href="{{ route('series.show', $purchase->product_public_id) }}" class="text-xs font-bold text-amethyst underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" data-commerce-series-link>السلسلة</a>
+                    @endif
                 </div>
             </article>
         @empty

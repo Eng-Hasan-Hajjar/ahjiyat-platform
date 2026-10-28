@@ -304,3 +304,10 @@ server {
 - المجدوِل (Cron الواحد `schedule:run`) يشغّل `seasons:process` كل 5 دقائق (مع `seasons:sync-live-state` القائم). غيابه لا يكسر شيئًا: يتأخر إشعار المراحل والإعلانات المجدولة وتجميد نافذة المؤرشف فقط.
 - إشعارات المراحل والإعلانات تمرّ بالصف: مع `QUEUE_CONNECTION=database` شغّل عاملًا (`php artisan queue:work`).
 - لا متغيرات بيئة جديدة ولا صلاحيات جديدة. الإيقاف الطارئ لموسم: «إيقاف النشر» من الإدارة. التفاصيل والتشغيل: `docs/season-evolution-e42.md` و`docs/season-operations-runbook.md`.
+
+## السوق المميز (E43)
+- `php artisan migrate` يضيف ثلاثة ترحيلات **إضافية فقط**: `creator_series_sale_offers` و`creator_series_accesses` و`creator_direct_sales` (كل المفاتيح الأجنبية `RESTRICT`). لا تغيير على جداول قائمة.
+- أربعة متغيرات بيئة اختيارية موثَّقة في `docs/environment-variables.md`، و**`CREATOR_PREMIUM_ENABLED=false` هو الافتراضي الآمن**: لا تفعيل عرض ولا checkout جديد حتى تتوفر بوابة دفع استهلاكية حيّة (E41). تعطيله لا يمسّ المالكين ولا الاسترداد ولا المصالحة. بعد تغيير `.env`: `php artisan config:clear`.
+- صلاحيات جديدة `creator-premium.view|manage|refund` لمدير النظام فقط: شغّل `php artisan db:seed --class=RolesAndPermissionsSeeder` بعد النشر (آمن للتكرار).
+- **`php artisan creator-premium:reconcile`** (قراءة فقط) بعد كل نشر وبشكل دوري، مع `php artisan commerce:reconcile`. الرمز 1 = بنود تحتاج قرارًا بشريًا؛ التفسير في `docs/creator-premium-operations-runbook.md`. ولا مهام مجدولة جديدة ولا طوابير جديدة.
+- التحقق من التزامن على MySQL الحقيقي قبل أول تفعيل: `php tools/e43/concurrency-probe.php` على قاعدة مؤقتة اسمها ينتهي بـ`_test_mysql` فقط (لا قاعدة العمل أبدًا).

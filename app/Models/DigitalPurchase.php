@@ -25,6 +25,9 @@ class DigitalPurchase extends Model
 {
     public const PRODUCT_PASS_PREMIUM = 'ahjiyat_pass_premium';
 
+    /** E43: وصول دائم لسلسلة مبدع مميزة (مرة واحدة). product_id = رقم السلسلة، product_public_id = معرّفها العام، product_name = عنوانها وقت الطلب. */
+    public const PRODUCT_CREATOR_SERIES = 'creator_series_access';
+
     public const STATUS_AWAITING = 'awaiting_payment';
 
     public const STATUS_SUBMITTED = 'submitted';

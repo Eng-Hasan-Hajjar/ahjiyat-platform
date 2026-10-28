@@ -4,11 +4,14 @@ namespace App\Services\Discussions;
 
 use App\Models\CreatorPuzzle;
 use App\Models\CreatorSeries;
+use App\Models\CreatorSeriesSaleOffer;
 use App\Models\DiscussionThread;
 use App\Models\User;
 use App\Models\UserCollection;
 use App\Services\Collections\CollectionAccess;
+use App\Services\CreatorPremium\CreatorPremiumAccess;
 use App\Services\CreatorSeries\CreatorSeriesVisibilityService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -19,6 +22,8 @@ use Illuminate\Support\Str;
  *  - المجموعة **العامة فقط** تستضيف نقاشًا: غير المدرجة لا (التعليقات قد تسرّب اكتشافًا لرابط خاص بالمشاركة)، والخاصة لا.
  *  - إخفاء الكيان إشرافيًا (أو تعليق المبدع، أو جعل المجموعة خاصة) يقطع الوصول العام للنقاش فورًا؛ التعليقات المخزَّنة تبقى تاريخيًا وتعود بعودة الكيان.
  *  - official_puzzle غير منفَّذ (الأحجية الرسمية خارج النطاق عمدًا).
+ *  - E43: نقاش محتوى مميز (أحجية ضمن سلسلة مقفولة، أو السلسلة المميزة نفسها) يُحلّ فقط للمبدع/المشرف المخوَّل/مالك الوصول (CreatorPremiumAccess، السياسة الوحيدة)؛ لغيرهم null = 404.
+ *    هنا النقطة المركزية لكل مسارات النقاش (قراءة/نشر/رد/إعجاب/رابط دائم)، فلا تسريب لنص تعليق قد يحوي الحل.
  */
 class DiscussionSubjectRegistry
 {
@@ -45,8 +50,8 @@ class DiscussionSubjectRegistry
         $publicId = Str::upper($publicId);
 
         return match ($type) {
-            DiscussionThread::TYPE_COMMUNITY_PUZZLE => $this->puzzle($publicId),
-            DiscussionThread::TYPE_CREATOR_SERIES => $this->seriesBy($publicId),
+            DiscussionThread::TYPE_COMMUNITY_PUZZLE => $this->puzzle($publicId, $viewer),
+            DiscussionThread::TYPE_CREATOR_SERIES => $this->seriesBy($publicId, $viewer),
             DiscussionThread::TYPE_PUBLIC_COLLECTION => $this->collection($publicId, $viewer),
             default => null,
         };
@@ -158,23 +163,35 @@ class DiscussionSubjectRegistry
         return $out;
     }
 
-    protected function puzzle(string $publicId): ?DiscussionSubject
+    protected function puzzle(string $publicId, ?User $viewer = null): ?DiscussionSubject
     {
-        $work = CreatorPuzzle::query()->visible()->where('public_id', $publicId)->with('creator:id,user_id')->first(['id', 'public_id', 'creator_profile_id', 'published_title']);
+        // E43: عمود القفل المشتق مع الاستعلام نفسه (لا استعلام إضافي للأعمال الحرة).
+        $work = CreatorPuzzle::query()->visible()->select(['creator_puzzles.id', 'creator_puzzles.public_id', 'creator_puzzles.creator_profile_id', 'creator_puzzles.published_title'])->withPremiumLock()
+            ->where('public_id', $publicId)->with('creator:id,user_id')->first();
 
-        return $work === null ? null : $this->forWork($work);
+        if ($work === null) {
+            return null;
+        }
+
+        return app(CreatorPremiumAccess::class)->decide($viewer, $work, CreatorPremiumAccess::DISCUSS)->allowed ? $this->forWork($work) : null;
     }
 
-    protected function seriesBy(string $publicId): ?DiscussionSubject
+    protected function seriesBy(string $publicId, ?User $viewer = null): ?DiscussionSubject
     {
         if (! (bool) config('creator_series.enabled', true)) {
             return null;
         }
 
         $series = $this->series->visibleQuery()->where('creator_series.public_id', $publicId)
-            ->with(['creator:id,user_id', 'publishedRevision:id,creator_series_id,title'])->first(['creator_series.id', 'creator_series.public_id', 'creator_series.creator_profile_id', 'creator_series.published_revision_id']);
+            ->select(['creator_series.id', 'creator_series.public_id', 'creator_series.creator_profile_id', 'creator_series.published_revision_id'])
+            ->addSelect(['premium_locked' => DB::table('creator_series_sale_offers as pso')->selectRaw('1')->whereColumn('pso.creator_series_id', 'creator_series.id')->whereIn('pso.status', CreatorSeriesSaleOffer::LOCKING_STATUSES)->limit(1)])
+            ->with(['creator:id,user_id', 'publishedRevision:id,creator_series_id,title'])->first();
 
-        return $series instanceof CreatorSeries && $series->publishedRevision !== null ? $this->forSeries($series) : null;
+        if (! $series instanceof CreatorSeries || $series->publishedRevision === null) {
+            return null;
+        }
+
+        return app(CreatorPremiumAccess::class)->decideSeriesDiscussion($viewer, $series, (bool) ($series->getAttributes()['premium_locked'] ?? false))->allowed ? $this->forSeries($series) : null;
     }
 
     protected function collection(string $publicId, ?User $viewer): ?DiscussionSubject

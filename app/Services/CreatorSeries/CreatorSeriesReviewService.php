@@ -6,6 +6,7 @@ use App\Models\CreatorProfile;
 use App\Models\CreatorSeries;
 use App\Models\CreatorSeriesRevision;
 use App\Models\User;
+use App\Services\CreatorPremium\CreatorPremiumPublishGuard;
 use App\Services\OperationalAuditService;
 use Illuminate\Support\Facades\DB;
 
@@ -26,14 +27,17 @@ class CreatorSeriesReviewService
         protected CreatorSeriesAnnouncer $announcer,
     ) {}
 
-    public function approve(CreatorSeriesRevision $revision, User $actor, ?string $note = null): CreatorSeriesRevision
+    /**
+     * E43: `$overrideSoldRemoval` تأكيد صريح من المراجع لاعتماد نسخة **تُسقط** أحجيات من سلسلة لها مشترون (يُدقَّق مع ملاحظة إلزامية)؛ بدونه يُرفض الاعتماد ولا يتغير شيء.
+     */
+    public function approve(CreatorSeriesRevision $revision, User $actor, ?string $note = null, bool $overrideSoldRemoval = false): CreatorSeriesRevision
     {
         $this->assertReviewer($actor);
 
         $isUpdate = false;
         $creatorProfileId = 0;
 
-        $approved = DB::transaction(function () use ($revision, $actor, $note, &$isUpdate, &$creatorProfileId) {
+        $approved = DB::transaction(function () use ($revision, $actor, $note, $overrideSoldRemoval, &$isUpdate, &$creatorProfileId) {
             $locked = CreatorSeriesRevision::query()->lockForUpdate()->findOrFail($revision->id);
             $this->assertPending($locked);
 
@@ -46,6 +50,20 @@ class CreatorSeriesReviewService
 
             // العناصر لحظة الاعتماد: أعمال المبدع نفسه، ظاهرة الآن، والعدد ضمن الحدود.
             $this->series->assertItemsReady($profile, $locked);
+
+            $removedSold = app(CreatorPremiumPublishGuard::class)->soldItemsRemoved($series, $locked);
+
+            if ($removedSold !== []) {
+                if (! $overrideSoldRemoval) {
+                    throw new CreatorSeriesException('تُسقط هذه النسخة '.count($removedSold).' أحجية من سلسلة لها مشترون. الإضافة وإعادة الترتيب مسموحتان، أما الحذف فيلزمه تأكيد صريح مع ملاحظة.');
+                }
+
+                if (! filled($note)) {
+                    throw new CreatorSeriesException('تأكيد حذف أحجيات من سلسلة مباعة يلزمه ملاحظة موثَّقة.');
+                }
+
+                $this->audit->log('creator_premium_sold_items_removed', $locked, ['series' => $series->public_id, 'revision' => $locked->revision_number, 'removed_works' => count($removedSold)], $actor);
+            }
 
             $isUpdate = $series->first_published_at !== null;
             $creatorProfileId = (int) $series->creator_profile_id;

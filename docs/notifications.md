@@ -234,3 +234,14 @@
 
 ## 23. إشعارات تطوّر الموسم (E42)
 نوعان بفئة `season` القائمة وبلا تفضيل جديد (يحترمان التفضيل الحالي للمواسم والمفتاح الشامل لحظة الإرسال): `season_phase_started` («بدأت مرحلة جديدة») بمفتاح `season-phase:{phase}:{user}` لمشاركي الحملة الأساسية، و`season_announcement_published` بمفتاح `season-announcement:{id}:{user}` لجمهور اختارته الإدارة صراحةً (`participants` أو `all`). يُرسَلان من `seasons:process` (كل 5 دقائق) بعد **حجز ذري** للمرحلة/الإعلان، وبدفعات 200 بالطابور (`DispatchSeasonPhaseStartedChunk` / `DispatchSeasonAnnouncementChunk`) وإعادتها آمنة. **صمت مقصود:** المرحلة الأولى (يغطيها `season_started`)، وما أقدم من 24 ساعة (`seasons.notifications.phase_notice_max_age_hours`)، والموسم غير المباشر، والإعلان المنتهي. فشل الإشعار لا يمسّ الموسم ولا المرحلة ولا الإعلان. الرابط: `seasons.show`. التفاصيل: `docs/season-evolution-e42.md`.
+
+## 24. إشعارات السوق المميز (E43)
+ثلاثة أنواع بالفئة القائمة `social` وتفضيلها الحالي (لا فئة ولا تفضيل جديد)، تُرسَل **بعد commit** معاملة التحقق أو الاسترداد، وفشلها معزول (لا يمسّ المال ولا الوصول ولا الدفتر):
+
+| النوع | المستلم | المفتاح الدلالي | الرابط |
+|---|---|---|---|
+| `premium_series_access_granted` («فُتحت السلسلة») | المشتري | `premium_series_access:{purchase}` | `series.show` |
+| `creator_premium_sale` («بيع جديد») | المبدع | `creator_premium_sale:{sale}` | `creator.earnings` |
+| `creator_premium_sale_adjusted` («عُدّلت حصة بعد استرداد») | المبدع | `creator_premium_sale_adjusted:{sale}` | `creator.earnings` |
+
+استرداد المشتري يستعمل إشعار E41 القائم (`commerce_refunded`) فلا إشعارين لحدث واحد. تكرار الـwebhook أو إعادة التحقق لا يرسل ثانيًا (المفتاح الدلالي). **لا** هوية مشترٍ ولا مبالغ ولا مراجع دفع ولا ملاحظات داخلية في أي نص؛ والحساب المجمَّد لا يُشعَر. معطَّل بالكامل عبر `creator_premium.notifications.enabled`. التفاصيل: `docs/creator-premium-marketplace-e43.md`.

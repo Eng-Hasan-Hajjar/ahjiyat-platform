@@ -121,6 +121,9 @@ enum NotificationType: string
     case CommerceFailed = 'commerce_failed';
     case CommerceActionRequired = 'commerce_action_required';
     case CommerceRefunded = 'commerce_refunded';
+    case PremiumSeriesAccessGranted = 'premium_series_access_granted';
+    case CreatorPremiumSale = 'creator_premium_sale';
+    case CreatorPremiumSaleAdjusted = 'creator_premium_sale_adjusted';
 
     public function category(): NotificationCategory
     {
@@ -147,6 +150,7 @@ enum NotificationType: string
             self::CreatorStatementReady, self::CreatorPayoutApproved, self::CreatorPayoutPaid, self::CreatorPayoutRejected,
             self::PassPremiumUnlocked, self::PassPurchaseRejected, self::PassClaimWindowClosing,
             self::CommerceFailed, self::CommerceActionRequired, self::CommerceRefunded,
+            self::PremiumSeriesAccessGranted, self::CreatorPremiumSale, self::CreatorPremiumSaleAdjusted,
             self::ReferralQualified, self::ReferralRewardReceived => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::EventStartingSoon,
@@ -176,6 +180,9 @@ enum NotificationType: string
             self::CommerceActionRequired => 61,
             self::CommerceFailed => 56,
             self::CommerceRefunded => 55,
+            self::PremiumSeriesAccessGranted => 57,
+            self::CreatorPremiumSale => 47,
+            self::CreatorPremiumSaleAdjusted => 48,
             self::StreakAtRisk => 100,
             self::DailyQuestsAvailable => 50,
             self::SeasonStarted => 20,
@@ -307,6 +314,9 @@ enum NotificationType: string
             self::CommerceFailed => '⚠️',
             self::CommerceActionRequired => '🔎',
             self::CommerceRefunded => '↩️',
+            self::PremiumSeriesAccessGranted => '🔓',
+            self::CreatorPremiumSale => '💎',
+            self::CreatorPremiumSaleAdjusted => '↩️',
         };
     }
 
@@ -351,6 +361,8 @@ enum NotificationType: string
             self::CreatorStatementReady, self::CreatorPayoutApproved, self::CreatorPayoutPaid, self::CreatorPayoutRejected => ['creator.earnings'],
             self::PassPremiumUnlocked, self::PassPurchaseRejected, self::PassClaimWindowClosing => ['pass.index'],
             self::CommerceFailed, self::CommerceActionRequired, self::CommerceRefunded => ['commerce.purchases.index'],
+            self::PremiumSeriesAccessGranted => ['series.show', 'commerce.purchases.index'],
+            self::CreatorPremiumSale, self::CreatorPremiumSaleAdjusted => ['creator.earnings'],
         };
     }
 
@@ -432,6 +444,9 @@ enum NotificationType: string
             self::CommerceFailed => 'لم تكتمل عملية الدفع',
             self::CommerceActionRequired => 'دفعتك قيد المراجعة المالية',
             self::CommerceRefunded => 'سُجّل استرداد طلبك',
+            self::PremiumSeriesAccessGranted => 'تم فتح السلسلة المميزة'.(! empty($params['title']) ? ': '.$params['title'] : ''),
+            self::CreatorPremiumSale => 'بيع جديد لسلسلتك المميزة'.(! empty($params['title']) ? ': '.$params['title'] : ''),
+            self::CreatorPremiumSaleAdjusted => 'عُدّلت حصة بيع بعد استرداد',
             self::SupporterTierChanged => ! empty($params['up'])
                 ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
                 : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
@@ -521,6 +536,9 @@ enum NotificationType: string
             self::CommerceFailed => 'لم يُفعَّل المسار المميز لأن عملية الدفع لم تكتمل. يمكنك إعادة المحاولة من صفحة الطلب متى شئت.',
             self::CommerceActionRequired => 'وصلتنا عملية دفع تحتاج مراجعة يدوية قبل تفعيل المسار المميز. يتولى الفريق المالي الأمر، ولا يلزمك فعل شيء الآن.',
             self::CommerceRefunded => 'سُجّل استرداد طلبك. تجد التفاصيل في «مشترياتي».',
+            self::PremiumSeriesAccessGranted => 'تأكّد دفعك وصار لك وصول دائم إلى أحجيات هذه السلسلة بما فيها من حلول وتلميحات ونقاشات.',
+            self::CreatorPremiumSale => 'سُجّلت حصتك من بيع جديد في «الأرباح». لا تظهر هوية المشتري.',
+            self::CreatorPremiumSaleAdjusted => 'استُرد بيع لإحدى سلاسلك المميزة فعُكست حصتك المتاحة منه. التفاصيل في «الأرباح».',
             self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
             self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
             self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',

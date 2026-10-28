@@ -212,6 +212,11 @@ jobs:
       - name: E42 season orchestration on MySQL (phase key / content link uniqueness with NULL coexistence / real FKs / deletion policy / Arabic round-trip / named indexes)
         run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/SeasonE42/E42MysqlSchemaTest.php
 
+      # E43: مجموعة جزئية صغيرة (≈20 ث) لما يختلف فعلًا على MySQL: فرادة (مستخدم، سلسلة) للوصول، وعرض حيّ واحد لكل سلسلة (live_series_id) مع تعايش NULL بعد السحب، وبيع واحد لكل شراء وقيد دائن/عاكس فريد، وفرادة source_key في دفتر E39 للبيع والعكس،
+      # سياسة المفاتيح الأجنبية (التاريخ المالي والوصول لا يُحذفان تتابعيًا)، النص العربي والرموز التعبيرية حتى حدود الأعمدة، دقّة الأعداد الصحيحة الكبيرة في القسمة، وحتمية قاعدة الباقي، الفهارس المسماة، ولا float/decimal. البقية على SQLite.
+      - name: E43 creator premium marketplace on MySQL (one live offer per series / one access per user+series / one sale per purchase / ledger source_key / FK retention / Arabic round-trip / big-integer split exactness / named indexes)
+        run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/CreatorPremiumE43/E43MysqlSchemaTest.php
+
       - name: Schema parity against the migrated MySQL database (read-only)
         run: php artisan db:parity --connection=mysql --runtime
 
@@ -254,3 +259,11 @@ jobs:
         env:
           DB_CONNECTION: mysql
         run: php tools/e42/concurrency-probe.php --rounds=4
+
+      # E43: سباق حقيقي بين عمليات PHP على MySQL بالمزوّد التجريبي (تحقق مزدوج للشراء نفسه من 4 عمليات / شراءان لمشترٍ واحد للسلسلة نفسها / استرداد↔تحقق / استرداد مزدوج / عكس الحصة مع دفعة متزامنة تستهلك المتاح / تفعيل عرض↔إيقاف / استثناء مُحقَن داخل التحقق) ثم فحوص سلامة نهائية
+      # (وصول واحد لكل (مستخدم، سلسلة)، بيع واحد وقيد دائن واحد لكل شراء، لا رصيد سالب، مصالحة السوق المميز نظيفة). يمسح قاعدة الاختبار المؤقتة (migrate:fresh) ويرفض أي قاعدة لا ينتهي اسمها بـ_test؛ لذا يأتي بعد مسبار E42 في آخر الخطوات.
+      - name: E43 real-concurrency probe on MySQL (parallel OS processes)
+        timeout-minutes: 10
+        env:
+          DB_CONNECTION: mysql
+        run: php tools/e43/concurrency-probe.php --rounds=4

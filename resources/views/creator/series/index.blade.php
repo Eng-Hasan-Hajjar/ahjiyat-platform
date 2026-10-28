@@ -6,7 +6,8 @@
 @section('content')
     <div class="space-y-6">
         <x-page-header title="سلاسلي" icon="grid" subtitle="قوائم أحجيات مرتّبة من أعمالك المنشورة." :back="route('creator.dashboard')" backLabel="الاستوديو" class="anim-fade-up !mb-0">
-            <x-slot:actions>
+ <x-slot:actions>
+                <a href="{{ route('creator.premium.index') }}" class="btn-secondary !py-2 !px-5 text-sm inline-flex items-center gap-1.5"><x-ui-icon name="lock" class="w-4 h-4" />السلاسل المميزة</a>
                 <a href="{{ route('creator.series.create') }}" class="btn-gem !py-2 !px-5 text-sm inline-flex items-center gap-1.5"><x-ui-icon name="plus" class="w-4 h-4" />سلسلة جديدة</a>
             </x-slot:actions>
         </x-page-header>

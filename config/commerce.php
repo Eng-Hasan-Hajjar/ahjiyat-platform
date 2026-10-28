@@ -49,6 +49,8 @@ return [
     // معالجات المنتجات (نوع المنتج ⇒ صنف ينفّذ CommerceProductHandler). نواة التجارة لا تعرف المسار المميز مباشرة.
     'products' => [
         'ahjiyat_pass_premium' => \App\Services\AhjiyatPass\PassPremiumProductHandler::class,
+        // E43: وصول دائم لسلسلة مبدع مميزة (شراء مرة واحدة؛ حصة المبدع تُقيَّد في دفتر E39 داخل معاملة التحقق نفسها).
+        'creator_series_access' => \App\Services\CreatorPremium\CreatorSeriesAccessProductHandler::class,
     ],
 
     'checkout' => [

@@ -26,6 +26,7 @@
             <div class="flex flex-wrap items-center gap-2 mb-4">
                 <x-status-badge tone="primary" icon="friends">من المجتمع</x-status-badge>
                 <x-status-badge tone="neutral" :small="true">بلا جوائز</x-status-badge>
+                @if (! empty($premium)) <x-status-badge tone="warning" :small="true" icon="lock">مميزة</x-status-badge> @endif
                 <span class="chip !py-1 !px-3">{{ $items->count() }} أحجية</span>
             </div>
             <h1 class="font-display font-black text-2xl md:text-3xl text-white mb-2 leading-tight break-words">{{ $revision->title }}</h1>
@@ -35,6 +36,50 @@
             </p>
             @if ($revision->description)
                 <p class="text-sm text-slate-200 break-words whitespace-pre-line">{{ $revision->description }}</p>
+            @endif
+
+            @if (! empty($premium))
+                {{-- E43: كتلة السلسلة المميزة. بيانات وصفية وسعر وحالة المشاهد فقط؛ الشراء بـPOST إلى مسار الخادم (لا سعر ولا عملة من العميل) ثم دفع مستضاف (E41). --}}
+                <div class="mt-4 rounded-xl border border-gold/30 bg-gold/10 px-5 py-4 text-sm text-slate-100" data-premium-block data-premium-state="{{ $premium['state'] }}">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="font-black text-gold flex flex-wrap items-center gap-2"><x-ui-icon name="lock" class="w-4 h-4" />سلسلة مميزة <span class="text-white" dir="ltr" data-premium-price>{{ $premium['price'] }}</span></p>
+                            <p class="text-xs text-slate-300 mt-1">شراء مرة واحدة ووصول دائم إلى أحجيات السلسلة وحلولها وتلميحاتها ونقاشاتها. لا اشتراك ولا تجديد تلقائي.</p>
+                        </div>
+                        @switch($premium['state'])
+                            @case('owned')
+                                <x-status-badge tone="success" icon="check-circle">تملك الوصول</x-status-badge>
+                                @break
+                            @case('creator')
+                                <span class="text-xs font-bold text-slate-300">هذه سلسلتك</span>
+                                @break
+                            @case('guest')
+                                <a href="{{ route('login') }}" class="btn-gem !py-2 !px-5 text-sm">سجّل الدخول للشراء</a>
+                                @break
+                            @case('cannot_buy')
+                                <span class="text-xs font-bold text-gold">يلزم بريد إلكتروني موثَّق وحساب غير مجمَّد للشراء.</span>
+                                @break
+                            @case('paused')
+                                <span class="text-xs font-bold text-slate-300">البيع موقوف مؤقتًا.</span>
+                                @break
+                            @case('disabled')
+                                <span class="text-xs font-bold text-slate-300">الشراء غير متاح حاليًا.</span>
+                                @break
+                            @case('continue')
+                                <form method="POST" action="{{ route('series.premium.order', $series->public_id) }}">
+                                    @csrf
+                                    <button type="submit" class="btn-gem !py-2.5 !px-6 text-sm" data-premium-continue>تابع الدفع</button>
+                                </form>
+                                @break
+                            @default
+                                <form method="POST" action="{{ route('series.premium.order', $series->public_id) }}">
+                                    @csrf
+                                    <input type="hidden" name="request_key" value="{{ $premium['request_key'] }}">
+                                    <button type="submit" class="btn-gem !py-2.5 !px-6 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" data-premium-buy>احصل على الوصول</button>
+                                </form>
+                        @endswitch
+                    </div>
+                </div>
             @endif
 
             <div class="mt-5">
@@ -64,7 +109,7 @@
                     @endif
                 @endguest
 
-                @if ($continueId && ! $isOwner && ! ($canPlay && $progress['completed']))
+                @if ($continueId && ! $isOwner && ! ($canPlay && $progress['completed']) && (empty($premium) || $premium['state'] === 'owned'))
                     <a data-series-continue href="{{ route('community.puzzles.show', ['work' => $continueId, 'series' => $series->public_id]) }}" class="btn-gem !px-8 mt-4 inline-flex items-center gap-2">
                         {{ $canPlay && $progress['done'] > 0 ? 'أكمل السلسلة' : 'ابدأ السلسلة' }}<x-ui-icon name="chevron-left" class="w-4 h-4" />
                     </a>

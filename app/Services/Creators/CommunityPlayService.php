@@ -7,6 +7,7 @@ use App\Models\CommunityPuzzleAttempt;
 use App\Models\CreatorPuzzle;
 use App\Models\Puzzle;
 use App\Models\User;
+use App\Services\CreatorPremium\CreatorPremiumAccess;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -47,6 +48,9 @@ class CommunityPlayService
             throw new CreatorException('هذه أحجيتك؛ استخدم المعاينة من استوديو المبدعين.');
         }
 
+        // E43: عمق دفاعي: المحاولة على عمل مميز مقفول لا تُسجَّل لغير المخوَّل مهما كان مسار الاستدعاء (CreatorPremiumException تمتد من CreatorException).
+        app(CreatorPremiumAccess::class)->assert($user, $work, CreatorPremiumAccess::ATTEMPT);
+
         return DB::transaction(function () use ($user, $work, $puzzle, $answer, $submission) {
             $rows = CommunityPuzzleAttempt::query()
                 ->where('user_id', $user->id)->where('puzzle_id', $puzzle->id)
@@ -82,10 +86,12 @@ class CommunityPlayService
         });
     }
 
-    /** التلميح مجاني لأحجيات المجتمع (لا محفظة ولا عملة). */
-    public function hint(CreatorPuzzle $work): string
+    /** التلميح مجاني لأحجيات المجتمع (لا محفظة ولا عملة). E43: على عمل مميز مقفول لا يُسلَّم إلا لمخوَّل (المشاهد مطلوب لهذا القرار؛ بلا مشاهد = حرّ فقط). */
+    public function hint(CreatorPuzzle $work, ?User $viewer = null): string
     {
         $puzzle = $this->playablePuzzle($work);
+
+        app(CreatorPremiumAccess::class)->assert($viewer, $work, CreatorPremiumAccess::HINT);
 
         if (blank($puzzle->hint)) {
             throw new CreatorException('لا يوجد تلميح لهذه الأحجية.');

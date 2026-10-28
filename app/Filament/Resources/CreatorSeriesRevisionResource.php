@@ -7,6 +7,7 @@ use App\Models\CreatorPuzzle;
 use App\Models\CreatorSeries;
 use App\Models\CreatorSeriesRevision;
 use App\Services\CreatorSeries\CreatorSeriesException;
+use App\Services\CreatorPremium\CreatorPremiumPublishGuard;
 use App\Services\CreatorSeries\CreatorSeriesReviewService;
 use App\Services\CreatorSeries\CreatorSeriesVisibilityService;
 use App\Services\Creators\CreatorException;
@@ -92,7 +93,7 @@ class CreatorSeriesRevisionResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
-                self::reviewAction('approve', 'اعتماد ونشر', 'success', false, fn (CreatorSeriesReviewService $s, CreatorSeriesRevision $r, ?string $n) => $s->approve($r, auth()->user(), $n), 'اعتُمدت السلسلة ونُشرت.'),
+                self::approveAction(),
                 self::reviewAction('changes', 'طلب تعديلات', 'warning', true, fn (CreatorSeriesReviewService $s, CreatorSeriesRevision $r, ?string $n) => $s->requestChanges($r, auth()->user(), (string) $n), 'أُرسل طلب التعديل للمبدع.'),
                 self::reviewAction('reject', 'رفض', 'danger', true, fn (CreatorSeriesReviewService $s, CreatorSeriesRevision $r, ?string $n) => $s->reject($r, auth()->user(), (string) $n), 'رُفضت السلسلة وأُبلغ المبدع.'),
                 self::hideAction(),
@@ -150,6 +151,20 @@ class CreatorSeriesRevisionResource extends Resource
             (int) ($r->getAttribute('hidden_items') ?? 0) > 0 => 'عنصر غير ظاهر ('.(int) $r->getAttribute('hidden_items').')',
             default => 'ظاهرة للعامة',
         };
+    }
+
+    /** E43: الاعتماد، مع خيار تأكيد صريح يظهر فقط حين تُسقط النسخة أحجيات من سلسلة لها مشترون (يُدقَّق ويلزمه ملاحظة). */
+    protected static function approveAction(): Tables\Actions\Action
+    {
+        return Tables\Actions\Action::make('approve')->label('اعتماد ونشر')->color('success')
+            ->form(fn (CreatorSeriesRevision $record) => [
+                Forms\Components\Textarea::make('note')->label('ملاحظة (اختياري)')->maxLength((int) config('creator_series.limits.note_max')),
+                Forms\Components\Toggle::make('override_sold_removal')
+                    ->label('تأكيد صريح: هذه النسخة تُسقط أحجيات من سلسلة لها مشترون (الملاحظة إلزامية)')
+                    ->visible(fn () => app(CreatorPremiumPublishGuard::class)->soldItemsRemoved($record->series, $record) !== []),
+            ])
+            ->visible(fn (CreatorSeriesRevision $r) => $r->status === CreatorSeriesRevision::STATUS_PENDING_REVIEW && (auth()->user()?->can('creators.review') ?? false))
+            ->action(fn (CreatorSeriesRevision $record, array $data) => self::guard(fn () => app(CreatorSeriesReviewService::class)->approve($record, auth()->user(), $data['note'] ?? null, (bool) ($data['override_sold_removal'] ?? false)), 'اعتُمدت السلسلة ونُشرت.'));
     }
 
     /** @param \Closure(CreatorSeriesReviewService, CreatorSeriesRevision, ?string): mixed $call */

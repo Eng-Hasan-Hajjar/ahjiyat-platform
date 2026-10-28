@@ -28,7 +28,9 @@
             <div><dt class="text-xs text-slate-400">طريقة الدفع</dt><dd class="text-slate-200">{{ $providerLabel }}</dd></div>
         </dl>
         <div class="mt-4 flex flex-wrap gap-3">
-            @if ($phase === 'verified')
+            @if ($phase === 'verified' && $purchase->product_type === \App\Models\DigitalPurchase::PRODUCT_CREATOR_SERIES)
+                <a href="{{ route('series.show', $purchase->product_public_id) }}" class="btn-gem !py-2.5 !px-6 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" data-commerce-go>افتح السلسلة</a>
+            @elseif ($phase === 'verified')
                 <a href="{{ route('pass.index') }}" class="btn-gem !py-2.5 !px-6 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" data-commerce-go>اذهب للمسار</a>
             @endif
             <a href="{{ route('commerce.purchases.index') }}" class="text-xs font-bold text-amethyst underline self-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">مشترياتي</a>

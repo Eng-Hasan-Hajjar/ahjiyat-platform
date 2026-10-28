@@ -30,6 +30,11 @@ class CreatorEarningEntry extends Model
 
     public const TYPE_PAYOUT_SETTLE = 'payout_settle';
 
+    /** E43: حصة المبدع من بيع مباشر لسلسلة مميزة (إيداع إلحاقي في المتاح) وعكسها الإلحاقي عند استرداد المشتري (لا حذف للأصل أبدًا). */
+    public const TYPE_DIRECT_SALE_CREDIT = 'direct_sale_credit';
+
+    public const TYPE_DIRECT_SALE_REVERSAL = 'direct_sale_reversal';
+
     public const TYPES = [
         self::TYPE_REVENUE_SHARE => 'حصة إيراد',
         self::TYPE_ADJUSTMENT_CREDIT => 'تعديل (إضافة)',
@@ -37,6 +42,8 @@ class CreatorEarningEntry extends Model
         self::TYPE_PAYOUT_RESERVE => 'حجز لدفعة',
         self::TYPE_PAYOUT_RELEASE => 'فكّ حجز',
         self::TYPE_PAYOUT_SETTLE => 'صرف دفعة',
+        self::TYPE_DIRECT_SALE_CREDIT => 'حصة بيع مباشر',
+        self::TYPE_DIRECT_SALE_REVERSAL => 'عكس حصة بيع مباشر (استرداد)',
     ];
 
     /** نوع القيد ← إشارة كل حركة: '+' موجبة، '-' سالبة، '0' صفر. */
@@ -47,6 +54,8 @@ class CreatorEarningEntry extends Model
         self::TYPE_PAYOUT_RESERVE => ['-', '+', '0'],
         self::TYPE_PAYOUT_RELEASE => ['+', '-', '0'],
         self::TYPE_PAYOUT_SETTLE => ['0', '-', '+'],
+        self::TYPE_DIRECT_SALE_CREDIT => ['+', '0', '0'],
+        self::TYPE_DIRECT_SALE_REVERSAL => ['-', '0', '0'],
     ];
 
     protected $table = 'creator_earning_entries';

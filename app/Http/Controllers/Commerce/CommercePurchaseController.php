@@ -23,7 +23,7 @@ class CommercePurchaseController extends Controller
     {
         $purchases = DigitalPurchase::query()
             ->where('user_id', $request->user()->getKey())
-            ->select(['id', 'public_id', 'product_type', 'product_name', 'amount_minor', 'currency', 'provider', 'status', 'reference_code', 'review_flag', 'review_resolved_at', 'provider_status', 'created_at', 'verified_at', 'refunded_at'])
+            ->select(['id', 'public_id', 'product_type', 'product_public_id', 'product_name', 'amount_minor', 'currency', 'provider', 'status', 'reference_code', 'review_flag', 'review_resolved_at', 'provider_status', 'created_at', 'verified_at', 'refunded_at'])
             ->orderByDesc('id')
             ->simplePaginate(max(1, (int) config('commerce.limits.history_per_page', 15)));
 

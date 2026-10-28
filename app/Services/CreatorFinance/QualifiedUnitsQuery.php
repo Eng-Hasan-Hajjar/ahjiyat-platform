@@ -2,6 +2,7 @@
 
 namespace App\Services\CreatorFinance;
 
+use App\Services\CreatorPremium\PremiumLockQuery;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\DB;
  * الاستبعادات (كلها في الاستعلام نفسه):
  *   - إجابة خاطئة؛ خارج الفترة؛ لاعب هو صاحب الملف نفسه (لعب ذاتي)؛ حساب لاعب مجمَّد؛ عمل مخفي (إشرافًا أو تعليقًا/تجميدًا) أو لم يُنشر أصلًا.
  *   - سقف لكل (لاعب، مبدع): CASE يقصّ وحدات اللاعب عند السقف؛ raw_units تُحفظ للشفافية.
+ *   - E43: محاولات على عمل ضمن سلسلة بعرض بيع مميز (من أول تفعيل حتى الإغلاق) لا تدخل الصندوق (مسار تسييل واحد: البيع المباشر). مستقبلي فقط: ما سبق التفعيل يُحسب كما كان.
  * **لا يدخل في الحساب** عدد المتابعين أو السمعة أو الدعم المالي أو التقييمات أو أي إشارة بلاغ/احتيال آلية. اللاعب المجمَّد لا يُعاقَب هنا بإشارة بل بحالة أُقرّت بشريًا.
  * العمل المؤرشف يعد (أرشفة المبدع لعمله لا تمحو لعبًا مشروعًا حدث داخل الفترة). الاستعلام بربط معاملات (لا تضمين نصوص في SQL).
  */
@@ -35,6 +37,7 @@ final class QualifiedUnitsQuery
             ->whereNotNull('cp.published_puzzle_id')
             ->whereColumn('a.user_id', '<>', 'pr.user_id')
             ->where('u.is_frozen', 0)
+            ->tap(fn ($q) => PremiumLockQuery::excludeFromFund($q, 'a.creator_puzzle_id', 'a.created_at')) // E43: المحتوى المميز يُسيَّل بالبيع المباشر لا بصندوق المبدعين (مستقبليًا فقط).
             ->groupBy('cp.creator_profile_id', 'a.user_id')
             ->selectRaw('cp.creator_profile_id as creator_profile_id, a.user_id as player_id, COUNT(DISTINCT a.creator_puzzle_id) as units');
 

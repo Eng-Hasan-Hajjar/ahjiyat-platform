@@ -10,6 +10,7 @@ use App\Models\CreatorSeriesRevision;
 use App\Models\User;
 use App\Services\Creators\CreatorEligibility;
 use App\Services\Creators\CreatorMediaService;
+use App\Services\CreatorPremium\CreatorPremiumPublishGuard;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -359,6 +360,11 @@ class CreatorSeriesService
 
         if (! $series->isPublished()) {
             throw new CreatorSeriesException('الأرشفة للسلاسل المنشورة فقط.');
+        }
+
+        // E43: سلسلة بعرض بيع نشط/موقوف لا تُؤرشف (يختفي محتواها عن مالكيها ويبقى قفلها): أغلق العرض من «السلاسل المميزة» أولًا.
+        if (! $series->isArchived() && app(CreatorPremiumPublishGuard::class)->hasLiveOffer($series)) {
+            throw new CreatorSeriesException('أغلق عرض البيع لهذه السلسلة المميزة قبل أرشفتها.');
         }
 
         if (! $series->isArchived()) {

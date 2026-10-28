@@ -10,7 +10,10 @@
 <a href="{{ route('community.puzzles.show', $work->public_id) }}" class="glass rounded-2xl p-4 flex flex-col h-full hover:border-amethyst/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst transition motion-reduce:transition-none">
     <div class="flex items-start justify-between gap-2 mb-2">
         <span class="grid place-items-center w-10 h-10 shrink-0 rounded-xl bg-amethyst/15 text-amethyst"><x-ui-icon name="puzzle" class="w-5 h-5" /></span>
-        <x-status-badge tone="primary" :small="true" icon="friends">من المجتمع</x-status-badge>
+        <span class="flex flex-wrap items-center gap-1.5">
+            @if (! empty($work->premium_lock_since)) <x-status-badge tone="warning" :small="true" icon="lock" data-premium-badge>مميز</x-status-badge> @endif
+            <x-status-badge tone="primary" :small="true" icon="friends">من المجتمع</x-status-badge>
+        </span>
     </div>
     <h3 class="font-display font-black text-white leading-snug break-words">{{ $work->published_title }}</h3>
     <p class="text-xs text-slate-400 mt-1">
