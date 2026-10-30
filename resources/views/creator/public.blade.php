@@ -72,6 +72,9 @@
             @endif
         </section>
 
+        {{-- E44: سجل دوري الكتّاب (مواسم مُنهاة فقط). بلا سجل ⇒ صفر إخراج. --}}
+        <x-creator-seasonal-record :creator="$creator" />
+
         @if ($seriesList->isNotEmpty())
             <section aria-label="سلاسل المبدع" class="anim-fade-up d-2" data-creator-series>
                 <x-section-header title="سلاسله" />

@@ -24,6 +24,10 @@ class PricesRelationManager extends RelationManager
                 ->required()
                 ->native(false),
             Forms\Components\TextInput::make('amount')->label('القيمة')->numeric()->required()->minValue(1),
+            // E44: نقاط الدعم الموسمية التي يمنحها شراء هذا الخيار (0 = لا نقاط). تقدير فقط: ليست جواهر ولا XP ولا مالًا، وتُلتقط لقطةً عند الشراء. تعمل فقط حين يكون تقدير الداعمين مفعّلًا.
+            Forms\Components\TextInput::make('support_points')->label('نقاط دعم الموسم')->numeric()->integer()->default(0)->minValue(0)
+                ->maxValue((int) config('seasonal_recognition.supporters.max_support_points_per_purchase', 1000000))
+                ->helperText('0 = لا نقاط. للتقدير فقط (ليست مالًا ولا جواهر ولا خبرة) وتسري على المشتريات الجديدة.'),
             Forms\Components\Toggle::make('is_active')->label('نشط')->default(true),
             Forms\Components\TextInput::make('sort_order')->label('الترتيب')->numeric()->default(0),
         ]);
@@ -37,6 +41,7 @@ class PricesRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('currency.name')->label('العملة')->badge(),
                 Tables\Columns\TextColumn::make('amount')->label('القيمة'),
+                Tables\Columns\TextColumn::make('support_points')->label('نقاط الدعم')->placeholder('0'),
                 Tables\Columns\IconColumn::make('is_active')->label('نشط')->boolean(),
             ])
             ->defaultSort('sort_order')

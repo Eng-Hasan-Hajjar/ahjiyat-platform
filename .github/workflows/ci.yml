@@ -217,6 +217,12 @@ jobs:
       - name: E43 creator premium marketplace on MySQL (one live offer per series / one access per user+series / one sale per purchase / ledger source_key / FK retention / Arabic round-trip / big-integer split exactness / named indexes)
         run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/CreatorPremiumE43/E43MysqlSchemaTest.php
 
+      # E44: مجموعة جزئية صغيرة (≈45 ث) لما يختلف فعلًا على MySQL: فرادة (موسم) لصف الإعدادات و(موسم، مبدع) و(مستخدم، موسم) للقائمة، وفرادة ربط السلسلة، وميزانية واحدة لكل ناخب وتوزيع واحد لكل (كاتب، ناخب) مع تعايش NULL بعد محو حساب الناخب،
+      # وفرادة قرار الجائزة (كاتب، بند) وسقف المبلغ بالوحدة الصغرى، وفرادة باقة (موسم، مستوى) وبطاقة لكل دفعة، وفرادة source_key وreverses_entry_id في دفتر نقاط الدعم مع الأعمدة الموقَّعة، وصف إحصاء واحد لكل (موسم، مستخدم)،
+      # سياسة المفاتيح الأجنبية (التاريخ لا يُحذف تتابعيًا) وحدود النص العربي والرموز التعبيرية، وفرز الترتيب مع NULL أخيرًا، والفهارس المسماة، ولا float/decimal، ثم مساران كاملان (الكتّاب والداعمون) على المحرك الحقيقي. البقية على SQLite.
+      - name: E44 seasonal writers league and supporter recognition on MySQL (settings/roster/series uniqueness / one budget per voter / one allocation per writer+voter / award and ledger uniqueness / FK retention / Arabic round-trip / NULL-last ranking / named indexes / full writer and supporter paths)
+        run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/SeasonalRecognitionE44/E44MysqlSchemaTest.php
+
       - name: Schema parity against the migrated MySQL database (read-only)
         run: php artisan db:parity --connection=mysql --runtime
 
@@ -267,3 +273,11 @@ jobs:
         env:
           DB_CONNECTION: mysql
         run: php tools/e43/concurrency-probe.php --rounds=4
+
+      # E44: سباق حقيقي بين عمليات PHP على MySQL (ميزانية الـ10 نجوم بين كتّاب متنافسين وتكرار الطلب نفسه / إعادة توزيع الناخب نفسه بقيم مختلفة / ستة ناخبين على كاتب واحد / توزيع متعاكس بين كاتبين / سحب كاتب ↔ تصويت / ثلاثة إنهاءات للدوري / منح المصدر نفسه ×4 / مصادر مختلفة لمستخدم واحد / عكس مكرر / إنهاء ترتيب الداعمين ↔ منح لجدد وقدامى وعكس متأخر)
+      # ثم مطابقة الدوري والداعمين وفحوص سلامة نهائية (الدفتر ↔ المجاميع، لا جمود 1213 ولا انتظار قفل 1205، لا صف إحصاء يتيم بلا ختم). يمسح قاعدة الاختبار المؤقتة (migrate:fresh) ويرفض أي قاعدة لا ينتهي اسمها بـ_test؛ لذا يأتي في آخر الخطوات بعد مسابير الأجزاء السابقة. كاش الملفات المشترك في مجلد مؤقت خاص بالمسبار.
+      - name: E44 real-concurrency probe on MySQL (parallel OS processes)
+        timeout-minutes: 15
+        env:
+          DB_CONNECTION: mysql
+        run: php tools/e44/concurrency-probe.php --rounds=4

@@ -11,11 +11,11 @@ class StoreItemPrice extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['store_item_id', 'currency_id', 'amount', 'is_active', 'sort_order'];
+    protected $fillable = ['store_item_id', 'currency_id', 'amount', 'support_points', 'is_active', 'sort_order'];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return ['is_active' => 'boolean', 'support_points' => 'integer'];
     }
 
     public function item(): BelongsTo

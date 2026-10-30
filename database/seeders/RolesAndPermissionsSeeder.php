@@ -155,6 +155,13 @@ class RolesAndPermissionsSeeder extends Seeder
         // E43: سوق المبدعين المميز للمدير العام فقط افتراضيًا (تفويض أدوار مخصصة من «إدارة الوصول»). المشرف يعاين بصلاحية creators.review ولا يملك إجراءات مالية.
         $this->grantIfMissing('administrator', ['creator-premium.view', 'creator-premium.manage', 'creator-premium.refund']);
 
+        // E44: المدير العام يملك الصلاحيات الست؛ المشرف يعاين اللوحة ويصوّت كطاقم فقط (لا يدير القائمة ولا يدقق هويات الناخبين ولا ينهي ولا يقرّر جوائز). تفويض أدوار أخرى من «إدارة الوصول».
+        $this->grantIfMissing('administrator', [
+            'seasonal-recognition.view', 'seasonal-recognition.manage', 'seasonal-recognition.vote',
+            'seasonal-recognition.audit', 'seasonal-recognition.finalize', 'seasonal-recognition.award',
+        ]);
+        $this->grantIfMissing('moderator', ['seasonal-recognition.view', 'seasonal-recognition.vote']);
+
         $this->grantIfMissing('moderator', [
             'users.view_security',
             'users.view_activity',

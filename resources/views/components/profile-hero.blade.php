@@ -1,4 +1,4 @@
-@props(['name', 'avatar' => null, 'frame' => null, 'badge' => null, 'title' => null, 'background' => null, 'level' => null, 'team' => null, 'friendsCount' => null])
+@props(['name', 'avatar' => null, 'frame' => null, 'badge' => null, 'title' => null, 'background' => null, 'level' => null, 'team' => null, 'friendsCount' => null, 'seasonStyle' => null])
 
 {{--
     E22: غلاف الملف الشخصي (Profile Hero). الغلاف = فتحة الخلفية (background) من الهوية المجهَّزة، والأفاتار (مع الإطار) متداخل فوقه، ثم الاسم واللقب والشارة والمستوى والفريق.
@@ -21,7 +21,7 @@
 
             <div class="min-w-0 flex-1 sm:pb-1">
                 <div class="flex items-center gap-2 flex-wrap">
-                    <h1 class="font-display font-black text-2xl sm:text-3xl text-white break-words min-w-0">{{ $name }}</h1>
+                    <h1 class="font-display font-black text-2xl sm:text-3xl text-white break-words min-w-0" @if ($seasonStyle && in_array($seasonStyle, (array) config('seasonal_recognition.supporters.name_styles', []), true)) data-season-style="{{ $seasonStyle }}" @endif>{{ $name }}</h1>
                     @if ($badge && $badge->image_path)
                         <img src="{{ \Illuminate\Support\Facades\Storage::url($badge->image_path) }}" alt="{{ $badge->name }}" title="{{ $badge->name }}" class="w-7 h-7 object-contain">
                     @endif

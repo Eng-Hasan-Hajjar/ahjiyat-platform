@@ -296,3 +296,5 @@ require __DIR__.'/creator_finance.php';
 require __DIR__.'/pass.php';
 // E41: التجارة الاستهلاكية (بدء الدفع المستضاف، عودة المزوّد، سجل المشتريات والإيصال، حالة الشراء). webhook المزوّد في routes/commerce_webhooks.php (مجموعة api).
 require __DIR__.'/commerce.php';
+// E44: دوري كتّاب الموسم وتقدير الداعمين (seasonal.writers.* / seasonal.supporters.*). الإدارة في Filament.
+require __DIR__.'/seasonal_recognition.php';

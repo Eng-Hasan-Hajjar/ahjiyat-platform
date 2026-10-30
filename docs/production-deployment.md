@@ -311,3 +311,12 @@ server {
 - صلاحيات جديدة `creator-premium.view|manage|refund` لمدير النظام فقط: شغّل `php artisan db:seed --class=RolesAndPermissionsSeeder` بعد النشر (آمن للتكرار).
 - **`php artisan creator-premium:reconcile`** (قراءة فقط) بعد كل نشر وبشكل دوري، مع `php artisan commerce:reconcile`. الرمز 1 = بنود تحتاج قرارًا بشريًا؛ التفسير في `docs/creator-premium-operations-runbook.md`. ولا مهام مجدولة جديدة ولا طوابير جديدة.
 - التحقق من التزامن على MySQL الحقيقي قبل أول تفعيل: `php tools/e43/concurrency-probe.php` على قاعدة مؤقتة اسمها ينتهي بـ`_test_mysql` فقط (لا قاعدة العمل أبدًا).
+
+## التقدير الموسمي: كتّاب الموسم والداعمون (E44)
+- `php artisan migrate` يضيف ثلاثة ترحيلات **إضافية فقط**: ستة جداول لدوري الكتّاب (إعدادات الموسم، العضويات، ربط السلاسل، الميزانيات، دفتر التوزيع، الجوائز)، وأربعة لتقدير الداعمين (الباقات، البطاقات، دفتر نقاط الدعم، الإحصاءات)، وعمودان إضافيان (`store_item_prices.support_points` و`store_purchases.support_points_snapshot`). كل المفاتيح الأجنبية للتاريخ `RESTRICT`.
+- متغيّرا بيئة اختياريان في `docs/environment-variables.md`، و**كلاهما معطَّل افتراضيًا**: مفتاح دوري الكتّاب ومفتاح تقدير الداعمين. التعطيل يوقف الإجراءات الجديدة فقط ولا يمحو تاريخًا.
+- صلاحيات جديدة `seasonal-recognition.view|manage|vote|audit|finalize|award`: شغّل `php artisan db:seed --class=RolesAndPermissionsSeeder` بعد النشر (آمن للتكرار).
+- **`php artisan seasonal-recognition:reconcile`** (قراءة فقط، بلا خيار إصلاح) بعد كل نشر وبشكل دوري. الرمز 1 = مخالفات تحتاج قرارًا؛ التفسير في `docs/seasonal-recognition-operations-runbook.md`. ولا مهام مجدولة جديدة ولا طوابير جديدة.
+- البثّ اللحظي للترتيب اختياري (قناتان عامتان تجميليتان)؛ غياب Reverb لا يكسر شيئًا بفضل الاستطلاع الاحتياطي.
+- التحقق من التزامن على MySQL الحقيقي قبل أول تفعيل: `php tools/e44/concurrency-probe.php` على قاعدة مؤقتة اسمها ينتهي بـ`_test_mysql` فقط (لا قاعدة العمل أبدًا).
+

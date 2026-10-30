@@ -42,6 +42,9 @@ namespace App\Services\Notifications;
  *    لا إشعار على كل نقطة ولا مهمة ولا شريحة ولا على بدء المسار (لا بث جماعي)، ولا لغة ضغط أو ندرة. النص بلا مبالغ ولا مراجع تحويل.
  *  - E41 التجارة: CommerceNotifier بعد الـcommit → commerce_failed (فشل/إلغاء الدفع عند المزوّد؛ الطلب يبقى قابلًا لإعادة المحاولة) / commerce_action_required (دفعتك تحتاج مراجعة مالية قبل التفعيل)
  *    / commerce_refunded (سُجّل استردادك). فئة social الاختيارية. «تم التفعيل» يستعمل pass_premium_unlocked الموجود. بلا مبالغ ولا مراجع مزوّد ولا ملاحظات داخلية، ومفاتيح idempotency دلالية فلا تكرار مع webhook مكرَّر.
+ *  - E44 دوري الكتّاب وتقدير الداعمين: SeasonalRecognitionNotifier بعد الـcommit ويعزل فشله → writer_final_standing (لكل كاتب في القائمة عند إنهاء الترتيب؛ فئة Season) /
+ *    supporter_card_verified (لصاحب البطاقة عند تحقق دفعها، وترقية المستوى تحمل المستوى الجديد؛ فئة social الاختيارية) / supporter_final_rank (لمن له ترتيب علني عند إنهاء داعمي الموسم؛ فئة Season).
+ *    لا بث جماعي عند فتح التصويت أو إغلاقه (الحالة ظاهرة في مركز الموسم). النص بلا مبالغ ولا مراجع دفع ولا هوية ناخبين؛ مفاتيح idempotency دلالية.
  *  - E35 مجموعات: CollectionModerationService بعد الـcommit → collection_hidden / collection_restored (لمالك المجموعة فقط، فئة social). لا إشعار على نشر/حفظ/بلاغ/ترتيب/رف: لا لحافظ ولا لصاحب مجموعة ولا للمبلِّغ.
  */
 enum NotificationType: string
@@ -124,6 +127,9 @@ enum NotificationType: string
     case PremiumSeriesAccessGranted = 'premium_series_access_granted';
     case CreatorPremiumSale = 'creator_premium_sale';
     case CreatorPremiumSaleAdjusted = 'creator_premium_sale_adjusted';
+    case WriterFinalStanding = 'writer_final_standing';
+    case SupporterCardVerified = 'supporter_card_verified';
+    case SupporterFinalRank = 'supporter_final_rank';
 
     public function category(): NotificationCategory
     {
@@ -136,7 +142,8 @@ enum NotificationType: string
             self::CampaignAvailable => NotificationCategory::Campaign,
             self::StageUnlocked => NotificationCategory::Campaign,
             self::CampaignCompleted => NotificationCategory::Campaign,
-            self::SeasonCompleted, self::SeasonEndingSoon, self::SeasonPhaseStarted, self::SeasonAnnouncementPublished => NotificationCategory::Season,
+            self::SeasonCompleted, self::SeasonEndingSoon, self::SeasonPhaseStarted, self::SeasonAnnouncementPublished,
+            self::WriterFinalStanding, self::SupporterFinalRank => NotificationCategory::Season,
             self::CampaignEndingSoon => NotificationCategory::Campaign,
             self::FriendRequestReceived, self::FriendRequestAccepted, self::FriendChallengeReceived, self::FriendChallengeAccepted, self::FriendChallengeResultReady,
             self::TeamInvitationReceived, self::TeamInvitationAccepted, self::TeamJoinRequestReceived, self::TeamJoinRequestAccepted, self::TeamMemberRemoved,
@@ -151,6 +158,7 @@ enum NotificationType: string
             self::PassPremiumUnlocked, self::PassPurchaseRejected, self::PassClaimWindowClosing,
             self::CommerceFailed, self::CommerceActionRequired, self::CommerceRefunded,
             self::PremiumSeriesAccessGranted, self::CreatorPremiumSale, self::CreatorPremiumSaleAdjusted,
+            self::SupporterCardVerified,
             self::ReferralQualified, self::ReferralRewardReceived => NotificationCategory::Social,
             self::CompetitiveEventStarted, self::CompetitiveEventEndingSoon, self::CompetitiveEventResultReady, self::CompetitiveRewardGranted,
             self::EventStartingSoon,
@@ -183,6 +191,9 @@ enum NotificationType: string
             self::PremiumSeriesAccessGranted => 57,
             self::CreatorPremiumSale => 47,
             self::CreatorPremiumSaleAdjusted => 48,
+            self::WriterFinalStanding => 44,
+            self::SupporterCardVerified => 54,
+            self::SupporterFinalRank => 43,
             self::StreakAtRisk => 100,
             self::DailyQuestsAvailable => 50,
             self::SeasonStarted => 20,
@@ -317,6 +328,9 @@ enum NotificationType: string
             self::PremiumSeriesAccessGranted => '🔓',
             self::CreatorPremiumSale => '💎',
             self::CreatorPremiumSaleAdjusted => '↩️',
+            self::WriterFinalStanding => '🏆',
+            self::SupporterCardVerified => '🎖️',
+            self::SupporterFinalRank => '🥇',
         };
     }
 
@@ -363,6 +377,8 @@ enum NotificationType: string
             self::CommerceFailed, self::CommerceActionRequired, self::CommerceRefunded => ['commerce.purchases.index'],
             self::PremiumSeriesAccessGranted => ['series.show', 'commerce.purchases.index'],
             self::CreatorPremiumSale, self::CreatorPremiumSaleAdjusted => ['creator.earnings'],
+            self::WriterFinalStanding => ['seasonal.writers.show'],
+            self::SupporterCardVerified, self::SupporterFinalRank => ['seasonal.supporters.show'],
         };
     }
 
@@ -447,6 +463,16 @@ enum NotificationType: string
             self::PremiumSeriesAccessGranted => 'تم فتح السلسلة المميزة'.(! empty($params['title']) ? ': '.$params['title'] : ''),
             self::CreatorPremiumSale => 'بيع جديد لسلسلتك المميزة'.(! empty($params['title']) ? ': '.$params['title'] : ''),
             self::CreatorPremiumSaleAdjusted => 'عُدّلت حصة بيع بعد استرداد',
+            self::WriterFinalStanding => match ((string) ($params['outcome'] ?? '')) {
+                'first_place' => 'المركز الأول في دوري كتّاب الموسم',
+                'second_place' => 'المركز الثاني في دوري كتّاب الموسم',
+                'third_place' => 'المركز الثالث في دوري كتّاب الموسم',
+                default => 'صدر ترتيبك النهائي في دوري كتّاب الموسم',
+            },
+            self::SupporterCardVerified => ! empty($params['tier'])
+                ? 'تفعّلت بطاقة الداعم: '.$params['tier']
+                : 'تفعّلت بطاقة الداعم',
+            self::SupporterFinalRank => 'صدر ترتيبك النهائي بين داعمي الموسم',
             self::SupporterTierChanged => ! empty($params['up'])
                 ? 'ارتقى مستوى دعمك إلى: '.($params['tier'] ?? '')
                 : 'تغيّر مستوى دعمك'.(! empty($params['tier']) ? ' إلى: '.$params['tier'] : ''),
@@ -539,6 +565,13 @@ enum NotificationType: string
             self::PremiumSeriesAccessGranted => 'تأكّد دفعك وصار لك وصول دائم إلى أحجيات هذه السلسلة بما فيها من حلول وتلميحات ونقاشات.',
             self::CreatorPremiumSale => 'سُجّلت حصتك من بيع جديد في «الأرباح». لا تظهر هوية المشتري.',
             self::CreatorPremiumSaleAdjusted => 'استُرد بيع لإحدى سلاسلك المميزة فعُكست حصتك المتاحة منه. التفاصيل في «الأرباح».',
+            self::WriterFinalStanding => match ((string) ($params['outcome'] ?? '')) {
+                'first_place', 'second_place', 'third_place' => 'ترتيبك النهائي'.(! empty($params['rank']) ? ' #'.(int) $params['rank'] : '').' ضمن كتّاب الموسم. تجد الترتيب الكامل في صفحة كتّاب الموسم.',
+                'ineligible_next_season' => 'ترتيبك النهائي'.(! empty($params['rank']) ? ' #'.(int) $params['rank'] : '').' ضمن كتّاب الموسم. وفق قاعدة الدوري لا تُضاف إلى قائمة الموسم التالي فقط؛ ملفك ومحتواك كما هما.',
+                default => 'ترتيبك النهائي'.(! empty($params['rank']) ? ' #'.(int) $params['rank'] : '').' ضمن كتّاب الموسم. تجد الترتيب الكامل في صفحة كتّاب الموسم.',
+            },
+            self::SupporterCardVerified => 'شكرًا لدعمك المنصة. بطاقتك ونمط اسمك يظهران في «داعمو الموسم». التقدير للتعريف فقط ولا يمنح أي أفضلية في اللعب.',
+            self::SupporterFinalRank => 'ترتيبك النهائي'.(! empty($params['rank']) ? ' #'.(int) $params['rank'] : '').' في «داعمو الموسم». نقاط الدعم للتقدير فقط ولا تُصرف.',
             self::SupporterTierChanged => 'يظهر مستواك ضمن «الداعمون». المستوى يُحسب من صافي دعمك المؤكَّد.',
             self::SponsorshipProgramStarted => 'بدأ برنامج رعاية تشارك فيه كداعم. اطّلع على صفحة الداعمين.',
             self::SeriesApproved => 'أصبحت سلسلتك منشورة ضمن «من المجتمع» ويمكن للاعبين تتبّعها.',

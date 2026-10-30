@@ -473,3 +473,40 @@ body {
     .btn-secondary, .btn-danger, .btn-icon { transition: none; }
 }
 
+
+/*
+ * ===== E44: أنماط الاسم الموسمية للداعمين (فضي / ذهبي / ماسي) =====
+ * طبقة عرض مشتقّة فقط: المكوّن x-season-supporter-name يضع data-season-style من قائمة بيضاء مغلقة (silver|gold|diamond)،
+ * وهذه القواعد وحدها تترجمه. لا CSS حر ولا ألوان تأتي من أي مدخل. الأولوية (ماسي > ذهبي > فضي > عادي) تُحسم بالخادم لا هنا.
+ * الألوان نصية بتباين كافٍ على الداكن والفاتح؛ الحركة (للماسي) تُطفأ عند تفضيل تقليل الحركة، وتُلغى الخلفيات في الوضع عالي التباين.
+ */
+[data-season-style="silver"] { color: #cbd5e1; text-shadow: 0 0 .6em rgba(203, 213, 225, .25); }
+[data-season-style="gold"] { color: #fcd34d; text-shadow: 0 0 .6em rgba(252, 211, 77, .3); }
+[data-season-style="diamond"] {
+    background-image: linear-gradient(90deg, #67e8f9, #a78bfa, #f0abfc, #67e8f9);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: #a5f3fc;
+}
+
+:root[data-theme="light"] [data-season-style="silver"] { color: #475569 !important; text-shadow: none; }
+:root[data-theme="light"] [data-season-style="gold"] { color: #854d0e !important; text-shadow: none; }
+:root[data-theme="light"] [data-season-style="diamond"] {
+    background-image: linear-gradient(90deg, #0e7490, #6d28d9, #a21caf, #0e7490);
+    color: #0e7490 !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    [data-season-style="diamond"] { animation: seasonDiamondShift 6s linear infinite; }
+}
+
+@keyframes seasonDiamondShift {
+    from { background-position: 0 0; }
+    to { background-position: 200% 0; }
+}
+
+@media (forced-colors: active) {
+    [data-season-style] { background: none !important; -webkit-text-fill-color: currentColor; color: CanvasText !important; text-shadow: none; }
+}

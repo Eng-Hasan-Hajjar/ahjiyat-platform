@@ -42,6 +42,8 @@ class PlayerProfileController extends Controller
             'team' => app(\App\Services\Teams\TeamMembershipService::class)->publicTeamFor($user),
             // E30: شارة «داعم» مشتقّة (علنية فقط وغير مجهولة)؛ معزولة الفشل ولا تعطّل الملف.
             'supporter' => $this->supporterBadge($user),
+            // E44: تقدير الداعم الموسمي (نمط اسم + شارة «داعم الموسم #N») طبقة مشتقّة للقراءة فقط؛ معزولة الفشل ولا تعدّل أي عنصر تجميلي.
+            'seasonSupporter' => $this->seasonSupporter($user),
             // E35: مجموعات المجتمع العامة لهذا اللاعب (المُدرَجة علنًا الآن فقط)؛ معزولة الفشل.
             'collections' => $this->curatedCollections($user, $viewer),
             // E37: اعتراف مجتمعي (منسّق/مساهم/مبدع) من الإنجازات المفتوحة فقط، بلا مكافآت وبلا درجات؛ معزول الفشل.
@@ -90,6 +92,18 @@ class PlayerProfileController extends Controller
     {
         try {
             return app(\App\Services\Sponsorship\SupporterRecognitionService::class)->forUser($user);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    /** @return array{tier: string, tier_name: string, style: string, rank: ?int, badge: ?string}|null */
+    protected function seasonSupporter(User $user): ?array
+    {
+        try {
+            return app(\App\Services\SeasonalRecognition\SeasonSupporterIdentityResolver::class)->forUser((int) $user->id);
         } catch (\Throwable $e) {
             report($e);
 

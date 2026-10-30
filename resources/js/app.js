@@ -5,6 +5,7 @@ import globalSearch from './search.js';
 import sequenceGame from './games/renderers/sequence.js';
 import memoryGame from './games/renderers/memory.js';
 import spotDifferenceGame from './games/renderers/spot-difference.js';
+import { seasonalBoard, seasonalVoter } from './seasonal.js';
 
 window.Alpine = Alpine;
 
@@ -13,6 +14,8 @@ Alpine.data('memoryGame', memoryGame);
 Alpine.data('spotDifferenceGame', spotDifferenceGame);
 Alpine.data('chatRoom', chatRoom);
 Alpine.data('globalSearch', globalSearch);
+Alpine.data('seasonalBoard', seasonalBoard);
+Alpine.data('seasonalVoter', seasonalVoter);
 
 /**
  * مبدّل الثيم (E4) - data-theme على <html> هو مصدر الحقيقة الوحيد للعرض؛

@@ -20,7 +20,7 @@
         <x-profile-hero id="profile-hero" class="anim-fade-up"
             :name="$player->name" :avatar="$slot(\App\Models\StoreItem::SLOT_AVATAR)" :frame="$slot(\App\Models\StoreItem::SLOT_FRAME)" :badge="$slot(\App\Models\StoreItem::SLOT_BADGE)"
             :title="$slot(\App\Models\StoreItem::SLOT_TITLE)" :background="$slot(\App\Models\StoreItem::SLOT_BACKGROUND)"
-            :level="$stats['current_level']" :team="$team" :friends-count="$friendsCount">
+            :level="$stats['current_level']" :team="$team" :friends-count="$friendsCount" :season-style="$seasonSupporter['style'] ?? null">
             <x-slot:actions>
                 @if ($isOwner)
                     <a href="{{ route('profile.customize') }}" data-cta="customize-identity" class="btn-gem !py-2.5 !px-5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">
@@ -39,8 +39,14 @@
             </x-slot:actions>
         </x-profile-hero>
 
-        {{-- E30: تقدير الداعم (شارة مشتقّة من الدعم المؤكَّد غير المجهول؛ ليست عنصر هوية قابلًا للشراء ولا تمنح أي أفضلية). --}}
-        @if (! empty($supporter))
+        {{-- E44: تقدير الداعم الموسمي (نمط الاسم والشارة طبقة عرض مشتقّة؛ لا تمنح أي أفضلية). عند وجودها لا تتكرر شارة E30 العامة بجوار الاسم نفسه. --}}
+        @if (! empty($seasonSupporter))
+            <p class="anim-fade-up" data-season-supporter>
+                <a href="{{ ! empty($supporter) ? route('supporters.show', $supporter['slug']) : route('seasons.index') }}" class="inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">
+                    <x-ui-icon name="sparkles" class="w-3.5 h-3.5 text-gold" /><x-season-supporter-name :tier="$seasonSupporter['style']">{{ $seasonSupporter['badge'] ?? $seasonSupporter['tier_name'] }}</x-season-supporter-name>
+                </a>
+            </p>
+        @elseif (! empty($supporter))
             <p class="anim-fade-up" data-supporter-recognition>
                 <a href="{{ route('supporters.show', $supporter['slug']) }}" class="inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 text-gold px-3 py-1 text-xs font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst">
                     <x-ui-icon name="sparkles" class="w-3.5 h-3.5" />داعم · {{ $supporter['tier'] }}
