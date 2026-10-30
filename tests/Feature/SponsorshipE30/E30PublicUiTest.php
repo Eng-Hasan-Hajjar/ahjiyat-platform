@@ -119,8 +119,24 @@ test('AM14-130/133: no GET mutates anything and there is no public write route f
     }
 
     expect(\Illuminate\Support\Facades\DB::table('sponsorship_contributions')->get()->toArray())->toEqual($before);
-    $writes = collect(app('router')->getRoutes()->getRoutes())->filter(fn ($r) => (str_contains($r->uri(), 'supporters') || str_contains($r->uri(), 'sponsorship')) && ! in_array('GET', $r->methods(), true) && ! str_starts_with($r->uri(), 'admin'));
-    expect($writes)->toHaveCount(0);
+    // E44 أضاف عمدًا مسار كتابة **موثَّقًا** لطلب بطاقة الداعم (POST seasons/{season}/supporters/cards: auth + verified + account.active + throttle) فلم يعد «لا مسار كتابة مطابقًا» هو الثابت الصحيح.
+    // الثابت الأمني الفعلي: لا مسار كتابة **غير موثَّق** للداعمين/الرعاية (وأي مسار كتابة مطابق يجب أن يحمل auth)، ومساحة E30 العامة نفسها (supporters* / sponsorship*) تبقى بلا أي كتابة إطلاقًا.
+    $router = app('router');
+    $aliases = $router->getMiddleware();
+    $middlewareOf = fn ($route) => collect($router->gatherRouteMiddleware($route))->map(fn ($m) => is_string($m) ? \Illuminate\Support\Str::before($m, ':') : '')->all();
+    $label = fn ($r) => implode('|', $r->methods()).' '.$r->uri();
+    $writes = collect($router->getRoutes()->getRoutes())->filter(fn ($r) => (str_contains($r->uri(), 'supporters') || str_contains($r->uri(), 'sponsorship')) && ! in_array('GET', $r->methods(), true) && ! str_starts_with($r->uri(), 'admin'));
+
+    expect($writes->reject(fn ($r) => in_array($aliases['auth'], $middlewareOf($r), true))->map($label)->values()->all())->toBe([])
+        ->and($writes->filter(fn ($r) => str_starts_with($r->uri(), 'supporters') || str_starts_with($r->uri(), 'sponsorship'))->map($label)->values()->all())->toBe([]);
+
+    // مسار E44 المسموح بالاسم الفعلي يبقى محميًا بالثلاثة معًا (لا يكفي وجود auth وحده).
+    $card = $router->getRoutes()->getByName('seasonal.supporters.cards.store');
+    expect($card)->not->toBeNull()->and($card->methods())->toContain('POST');
+
+    foreach (['auth', 'verified', 'account.active'] as $alias) {
+        expect($middlewareOf($card))->toContain($aliases[$alias]);
+    }
     $this->post('/supporters', ['display_name' => 'x'])->assertStatus(405);
 });
 

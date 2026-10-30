@@ -69,7 +69,9 @@ test('AA11-108: the creator page is bounded for guests and signed-in viewers', f
 
     // الضيف 8 = رقم E28 (7) + استعلام E30 واحد محدود لقسم «سلاسله» (قاعدة الظهور المركزية، LIMIT ثابت) - لا استعلام تفاعل للضيف؛ المسجَّل +استعلامان فقط فوق الجرس/التقدّم: حالة المتابعة (exists) + مفضلة البطاقات (دفعة واحدة).
     // E37: +2 للجميع (مبدع مختار: exists واحد + اعتراف الإنجازات المفتوح: استعلام مجمَّع واحد) ⇒ الضيف 10، المسجَّل ≤ 20. لا علاقة لها بعدد الأعمال أو الاعتراف (ثابتة).
-    expect($userMany)->toBe($userOne)->and($userMany)->toBeLessThanOrEqual(20)->and($guestOne)->toBe(10);
+    // E44: +1 للجميع = سجل «دوري الكتّاب» الموسمي على صفحة المبدع (مكوّن creator-seasonal-record): استعلام واحد مجمَّع (4 ربطات، LIMIT 5) يُنفَّذ دائمًا حتى بلا سجل،
+    // فلا يتبع عدد الأعمال ولا عدد السجلات (مقيس: 11 مع 1 و13 عملًا، و11 قبل/بعد الإنهاء لنفس المبدع) ⇒ الضيف 11 (= 10 + 1). المسجَّل مقيس 20 وهو **السقف نفسه** دون تغيير (لم يُخفَّف): لا هامش بعده، فأي استعلام إضافي مستقبلًا يكسره عمدًا.
+    expect($userMany)->toBe($userOne)->and($userMany)->toBeLessThanOrEqual(20)->and($guestOne)->toBe(11);
 });
 
 test('AA11-109: 1 vs 12 community cards cost the same queries (no N+1), saved state is one batched query', function () {
