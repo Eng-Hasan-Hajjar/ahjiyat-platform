@@ -101,7 +101,7 @@ class CreatorPremiumAccess
     }
 
     /** @throws CreatorPremiumException login_required | preview_only | premium_locked */
-    public function assert(?User $viewer, CreatorPuzzle $work, string $ability): PremiumAccessDecision
+    public function requireAccess(?User $viewer, CreatorPuzzle $work, string $ability): PremiumAccessDecision
     {
         $decision = $this->decide($viewer, $work, $ability);
 

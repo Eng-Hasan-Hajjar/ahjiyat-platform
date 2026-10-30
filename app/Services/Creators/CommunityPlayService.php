@@ -49,7 +49,7 @@ class CommunityPlayService
         }
 
         // E43: عمق دفاعي: المحاولة على عمل مميز مقفول لا تُسجَّل لغير المخوَّل مهما كان مسار الاستدعاء (CreatorPremiumException تمتد من CreatorException).
-        app(CreatorPremiumAccess::class)->assert($user, $work, CreatorPremiumAccess::ATTEMPT);
+        app(CreatorPremiumAccess::class)->requireAccess($user, $work, CreatorPremiumAccess::ATTEMPT);
 
         return DB::transaction(function () use ($user, $work, $puzzle, $answer, $submission) {
             $rows = CommunityPuzzleAttempt::query()
@@ -91,7 +91,7 @@ class CommunityPlayService
     {
         $puzzle = $this->playablePuzzle($work);
 
-        app(CreatorPremiumAccess::class)->assert($viewer, $work, CreatorPremiumAccess::HINT);
+        app(CreatorPremiumAccess::class)->requireAccess($viewer, $work, CreatorPremiumAccess::HINT);
 
         if (blank($puzzle->hint)) {
             throw new CreatorException('لا يوجد تلميح لهذه الأحجية.');
