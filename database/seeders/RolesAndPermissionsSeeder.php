@@ -162,6 +162,9 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
         $this->grantIfMissing('moderator', ['seasonal-recognition.view', 'seasonal-recognition.vote']);
 
+        // E45: تطوّر AI للمدير العام فقط افتراضيًا (لوحة الاستخدام ومقالات المعرفة ونشرها). لا مشرف ولا دعم: لا يصل أحد منهما لهذه اللوحة إلا بتفويض صريح من «إدارة الوصول». لا صلاحية تقرأ محادثات المستخدمين.
+        $this->grantIfMissing('administrator', ['ai-assistant.view', 'ai-assistant.knowledge.manage', 'ai-assistant.knowledge.publish']);
+
         $this->grantIfMissing('moderator', [
             'users.view_security',
             'users.view_activity',

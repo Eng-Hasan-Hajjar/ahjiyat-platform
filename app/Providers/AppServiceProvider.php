@@ -37,6 +37,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Commerce\CommercePaymentProviderRegistry::class);
         $this->app->singleton(\App\Services\Commerce\CommerceProductRegistry::class);
 
+        // E45: تطوّر AI. نسخة واحدة لكل من: مزوّد الاختبار (لتبرمجه الاختبارات)، مزوّد OpenAI المعزول، سجل الأدوات المغلق، وفهرس المعرفة (كاش بعصر يُبطَل عند النشر).
+        $this->app->singleton(\App\Services\AiAssistant\Providers\FakeAiProvider::class);
+        $this->app->singleton(\App\Services\AiAssistant\Providers\OpenAiResponsesProvider::class);
+        $this->app->singleton(\App\Services\AiAssistant\Tools\ToolRegistry::class);
+
         // E31: أسماء الفهارس/المفاتيح المولَّدة تلقائيًا تُقتطع إلى 64 محرفًا على MySQL/MariaDB فقط (SQLite بلا تغيير). انظر MysqlSafeBlueprint.
         $this->app->bind(\Illuminate\Database\Schema\Blueprint::class, \App\Database\MysqlSafeBlueprint::class);
     }
@@ -337,6 +342,25 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(max(1, (int) config('creator_premium.limits.offer_changes_per_minute', 10)))->by('cpo:'.($request->user()?->id ?: $request->ip())),
             Limit::perHour(max(1, (int) config('creator_premium.limits.offer_changes_per_hour', 60)))->by('cpoh:'.($request->user()?->id ?: $request->ip())),
         ]);
+
+        // E45: تطوّر AI. الرسائل (تستدعي مزوّدًا خارجيًا محتملًا: الأضيق وبمفتاحين: دقيقة + يوم + دفعة سريعة)، القراءة (حالة/سجل)، والإجراءات (تقييم/حذف السجل).
+        // المفتاح: المستخدم الموثَّق، وللضيف عنوان IP (لا هوية دائمة). تجاوز الحد يردّ JSON عربيًا 429 بلا 500.
+        RateLimiter::for('tatawwur-ai-messages', function (Request $request) {
+            $user = $request->user();
+            $audience = \App\Services\AiAssistant\TatawwurSettings::audienceFor($user);
+            $key = $audience === \App\Services\AiAssistant\TatawwurSettings::AUDIENCE_MEMBER ? 'u'.$user->id : 'g'.$request->ip();
+            $limited = fn (string $message) => function (Request $request, array $headers) use ($message) {
+                return response()->json(['code' => 'rate_limited', 'message' => $message], 429, $headers);
+            };
+
+            return [
+                (new Limit('', \App\Services\AiAssistant\TatawwurSettings::burst(), 10))->by('tai-b:'.$key)->response($limited(\App\Services\AiAssistant\Safety\CannedReplies::RATE_LIMITED)),
+                Limit::perMinute(\App\Services\AiAssistant\TatawwurSettings::perMinute($audience))->by('tai-m:'.$key)->response($limited(\App\Services\AiAssistant\Safety\CannedReplies::RATE_LIMITED)),
+                Limit::perDay(\App\Services\AiAssistant\TatawwurSettings::perDay($audience))->by('tai-d:'.$key)->response($limited(\App\Services\AiAssistant\Safety\CannedReplies::DAILY_LIMIT)),
+            ];
+        });
+        RateLimiter::for('tatawwur-ai-read', fn (Request $request) => Limit::perMinute(60)->by('tai-r:'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('tatawwur-ai-actions', fn (Request $request) => [Limit::perMinute(20)->by('tai-a:'.($request->user()?->id ?: $request->ip())), Limit::perHour(200)->by('tai-ah:'.($request->user()?->id ?: $request->ip()))]);
 
         // E11: تجهيز/إزالة تجميليات - UX تتطلب تجربة سريعة (تبديل/معاينة)، لا حساسية مالية هنا.
         RateLimiter::for('cosmetic-equip', function (Request $request) {

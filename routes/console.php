@@ -77,3 +77,6 @@ $guard(Schedule::command('ahjiyat-pass:process')->everyFifteenMinutes()->name('a
 // E41: صيانة التجارة (مزامنة طلبات مستضافة لم يصلها webhook عبر استعلام المزوّد إن دعمه + إعادة محاولة الإشعارات المعزولة). محدودة بدفعة وعمر؛ idempotent؛ لا استطلاع لا نهائي.
 // المطابقة commerce:reconcile يدوية للقراءة فقط؛ انتهاء الطلبات المتأخرة يبقى ضمن ahjiyat-pass:process.
 $guard(Schedule::command('commerce:process')->everyTenMinutes()->name('commerce-process'), 30);
+
+// E45: احتفاظ «تطوّر AI» - حذف المحادثات المنتهية (30 يومًا افتراضيًا) والمقاييس والتقييمات القديمة. يعمل دائمًا ولو أُوقف المساعد: حق الحذف لا يتوقف على تفعيل الميزة. خفيف ومحدود بفهرس expires_at.
+$guard(Schedule::command('ai:conversations:prune')->dailyAt('03:25')->name('ai-conversations-prune'), 120);

@@ -298,3 +298,5 @@ require __DIR__.'/pass.php';
 require __DIR__.'/commerce.php';
 // E44: دوري كتّاب الموسم وتقدير الداعمين (seasonal.writers.* / seasonal.supporters.*). الإدارة في Filament.
 require __DIR__.'/seasonal_recognition.php';
+// E45: «تطوّر AI» (المساعد الذكي) و«دليل المنصة» /help. المساعد خلف مفاتيح تشغيل مغلقة افتراضيًا؛ الدليل العام قراءة فقط.
+require __DIR__.'/tatawwur_ai.php';

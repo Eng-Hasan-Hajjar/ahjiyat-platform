@@ -223,6 +223,12 @@ jobs:
       - name: E44 seasonal writers league and supporter recognition on MySQL (settings/roster/series uniqueness / one budget per voter / one allocation per writer+voter / award and ledger uniqueness / FK retention / Arabic round-trip / NULL-last ranking / named indexes / full writer and supporter paths)
         run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/SeasonalRecognitionE44/E44MysqlSchemaTest.php
 
+      # E45: مجموعة جزئية صغيرة (≈30 ث) لما يختلف فعلًا على MySQL: فرادة (اللغة، المعرّف النصي) للمقال و(المقال، الموضع) للمقطع، وفرادة المعرّف العام للمحادثة والرسالة، وترتيب الرسائل الحتمي (المحادثة، التسلسل) وفرادته،
+      # وتقييم واحد لكل (رسالة، مستخدم) مع تعايش NULL بعد محو سجل المستخدم، وسياسة المفاتيح الأجنبية (حذف المحادثة يزيل رسائلها؛ لا تُحذف المقالات تتابعيًا)، جسم الرسالة المشفَّر والنص العربي والرموز التعبيرية حتى حدود الأعمدة،
+      # وحقول الاحتفاظ والفهارس المسماة، ولا float/decimal. لا اتصال بأي مزوّد ذكاء اصطناعي (المزوّد التجريبي حتمي والشبكة ممنوعة في الاختبار). البقية على SQLite.
+      - name: E45 Tatawwur AI assistant on MySQL (article slug and chunk position uniqueness / public ids / message ordering / one feedback per message+user / FK retention / encrypted body and Arabic round-trip / retention fields / named indexes)
+        run: php vendor/bin/pest --compact --configuration=phpunit.mysql.xml.dist tests/Feature/TatawwurAiE45/E45MysqlSchemaTest.php
+
       - name: Schema parity against the migrated MySQL database (read-only)
         run: php artisan db:parity --connection=mysql --runtime
 

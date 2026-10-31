@@ -199,7 +199,7 @@ test('W6: no code-execution or unsafe-deserialization primitives in application 
     expect($offenders)->toBe([]);
 });
 
-test('W7: outbound HTTP and file reads are confined to the operations tooling (SmokeChecker with a configured URL, PreflightChecker reading local files) - no SSRF primitive in request paths', function () {
+test('W7: outbound HTTP and file reads are confined to the operations tooling (SmokeChecker with a configured URL, PreflightChecker reading local files) and the single reviewed AI provider client (E45) - no SSRF primitive in request paths', function () {
     $http = [];
     $files = [];
 
@@ -215,7 +215,8 @@ test('W7: outbound HTTP and file reads are confined to the operations tooling (S
         }
     }
 
-    expect($http)->toBe(['app/Services/Operations/SmokeChecker.php']);
+    // E45: القائمة الصريحة الأضيق الممكنة - موقع صادر واحد مراجَع لمزوّد الذكاء (محوّل OpenAI): مضيف HTTPS ثابت من قائمة بيضاء بالكود، store=false، مفتاح من البيئة (انظر E45ProviderTest).
+    expect($http)->toBe(['app/Services/AiAssistant/Providers/OpenAiResponsesProvider.php', 'app/Services/Operations/SmokeChecker.php']);
     expect($files)->toBe(['app/Services/Operations/PreflightChecker.php']);
 });
 

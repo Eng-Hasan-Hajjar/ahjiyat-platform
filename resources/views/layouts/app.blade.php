@@ -172,6 +172,9 @@
 
     @include('layouts.partials.bottom-nav')
 
+    {{-- E45: زر تطوّر AI العائم (يُعرَض فقط إن فُعّل المساعد للمشاهد). --}}
+    @include('layouts.partials.tatawwur-widget')
+
 </body>
 
 </html>

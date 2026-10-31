@@ -88,5 +88,8 @@
     </div>
 </main>
 
+{{-- E45: زر تطوّر AI العائم (للضيف فقط إن فُعّل الضيوف). --}}
+@include('layouts.partials.tatawwur-widget')
+
 </body>
 </html>

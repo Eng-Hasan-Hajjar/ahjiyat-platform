@@ -36,4 +36,20 @@ Alpine.data('themeSwitcher', () => ({
     },
 }));
 
+/**
+ * E45: تطوّر AI - الزر العائم يُرسَم من الخادم؛ لوحة المحادثة (قالب + منطق) تُحمَّل كسولًا عند أول تفاعل (نقر/تركيز/مرور) أو حدث tatawwur:open
+ * (يطلقه زر «اسأل تطوّر AI» في دليل المنصة). صفحات بلا زر لا تحمّل شيئًا منها.
+ */
+const tatawwurRoot = document.querySelector('[data-tatawwur-widget]');
+
+if (tatawwurRoot) {
+    let tatawwur = null;
+    const launcher = tatawwurRoot.querySelector('[data-tatawwur-launcher]');
+    const ensureTatawwur = () => (tatawwur ??= import('./tatawwur/widget.js').then((m) => m.mount(tatawwurRoot)));
+
+    launcher?.addEventListener('click', () => ensureTatawwur().then((widget) => widget.toggle()));
+    ['pointerenter', 'focus', 'touchstart'].forEach((type) => launcher?.addEventListener(type, () => { ensureTatawwur(); }, { once: true, passive: true }));
+    window.addEventListener('tatawwur:open', () => ensureTatawwur().then((widget) => widget.open()));
+}
+
 Alpine.start();
