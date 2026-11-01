@@ -43,6 +43,7 @@ final class LocalEngine
         private readonly AnswerComposer $composer,
         private readonly Analyzer $analyzer,
         private readonly IntentClassifier $classifier,
+        private readonly SectionPrior $prior,
     ) {}
 
     /** آخر قرار اتخذه المحرك (للتقييم والاختبار فقط؛ لا يحوي نص السؤال). @return array<string, mixed>|null */
@@ -63,7 +64,22 @@ final class LocalEngine
 
         $previous = $turn->previousUserMessage();
         $a = $this->analyzer->analyze($text, $previous);
-        $c = $this->classifier->classify($a);
+        $c = $this->classifier->classify($a, $this->prior->scores($a, $member));
+
+        // TI-Q1: محاولة ثانية بمصحّح إملائي أعمّ (مسافة تحريرية 1) فقط عند وجود كلمات مجهولة، وتُقبل بشرط زيادة الدليل، فلا تُفسد إجابة سليمة.
+        if ($a->residual !== [] && in_array($c->status, ['none', 'close', 'ok'], true)) {
+            $a2 = $this->analyzer->analyze($text, $previous, true);
+
+            if ($a2->corrections !== $a->corrections) {
+                $c2 = $this->classifier->classify($a2, $this->prior->scores($a2, $member));
+
+                if ($this->preferRetry($c, $c2)) {
+                    $a = $a2;
+                    $c = $c2;
+                }
+            }
+        }
+
         $this->remember($c, $a);
 
         // فحص أمني لاحق للتحليل اللغوي: لا يجوز أن يتحول سؤال إلى مطلب محجوب بعد التصحيح/التطبيع.
@@ -87,6 +103,24 @@ final class LocalEngine
             'ok', 'close' => $this->byKind($turn, $c, $a, $member, $text),
             default => null,
         };
+    }
+
+    /** هل تُفضَّل نتيجة المحاولة الثانية (بعد التصحيح الأعمّ)؟ فقط عند دليل أقوى بوضوح؛ وإلا تبقى نتيجة الأولى. */
+    private function preferRetry(Classification $first, Classification $second): bool
+    {
+        if (! in_array($second->status, ['ok', 'close'], true) || $second->intent === null) {
+            return false;
+        }
+
+        if ($first->status === 'none' || $first->intent === null) {
+            return $second->status === 'ok' || $second->score >= IntentClassifier::MIN_SCORE + 2.0;
+        }
+
+        if ($first->intent === $second->intent) {
+            return true;
+        }
+
+        return $second->status === 'ok' && $second->score >= $first->score + 3.0;
     }
 
     private function byKind(AssistantTurn $turn, Classification $c, Analysis $a, bool $member, string $text): ?AssistantAnswer

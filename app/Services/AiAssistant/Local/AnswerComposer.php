@@ -25,6 +25,42 @@ final class AnswerComposer
      */
     public function compose(array $entries, array $sections, Analysis $question): ?array
     {
+        [$lines, $first] = $this->scan($entries, $sections);
+
+        if ($lines === [] || $first === null) {
+            return null;
+        }
+
+        $text = $this->select($lines, $question);
+        $source = AiLinkPolicy::source((string) ($first['label'] ?: $first['title']), $first['url'] ?? null);
+
+        return [
+            'text' => $text,
+            'sources' => $source === null ? [] : [$source],
+            'area' => (string) ($first['area'] ?? ''),
+            'section' => (string) ($first['section'] ?? ''),
+        ];
+    }
+
+    /**
+     * TI-Q1: كل أسطر الأقسام المقصودة بلا اقتطاع (لبناء ملف تعريف القسم في SectionPrior). لا تغيّر compose().
+     *
+     * @param  list<array<string, mixed>>  $entries
+     * @param  list<string>  $sections
+     * @return list<string>
+     */
+    public function sectionLines(array $entries, array $sections): array
+    {
+        return $this->scan($entries, $sections)[0];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $entries
+     * @param  list<string>  $sections
+     * @return array{0: list<string>, 1: array<string, mixed>|null}
+     */
+    private function scan(array $entries, array $sections): array
+    {
         $wanted = array_map(fn (string $s) => self::foldTitle($s), $sections);
         $lines = [];
         $first = null;
@@ -77,19 +113,7 @@ final class AnswerComposer
             }
         }
 
-        if ($lines === [] || $first === null) {
-            return null;
-        }
-
-        $text = $this->select($lines, $question);
-        $source = AiLinkPolicy::source((string) ($first['label'] ?: $first['title']), $first['url'] ?? null);
-
-        return [
-            'text' => $text,
-            'sources' => $source === null ? [] : [$source],
-            'area' => (string) ($first['area'] ?? ''),
-            'section' => (string) ($first['section'] ?? ''),
-        ];
+        return [$lines, $first];
     }
 
     /**

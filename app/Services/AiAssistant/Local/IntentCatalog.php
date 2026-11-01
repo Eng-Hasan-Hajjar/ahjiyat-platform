@@ -44,7 +44,7 @@ final class IntentCatalog
             'platform.what' => $K('ma-hiya-ahjiyat', ['نظرة عامة'], ['platform' => 3, 'platform_name' => 5, 'puzzle' => 1, 'community' => -5], [['platform', 'platform_name']], ['what' => 3, 'who' => 1]),
             'platform.free' => $K('ma-hiya-ahjiyat', ['اللعب الأساسي مجاني'], ['free' => 6, 'payment' => 4, 'buy' => 1, 'register' => 2, 'conditions' => 1, 'spend' => 1], [['free', 'payment']], ['can' => 1]),
             'start.how' => $K('kayfa-abda', ['الخطوات'], ['start' => 6, 'register' => 3, 'account' => 2, 'join' => 1, 'platform' => 1], [['start', 'register', 'account']], ['how' => 2, 'where' => 1]),
-            'start.verify_email' => $K('kayfa-abda', ['الخطوات', 'ملاحظات'], ['verify' => 6, 'email' => 3, 'not_received' => 5, 'resend' => 4], [['verify']], ['how' => 1]),
+            'start.verify_email' => $K('kayfa-abda', ['الخطوات', 'ملاحظات'], ['verify' => 6, 'verification' => 4, 'email' => 3, 'not_received' => 5, 'resend' => 4], [['verify', 'verification'], ['verify', 'email', 'not_received', 'resend']], ['how' => 1]),
             'start.one_account' => $K('kayfa-abda', ['ملاحظات'], ['second_account' => 7, 'account' => 1, 'multiple' => 2], [['second_account', 'multiple']], ['can' => 1]),
 
             // ── الأحجيات ─────────────────────────────────────────────
@@ -63,8 +63,8 @@ final class IntentCatalog
             'gems.cash' => $K('al-jawahir', ['ما هي الجواهر؟'], ['cash_value' => 6, 'is_currency' => 5, 'gems' => 3, 'cashout' => 3, 'outside' => 1, 'pass' => -4], [['cash_value', 'cashout', 'is_currency']], ['can' => 1]),
             'redeem.how' => $K('al-istibdal', ['كيف يعمل'], ['redeem' => 6, 'page' => 2, 'gems' => 1, 'status' => -3, 'conditions' => -3, 'review' => -3, 'freeze' => -3], [['redeem']], ['how' => 2, 'where' => 1]),
             'redeem.conditions' => $K('al-istibdal', ['الشروط العامة'], ['conditions' => 7, 'minimum' => 5, 'redeem' => 3, 'studio' => -5], [['conditions', 'minimum'], ['redeem', 'minimum', 'gems', 'order']], ['what' => 1]),
-            'redeem.status' => $K('al-istibdal', ['حالات الطلب'], ['status' => 6, 'order' => 3, 'redeem' => 3], [['status'], ['redeem', 'order']], ['what' => 1]),
-            'redeem.review' => $K('al-istibdal', ['تنبيه'], ['review' => 6, 'freeze' => 6, 'reject' => 3, 'fraud' => 3, 'order' => 1, 'redeem' => 2], [['review', 'freeze', 'reject', 'fraud']], ['why' => 3]),
+            'redeem.status' => $K('al-istibdal', ['حالات الطلب'], ['status' => 6, 'accepted' => 4, 'order' => 3, 'redeem' => 3], [['status', 'accepted'], ['redeem', 'order']], ['what' => 1]),
+            'redeem.review' => $K('al-istibdal', ['تنبيه'], ['review' => 6, 'freeze' => 6, 'reject' => 3, 'fraud' => 3, 'delay' => 4, 'order' => 1, 'redeem' => 2], [['review', 'freeze', 'reject', 'fraud', 'delay']], ['why' => 3]),
 
             // ── التقدم والمهام ───────────────────────────────────────
             'xp.what' => $K('al-taqaddum-wal-mustawayat', ['الخبرة والمستوى'], ['xp' => 5, 'level' => 5, 'next_level' => 3, 'earn' => 1], [['xp', 'level']], ['what' => 2, 'how' => 1]),
@@ -78,9 +78,9 @@ final class IntentCatalog
             // ── الأصدقاء والفرق والدردشة ──────────────────────────────
             'friends.add' => $K('al-asdiqa-wal-hazr', ['الصداقة'], ['friend_request' => 7, 'friend' => 3, 'receive' => -5, 'visibility' => -3], [['friend_request', 'friend']], ['how' => 2]),
             'friends.block' => $K('al-asdiqa-wal-hazr', ['الحظر'], ['block' => 8, 'friend' => 1], [['block']], ['what' => 1]),
-            'friends.privacy' => $K('al-asdiqa-wal-hazr', ['الخصوصية', 'الصداقة'], ['receive' => 6, 'visibility' => 4, 'friend' => 2, 'friend_request' => 2], [['receive', 'visibility'], ['friend', 'friend_request']], ['who' => 2]),
+            'friends.privacy' => $K('al-asdiqa-wal-hazr', ['الخصوصية', 'الصداقة'], ['receive' => 6, 'visibility' => 4, 'private_word' => 4, 'friend' => 2, 'friend_request' => 2], [['receive', 'visibility', 'private_word'], ['friend', 'friend_request']], ['who' => 2]),
             'friends.rewards' => $K('al-asdiqa-wal-hazr', ['لا مكافآت'], ['reward' => 5, 'friend' => 3, 'xp' => 2, 'gems' => 2, 'challenge' => -5], [['reward', 'gems', 'xp'], ['friend']], ['can' => 1]),
-            'teams.membership' => $K('al-furuq', ['العضوية'], ['team_role' => 7, 'leave' => 4, 'multiple' => 5, 'how_many' => 3, 'team' => 3, 'join' => 1], [['team'], ['team_role', 'leave', 'multiple', 'how_many', 'join']], ['howmuch' => 4]),
+            'teams.membership' => $K('al-furuq', ['العضوية'], ['team_role' => 7, 'authority' => 5, 'leave' => 4, 'multiple' => 5, 'how_many' => 3, 'team' => 3, 'join' => 1], [['team', 'team_role'], ['team_role', 'authority', 'leave', 'multiple', 'how_many', 'join']], ['howmuch' => 4]),
             'teams.join' => $K('al-furuq', ['الانضمام'], ['join' => 5, 'open_word' => 5, 'invite' => 5, 'team' => 3, 'available' => -4, 'recommend' => -4], [['team'], ['join', 'open_word', 'invite']], ['how' => 1, 'diff' => 1, 'howmuch' => -2]),
             'teams.competition_score' => $K('al-furuq', ['الفرق في المنافسات'], ['score' => 3, 'counted' => 3, 'competition' => 2, 'big' => 5, 'top_three' => 6, 'points' => 2, 'team' => 3, 'winner' => 1], [['team'], ['score', 'counted', 'big', 'top_three', 'points']], ['how' => 1]),
             'teams.rewards' => $K('al-furuq', ['لا مكافآت'], ['reward' => 4, 'wallet' => 4, 'team' => 3, 'gems' => 2, 'xp' => 2], [['team'], ['reward', 'wallet']], ['can' => 1]),
@@ -115,10 +115,10 @@ final class IntentCatalog
             'supporters.ranking' => $K('taqdir-al-daaimin', ['الترتيب والخصوصية'], ['ranking_support' => 7, 'anonymous' => 6, 'visibility' => 1, 'supporter' => 2], [['ranking_support', 'anonymous']], ['who' => 2]),
             'creators.community_puzzles' => $K('al-mubdiun-wa-ahjiyat-al-mujtamaa', ['أحجيات المجتمع'], ['community_puzzle' => 6, 'community' => 4, 'platform_name' => 3, 'publish' => 3, 'studio' => 3, 'creator' => 1], [['community_puzzle', 'community']], ['what' => 1, 'how' => 1]),
             'creators.economy' => $K('al-mubdiun-wa-ahjiyat-al-mujtamaa', ['بلا أثر اقتصادي'], ['community_puzzle' => 3, 'reward' => 5, 'gems' => 4, 'xp' => 3, 'quest' => 3, 'leaderboard' => 3, 'streak' => 2, 'community' => 1], [['community_puzzle', 'community', 'creator', 'series'], ['reward', 'gems', 'xp', 'quest', 'leaderboard']], ['can' => 1]),
-            'creators.become' => $K('al-mubdiun-wa-ahjiyat-al-mujtamaa', ['كيف أصبح مبدعًا؟'], ['apply_creator' => 8, 'creator' => 3, 'studio' => 6, 'conditions' => 4, 'status' => -4], [['apply_creator', 'studio']], ['how' => 2]),
+            'creators.become' => $K('al-mubdiun-wa-ahjiyat-al-mujtamaa', ['كيف أصبح مبدعًا؟'], ['apply_creator' => 8, 'creator' => 3, 'studio' => 6, 'publish' => 4, 'conditions' => 4, 'status' => -4, 'redeem' => -6], [['apply_creator', 'studio', 'publish']], ['how' => 2]),
             'creators.interact' => $K('al-mubdiun-wa-ahjiyat-al-mujtamaa', ['التفاعل'], ['rating' => 6, 'favorite' => 4, 'follow' => 3, 'collection' => 3, 'community_puzzle' => 3, 'creator' => 2, 'favorites_page' => -5], [['rating', 'favorite', 'follow', 'collection']], ['how' => 1]),
             'creators.series' => $K('salasil-al-mubdiin', ['ما هي السلسلة؟', 'سلاسل مميزة'], ['series' => 7, 'creator' => 1, 'premium' => 3, 'streak_break' => -6], [['series']], ['what' => 2, 'when' => -2]),
-            'creators.series_visibility' => $K('salasil-al-mubdiin', ['متى تظهر؟', 'تعديل السلسلة'], ['series_hidden' => 6, 'version' => 5, 'series' => 3, 'public_word' => 2], [['series', 'series_hidden']], ['when' => 4]),
+            'creators.series_visibility' => $K('salasil-al-mubdiin', ['متى تظهر؟', 'تعديل السلسلة'], ['series_hidden' => 6, 'version' => 5, 'series' => 3, 'public_word' => 2], [['series', 'series_hidden', 'version']], ['when' => 4]),
             'creators.earnings' => $K('arbah-al-mubdiin', ['أرباح المبدع'], ['earnings' => 9, 'creator' => 3], [['earnings']], ['where' => 1, 'how' => 1]),
             'store.what' => $K('al-matjar-wal-maqtaniyat', ['المتجر', 'تنبيهات'], ['store' => 7, 'item' => 2, 'buy' => 1, 'reward' => 1], [['store']], ['what' => 2]),
             'store.inventory' => $K('al-matjar-wal-maqtaniyat', ['المخزون والتجهيز'], ['inventory' => 7, 'purchases' => 5, 'equip' => 7, 'item' => 2, 'wear' => 3], [['inventory', 'purchases', 'equip', 'wear']], ['where' => 2, 'how' => 1]),
@@ -153,7 +153,7 @@ final class IntentCatalog
             'challenges.list' => $K('al-tahaddiyat-wal-hamalat', ['التحديات المفتوحة'], ['challenge' => 7, 'open_word' => 2, 'join' => 2], [['challenge']], ['what' => 1]),
             'campaigns.what' => $K('al-tahaddiyat-wal-hamalat', ['الحملات'], ['campaign' => 9, 'participate' => 2], [['campaign']], ['what' => 1]),
             'leaderboard.what' => $K('lawhat-al-sadara', ['كيف تعمل لوحة الصدارة؟'], ['leaderboard' => 9, 'friends_only' => 5, 'visibility' => 1], [['leaderboard', 'friends_only']], ['how' => 1]),
-            'profile.edit' => $K('al-malaf-al-shakhsi', ['تعديل الملف الشخصي'], ['edit' => 3, 'profile' => 5, 'name' => 3, 'account' => 3, 'settings' => 3], [['edit', 'name', 'settings'], ['profile', 'account']], ['how' => 1, 'where' => 1]),
+            'profile.edit' => $K('al-malaf-al-shakhsi', ['تعديل الملف الشخصي'], ['edit' => 3, 'profile' => 5, 'name' => 3, 'convert' => 2, 'account' => 3, 'settings' => 3], [['edit', 'name', 'settings', 'convert'], ['profile', 'account', 'name']], ['how' => 1, 'where' => 1]),
             'profile.public' => $K('al-malaf-al-shakhsi', ['الملف العام'], ['visibility' => 4, 'profile' => 4, 'public_word' => 4, 'private_word' => 3], [['visibility', 'public_word', 'private_word'], ['profile']], ['what' => 1, 'can' => 1]),
             'account.password' => $K('al-malaf-al-shakhsi', ['كلمة المرور'], ['password' => 9, 'forgot' => 4, 'login' => 1], [['password']], ['how' => 1]),
             'legal.terms' => $K('al-shurut-wal-musaada', ['الشروط والخصوصية'], ['terms' => 9], [['terms']], ['where' => 2]),
@@ -170,7 +170,7 @@ final class IntentCatalog
 
         return [
             'live.season' => $L('season', ['season' => 5, 'live_now' => 3, 'ends_when' => 3, 'upcoming' => 2], [['season']], ['when' => 1, 'what' => 1]),
-            'live.campaign' => $L('campaign', ['campaign' => 6, 'live_now' => 3, 'available' => 1, 'upcoming' => 1], [['campaign']], ['what' => 1]),
+            'live.campaign' => $L('campaign', ['campaign' => 6, 'live_now' => 3, 'available' => 3, 'upcoming' => 1], [['campaign']], ['what' => 1]),
             'live.competitions' => $L('competitions', ['competition' => 4, 'live_now' => 3, 'open_word' => 2, 'register' => 2, 'upcoming' => 3, 'participants' => 3, 'how_many' => 1], [['competition']], ['can' => 1]),
             'live.teams' => $L('teams', ['team' => 4, 'available' => 3, 'join' => 2, 'recommend' => 3, 'open_word' => 3, 'members_count' => 3], [['team']], ['diff' => 1]),
             'live.pass' => $L('pass', ['pass' => 4, 'live_now' => 3, 'premium' => 3, 'buy' => 2, 'ends_when' => 3, 'tier' => 2, 'price' => 2, 'how_many' => 1, 'available' => 1], [['pass']], ['when' => 1, 'howmuch' => 1]),
