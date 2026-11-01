@@ -1,0 +1,319 @@
+<?php
+
+namespace App\Services\AiAssistant\Local\Cards;
+
+/**
+ * TI-6/TI-7 - «بطاقات المعرفة» لميزات المستخدم التي لا يغطيها دليل E45 الحالي (21 مقالًا). كل بطاقة مقال دليل مكتوب يدويًا بصياغة مستخدم،
+ * بالمعايير نفسها لـCuratedKnowledge: لا أسعار ولا مبالغ ولا تواريخ ولا حدود قابلة للتغيّر، ولا أسرار ولا مسارات إدارة ولا روابط خارجية،
+ * ولا طرق كسب لم تثبت (الموجود فقط). تُحمَّل **كمسودات** بأمر ai:knowledge:sync-cards ولا تُنشر آليًا من الكود:
+ * النشر قرار إداري صريح بعد المراجعة (E45: مسودة ← مراجعة ← نشر).
+ *
+ * 'routes' = أسماء المسارات (أو بادئات تنتهي بنقطة) التي تشرحها البطاقة؛ يعتمد عليها فحص التغطية ai:local:coverage ليفرض
+ * أن لكل ميزة مستخدم جديدة بطاقة معرفة. 'source_reference' مرجع إداري للتتبع فقط (لا يُعرَض ولا يُرسَل لأي نموذج).
+ */
+final class CardLibrary
+{
+    /**
+     * @return list<array{slug: string, title: string, summary: string, area: string, audience: string, tags: string, canonical_path: string, source_reference: string, routes: list<string>, body: string}>
+     */
+    public static function articles(): array
+    {
+        return [
+            [
+                'slug' => 'barnamaj-al-daawa',
+                'title' => 'رابط الدعوة والإحالات',
+                'summary' => 'لكل لاعب رابط دعوة خاص يشاركه مع أصدقائه، ولا تُحتسب الدعوة بالتسجيل وحده بل بشروط تحقق.',
+                'area' => 'referrals',
+                'audience' => 'public',
+                'tags' => 'دعوة,رابط الدعوة,إحالة,دعوة صديق,صفحة الدعوات',
+                'canonical_path' => '/referrals',
+                'source_reference' => 'routes/web.php (referrals.*)',
+                'routes' => ['referrals.index', 'referrals.landing'],
+                'body' => <<<'TXT'
+## ما هو رابط الدعوة؟
+لكل لاعب رابط دعوة خاص به تجده في صفحة الدعوات، ويمكنك مشاركته مع أصدقائك ليسجّلوا في المنصة من خلاله. رابطك خاص بك ولا يخصّ غيرك.
+
+## متى تُحسب الدعوة؟
+- التسجيل وحده لا يكفي لاحتساب الدعوة.
+- تُحسب الدعوة عندما يوثّق المدعو بريده الإلكتروني، ويمضي على حسابه الحد الأدنى من المدة، ويحل أحجية رسمية حلًّا صحيحًا.
+- لا يمكنك دعوة نفسك.
+- لكل حساب مُحيل واحد فقط.
+- المكافآت المرتبطة بالدعوات اختيارية، وتفاصيلها تظهر في صفحة الدعوات، وليست مضمونة لكل دعوة.
+TXT,
+            ],
+            [
+                'slug' => 'al-majmuaat',
+                'title' => 'المجموعات',
+                'summary' => 'المجموعة قائمة تنظّمها بنفسك من الأحجيات، وتكون خاصة أو غير مدرجة أو عامة بحسب اختيارك.',
+                'area' => 'puzzles',
+                'audience' => 'public',
+                'tags' => 'مجموعة,مجموعات,حفظ,خاصة,عامة,غير مدرجة',
+                'canonical_path' => '/collections',
+                'source_reference' => 'routes/web.php (collections.*)',
+                'routes' => ['collections.index', 'collections.create', 'collections.saved', 'collections.show', 'collections.edit', 'collections.public.show'],
+                'body' => <<<'TXT'
+## ما هي المجموعات؟
+المجموعة قائمة تنظّمها بنفسك من الأحجيات التي تحب أن تحتفظ بها أو تعود إليها. يمكنك إنشاء مجموعة وإضافة أحجيات إليها، وحفظ مجموعة أنشأها غيرك لتجدها لاحقًا في صفحة المحفوظات، ولا تظهر هويتك لصاحب المجموعة إن حفظتها.
+
+## الظهور والخصوصية
+- مجموعة خاصة: لا يراها أحد غيرك، وهذا هو الوضع الافتراضي.
+- مجموعة غير مدرجة: يراها من يملك رابطها فقط، ولا تظهر في البحث ولا في الاكتشاف.
+- مجموعة عامة: تظهر للجميع، وتشترط أن يكون ملفك عامًا وأن تضم حدًّا أدنى من الأعمال الظاهرة.
+TXT,
+            ],
+            [
+                'slug' => 'al-taaliqat',
+                'title' => 'التعليقات والنقاش',
+                'summary' => 'تعليق ورد واحد على تعليق بنص عادي، مع تعديل قصير المدة وحذف وإعجاب واحد وإبلاغ بأسباب محددة، ولا أثر اقتصادي لها.',
+                'area' => 'chat',
+                'audience' => 'public',
+                'tags' => 'تعليق,تعليقات,رد,نقاش,إعجاب,إبلاغ',
+                'canonical_path' => '/community/puzzles',
+                'source_reference' => 'routes/web.php (discussions.*)',
+                'routes' => ['discussions.permalink', 'discussions.replies'],
+                'body' => <<<'TXT'
+## الكتابة والتعديل
+- تكتب تعليقًا، ويمكن الردّ على التعليق بمستوى واحد فقط، فيكون النقاش تعليقًا ورديًّا عليه.
+- التعليق نص عادي فقط بلا تنسيق ولا وسوم.
+- تحتاج حسابًا موثّقًا وغير مجمّد لتكتب.
+- يمكنك تعديل تعليقك خلال مدة قصيرة بعد نشره، وتظهر عليه علامة «تم التعديل»، ويمكنك حذفه فيُخفى.
+- لا أثر اقتصادي للتعليقات: لا جواهر ولا خبرة.
+
+## الإعجاب والإبلاغ
+- لكل تعليق إعجاب واحد منك، ولا يمكنك الإعجاب بتعليقك أنت.
+- تبلّغ عن تعليق مخالف باختيار سبب من أسباب محددة، ويراجعه المشرفون، ولا تظهر هوية المبلِّغ لغيره.
+TXT,
+            ],
+            [
+                'slug' => 'al-sumaa',
+                'title' => 'ترتيب السمعة في المجتمع',
+                'summary' => 'ترتيب السمعة اعتراف مجتمعي شفاف بالمساهمات، بلا سلطة ولا مكافآت ولا شراء بالمال.',
+                'area' => 'creators',
+                'audience' => 'public',
+                'tags' => 'سمعة,ترتيب المجتمع,ترتيب السمعة,اعتراف',
+                'canonical_path' => '/community/rankings',
+                'source_reference' => 'routes/web.php (community.rankings)',
+                'routes' => ['community.rankings'],
+                'body' => <<<'TXT'
+## ترتيب السمعة
+ترتيب السمعة في المجتمع اعتراف مجتمعي شفاف بمساهمات اللاعبين. لا سلطة له على غيرهم، ولا يمنح مكافآت، ولا يمكن شراؤه بالمال، ولا تُحتسب فيه تفاعلاتك مع نفسك.
+TXT,
+            ],
+            [
+                'slug' => 'aman-al-hisab',
+                'title' => 'أمان الحساب والاعتراض',
+                'summary' => 'صفحة أمان الحساب تعرض الإجراءات التي اتخذتها المنصة بحق حسابك، وتتيح الاعتراض عليها مرة نشطة واحدة لكل إجراء.',
+                'area' => 'account',
+                'audience' => 'public',
+                'tags' => 'أمان الحساب,اعتراض,تجميد,إجراء,استئناف',
+                'canonical_path' => '/account/safety',
+                'source_reference' => 'routes/web.php (account.safety.*)',
+                'routes' => ['account.safety.index', 'account.safety.show'],
+                'body' => <<<'TXT'
+## صفحة أمان الحساب
+تعرض صفحة أمان الحساب الإجراءات التي اتخذتها المنصة بحق حسابك، مثل التجميد أو القيود، مع حالة كل إجراء. تجدها من إعدادات حسابك.
+
+## الاعتراض على إجراء
+- إن رأيت أن إجراءً اتُّخذ ضد حسابك غير صحيح، فقدّم اعتراضًا من الصفحة نفسها.
+- يُسمح باعتراض نشط واحد فقط لكل إجراء، وتراجعه إدارة المنصة.
+- لا تظهر لك هوية من أبلغ ولا ملاحظات المشرفين الداخلية.
+TXT,
+            ],
+            [
+                'slug' => 'daam-al-minassa',
+                'title' => 'دعم المنصة وسجل المساهمات',
+                'summary' => 'صفحة الدعم تعرض برامج دعم المنصة المتاحة وسجل مساهماتك وحالة كل دفعة، والدعم اختياري ولا يمنح أفضلية في اللعب.',
+                'area' => 'supporters',
+                'audience' => 'public',
+                'tags' => 'دعم,دعم المنصة,برامج الدعم,سجل الدعم,مساهمة',
+                'canonical_path' => '/support',
+                'source_reference' => 'routes/web.php (support.*)',
+                'routes' => ['support.index', 'support.history', 'support.program', 'support.checkout', 'support.payments.show', 'support.payments.proof'],
+                'body' => <<<'TXT'
+## كيف أدعم المنصة؟
+تعرض صفحة الدعم برامج دعم المنصة المتاحة وكيفية المشاركة في كل برنامج. الدعم اختياري، ولا يؤثر في اللعب المجاني، ولا يمنح أفضلية في الأحجيات. وتتحقق المنصة من كل دفعة قبل احتسابها.
+
+## سجل المساهمات
+تجد سجل الدعم، أي سجل مساهماتك وحالة كل دفعة، في صفحة الدعم. رفع إثبات الدفع وحده لا يكفي؛ يُحتسب الدعم بعد التحقق من الدفع.
+TXT,
+            ],
+            [
+                'slug' => 'mushtarayati',
+                'title' => 'مشترياتي وإيصالاتي',
+                'summary' => 'صفحة المشتريات تعرض مشترياتك الحقيقية وحالة الدفع لكل عملية وإيصالاتها.',
+                'area' => 'store',
+                'audience' => 'public',
+                'tags' => 'مشتريات,إيصال,إيصالات,حالة الدفع,طلبات',
+                'canonical_path' => '/commerce/purchases',
+                'source_reference' => 'routes/web.php (commerce.*)',
+                'routes' => ['commerce.purchases.index', 'commerce.receipts.show', 'commerce.orders.status', 'commerce.checkout.return'],
+                'body' => <<<'TXT'
+## مشترياتي وإيصالاتي
+تجد في صفحة المشتريات مشترياتك الحقيقية وحالة الدفع لكل عملية، وتفتح إيصال كل عملية مكتملة. الشراء الحقيقي يمرّ بتحقق من الدفع قبل أن يُفتح ما اشتريته، وتتابع حالة الدفع من هذه الصفحة نفسها.
+TXT,
+            ],
+            [
+                'slug' => 'al-mahamm-wal-fa3aliyat',
+                'title' => 'صفحة المهام والفعاليات',
+                'summary' => 'صفحة المهام تجمع مهامك، وصفحة الفعاليات تعرض تقويمًا بالفعاليات القادمة.',
+                'area' => 'progression',
+                'audience' => 'public',
+                'tags' => 'مهام,فعاليات,تقويم,missions,quests',
+                'canonical_path' => '/missions',
+                'source_reference' => 'routes/web.php (missions.index, quests.show, events.index)',
+                'routes' => ['missions.index', 'quests.show', 'events.index'],
+                'body' => <<<'TXT'
+## صفحة المهام
+صفحة المهام تجمع مهامك اليومية والأسبوعية. وصفحة quests هي الصفحة نفسها التي تُسمّى أحيانًا missions، فلا فرق في المحتوى بين الاسمين.
+
+## تقويم الفعاليات
+تجد في صفحة الفعاليات تقويمًا بالفعاليات والمواعيد القادمة. تتغير المواعيد، فافتح الصفحة نفسها لتراها محدّثة.
+TXT,
+            ],
+            [
+                'slug' => 'al-tahaddiyat-wal-hamalat',
+                'title' => 'التحديات والحملات',
+                'summary' => 'صفحة التحديات تعرض التحديات المفتوحة للانضمام، وصفحة الحملات تعرض الحملات المتاحة وتتيح بدء كل حملة.',
+                'area' => 'campaigns',
+                'audience' => 'public',
+                'tags' => 'تحديات,تحدي,حملات,حملة,ابدأ التحدي',
+                'canonical_path' => '/challenges',
+                'source_reference' => 'routes/web.php (challenges.*, campaigns.*)',
+                'routes' => ['challenges.index', 'challenges.show', 'campaigns.index', 'campaigns.show', 'campaigns.steps.show'],
+                'body' => <<<'TXT'
+## التحديات المفتوحة
+تعرض صفحة التحديات التحديات المفتوحة للانضمام، وتنضم إلى تحدٍّ من صفحته بحسب شروطه.
+
+## الحملات
+تعرض صفحة الحملات الحملات المتاحة؛ لكل حملة عنوان ووصف وموعد انتهاء، أو تظهر «متاحة الآن». تبدأ الحملة بزر «ابدأ التحدي» وتتقدّم في خطواتها. ولمعرفة الحملات الجارية الآن اسأل تطوّر AI.
+TXT,
+            ],
+            [
+                'slug' => 'lawhat-al-sadara',
+                'title' => 'لوحة الصدارة',
+                'summary' => 'لوحة الصدارة تعرض أعلى اللاعبين في حل الأحجيات الرسمية، ويمكن عرضها عامة أو بين الأصدقاء فقط.',
+                'area' => 'progression',
+                'audience' => 'public',
+                'tags' => 'لوحة الصدارة,صدارة,ترتيب اللاعبين,متصدرين',
+                'canonical_path' => '/leaderboard',
+                'source_reference' => 'app/Http/Controllers/LeaderboardController.php',
+                'routes' => ['leaderboard.index'],
+                'body' => <<<'TXT'
+## كيف تعمل لوحة الصدارة؟
+تعرض لوحة الصدارة أعلى اللاعبين في حل الأحجيات الرسمية. يمكنك التبديل بين لوحة عامة ولوحة تضمّك وتضمّ أصدقاءك فقط. أحجيات المجتمع لا تدخل في لوحة الصدارة الرسمية.
+TXT,
+            ],
+            [
+                'slug' => 'al-malaf-al-shakhsi',
+                'title' => 'الملف الشخصي والحساب',
+                'summary' => 'تعديل الاسم والبريد من إعدادات الحساب، والتحكم في ظهور الملف، واستعادة كلمة المرور.',
+                'area' => 'account',
+                'audience' => 'public',
+                'tags' => 'ملف شخصي,إعدادات الحساب,كلمة المرور,نسيت كلمة المرور,خصوصية الملف',
+                'canonical_path' => '/profile',
+                'source_reference' => 'app/Http/Controllers/ProfileController.php',
+                'routes' => ['profile.edit', 'profile.customize', 'password.request', 'password.reset', 'password.confirm'],
+                'body' => <<<'TXT'
+## تعديل الملف الشخصي
+تعدّل اسمك وبريدك الإلكتروني من إعدادات الحساب. تغيير البريد يتطلب كلمة مرورك الحالية ويُعيد توثيق البريد. ومن الصفحة نفسها تصل إلى تخصيص الهوية وتفضيلات الإشعارات.
+
+## الملف العام
+تتحكم في ظهور ملفك: خاص، أو للأعضاء فقط، أو عام. ويعرض الملف الظاهر هوية آمنة وإحصاءات عامة فقط، ولا يعرض بيانات خاصة.
+
+## كلمة المرور
+إن نسيت كلمة المرور فاختر «نسيت كلمة المرور» من صفحة الدخول ليصلك رابط إعادة تعيين على بريدك الإلكتروني.
+TXT,
+            ],
+            [
+                'slug' => 'al-shurut-wal-musaada',
+                'title' => 'الشروط والخصوصية والمساعدة',
+                'summary' => 'صفحتا الشروط والخصوصية عامتان، وصفحة المساعدة تضم دليل المنصة.',
+                'area' => 'policies',
+                'audience' => 'public',
+                'tags' => 'شروط,خصوصية,سياسة الخصوصية,مساعدة,دليل المنصة',
+                'canonical_path' => '/help',
+                'source_reference' => 'routes/web.php (pages.*, help.*)',
+                'routes' => ['pages.terms', 'pages.privacy', 'help.index', 'help.show'],
+                'body' => <<<'TXT'
+## الشروط والخصوصية
+تجد الشروط وسياسة الخصوصية في صفحتين عامتين تفتحهما من تذييل المنصة.
+
+## مركز المساعدة
+صفحة المساعدة تضم دليل المنصة بمقالاته المكتوبة، وفيها تجد إجابات أسئلتك، ويمكنك أيضًا أن تسأل تطوّر AI.
+TXT,
+            ],
+            [
+                'slug' => 'al-mufaddala-wal-mutabaa',
+                'title' => 'المفضلة والمتابعة وملفات اللاعبين',
+                'summary' => 'صفحة المفضلة تحفظ أحجياتك المحبّبة، وصفحة المتابعات تعرض المبدعين الذين تتابعهم، وملف اللاعب يعرض ما يسمح به صاحبه.',
+                'area' => 'creators',
+                'audience' => 'public',
+                'tags' => 'مفضلة,متابعة,مبدع,ملف لاعب,سجل تنافسي',
+                'canonical_path' => '/favorites',
+                'source_reference' => 'routes/web.php (favorites.*, following.*, players.*)',
+                'routes' => ['favorites.index', 'following.index', 'players.show', 'players.competitive'],
+                'body' => <<<'TXT'
+## المفضلة والمتابعة
+تحفظ الأحجيات التي تعجبك في صفحة المفضلة، وتتابع مبدعًا من صفحته ليصلك جديد أعماله، وتجد من تتابعهم في صفحة المتابعات.
+
+## ملف لاعب آخر
+تفتح ملف لاعب آخر من الترتيب أو من البحث لترى ما يسمح به صاحبه، ومنه السجل التنافسي العام. الملفات الخاصة لا تظهر لغير أصحابها.
+TXT,
+            ],
+            [
+                'slug' => 'tahaddiyat-wa-butulat-al-furuq',
+                'title' => 'تحدّيات الفرق وبطولاتها',
+                'summary' => 'تحدّي فريق ضد فريق يطلقه مالك أو مشرف بمحاولة واحدة لكل مشارك، وبطولات الفرق تُحسب من مركز الفريق في كل فعالية معتمدة.',
+                'area' => 'teams',
+                'audience' => 'public',
+                'tags' => 'تحدي فريق,بطولات الفرق,روستر,مركز الفريق',
+                'canonical_path' => '/teams/challenges',
+                'source_reference' => 'routes/web.php (teams.challenges.*, team-championships.*)',
+                'routes' => ['teams.challenges.index', 'teams.challenges.create', 'teams.challenges.show', 'teams.leaderboard', 'team-championships.index', 'team-championships.show'],
+                'body' => <<<'TXT'
+## تحدّي فريق ضد فريق
+يستطيع مالك أو مشرف فريق مفعّل أن يتحدى فريقًا آخر. عند القبول يُقفل الروستر، أي قائمة المشاركين، ولكل مشارك محاولة واحدة. لا يمنح التحدي خبرة ولا جواهر.
+
+## بطولات الفرق
+تُحسب نقاط البطولة من مركز الفريق في كل فعالية معتمدة، لا من جمع الدرجات الخام للأعضاء. تظهر بطولات الفرق المنشورة أو المنتهية فقط.
+TXT,
+            ],
+            [
+                'slug' => 'arbah-al-mubdiin',
+                'title' => 'أرباح المبدعين',
+                'summary' => 'كشوف أرباح المبدع في صفحة المبدع، وهي طبقة محاسبية منفصلة عن الجواهر والمحفظة.',
+                'area' => 'creators',
+                'audience' => 'public',
+                'tags' => 'أرباح المبدع,كشوف,مبدع,صرف',
+                'canonical_path' => '/creator/earnings',
+                'source_reference' => 'routes/web.php (creator.*)',
+                'routes' => ['creator.dashboard', 'creator.apply', 'creator.earnings', 'creator.earnings.statement', 'creator.premium.index', 'creator.puzzles.index', 'creator.puzzles.create', 'creator.puzzles.edit', 'creator.puzzles.preview', 'creator.series.index', 'creator.series.create', 'creator.series.edit'],
+                'body' => <<<'TXT'
+## أرباح المبدع
+يجد المبدع المعتمد كشوف أرباح المبدع في صفحته الخاصة. هذه الأرباح طبقة محاسبية منفصلة عن الجواهر وعن المحفظة ولا تتحول إليهما، ويتم الصرف يدويًا وفق ضوابط المنصة.
+TXT,
+            ],
+            [
+                'slug' => 'khanat-altakhsees',
+                'title' => 'خانات تخصيص الملف',
+                'summary' => 'لملفك خمس خانات للتخصيص: الصورة الرمزية والإطار والشارة واللقب وخلفية الملف.',
+                'area' => 'store',
+                'audience' => 'public',
+                'tags' => 'تخصيص,خانات,صورة رمزية,إطار,شارة,لقب,خلفية',
+                'canonical_path' => '/profile/customize',
+                'source_reference' => 'routes/web.php (profile.customize, inventory.index)',
+                'routes' => ['inventory.index'],
+                'body' => <<<'TXT'
+## خانات التخصيص
+لملفك خمس خانات للتخصيص: الصورة الرمزية والإطار والشارة واللقب وخلفية الملف. تجهّز ما تملكه في كل خانة من صفحة التخصيص، وتنزعه متى شئت.
+TXT,
+            ],
+        ];
+    }
+
+    /** @return list<string> slugs */
+    public static function slugs(): array
+    {
+        return array_column(self::articles(), 'slug');
+    }
+}

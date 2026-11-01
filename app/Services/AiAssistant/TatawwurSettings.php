@@ -34,6 +34,12 @@ final class TatawwurSettings
         return (bool) config('tatawwur_ai.streaming_enabled', false);
     }
 
+    /** TI - المحرك الداخلي للفهم والإجابة (محلي، بلا مزوّد). مغلق افتراضيًا. */
+    public static function localEngineEnabled(): bool
+    {
+        return (bool) config('tatawwur_ai.local_engine.enabled', false);
+    }
+
     public static function providerName(): string
     {
         return strtolower(trim((string) config('tatawwur_ai.provider', 'openai')));

@@ -76,6 +76,13 @@ jobs:
             tests/Feature/PerformanceE24 \
             tests/Feature/LiveOpsE34
 
+      # TI: بوابة تغطية معرفة المحرك الداخلي (ميزة مستخدم جديدة بلا بطاقة معرفة ونية = فشل) + اختبارات المحرك الداخلي. SQLite، بلا شبكة ولا مزوّد، قراءة فقط.
+      # خطوة مضافة فقط: لا تستبدل ولا تُضعف أي خطوة أخرى (MySQL/الاقتصاد/E45 كما هي).
+      - name: TI local engine coverage gate + tests (offline, read-only)
+        run: |
+          php artisan ai:local:coverage --strict
+          php artisan test --compact tests/Feature/TatawwurLocalEngine
+
       - name: Composer audit (تقرير فقط)
         continue-on-error: true
         run: composer audit --no-interaction

@@ -12,6 +12,7 @@ use App\Services\AiAssistant\Dto\AiToolResult;
 use App\Services\AiAssistant\Dto\AiUsage;
 use App\Services\AiAssistant\Knowledge\AiKnowledgeRetriever;
 use App\Services\AiAssistant\Knowledge\KnowledgeNormalizer;
+use App\Services\AiAssistant\Local\LocalEngine;
 use App\Services\AiAssistant\Providers\AiProvider;
 use App\Services\AiAssistant\Providers\AiProviderException;
 use App\Services\AiAssistant\Providers\AiProviderRegistry;
@@ -94,6 +95,15 @@ final class AssistantOrchestrator
         $provider = $this->providers->resolve();
 
         if ($provider === null || ! TatawwurSettings::providerReady()) {
+            // TI: المحرك الداخلي للفهم (مغلق افتراضيًا). null = لا يقين كافٍ فيرجع المسار القديم كما كان.
+            if (TatawwurSettings::localEngineEnabled()) {
+                $answer = app(LocalEngine::class)->answer($turn, $text, $member);
+
+                if ($answer !== null) {
+                    return $answer;
+                }
+            }
+
             return $this->local($chunks);
         }
 
