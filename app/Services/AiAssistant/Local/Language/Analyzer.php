@@ -14,6 +14,12 @@ final class Analyzer
 {
     private const MAX_TOKENS = 60;
 
+    /** كلمات نداء (مطوية) تأتي بعد «يا» في مخاطبة المساعد. */
+    private const VOCATIVES = ['مساعد', 'بوت', 'روبوت', 'تطور', 'ذكي', 'صاحبي', 'اخي', 'اخ'];
+
+    /** كلمات (مطوية) إذا سبقت «فرق» فهي بمعنى الاختلاف لا الأندية. */
+    private const DIFF_PRECEDERS = ['ما', 'ماهو', 'ماهي', 'هو', 'هي', 'ايش', 'اش', 'شو', 'وش', 'ايه', 'شنو', 'عن', 'اعرف', 'عرفني', 'اشرح', 'اشرحلي', 'وضح', 'وضحلي', 'فسر', 'اذكر', 'هناك', 'يوجد', 'في', 'فيه', 'هل', 'اي', 'كم', 'يعني', 'بيان', 'قارن', 'عندكم', 'لي'];
+
     /** @var array<string, true>|null */
     private static ?array $stop = null;
 
@@ -26,12 +32,12 @@ final class Analyzer
     /** @var array<string, true>|null */
     private static ?array $negators = null;
 
-    public function analyze(string $text, ?string $previous = null): Analysis
+    public function analyze(string $text, ?string $previous = null, bool $loose = false): Analysis
     {
-        $analysis = $this->analyzeOne($text);
+        $analysis = $this->analyzeOne($text, $loose);
 
         if ($previous !== null && trim($previous) !== '' && $analysis->topicCount() === 0) {
-            $prev = $this->analyzeOne($previous);
+            $prev = $this->analyzeOne($previous, $loose);
             $inherited = array_diff_key($prev->concepts, array_flip(Lexicon::STRUCTURAL));
 
             if ($inherited !== []) {
@@ -42,7 +48,7 @@ final class Analyzer
         return $analysis;
     }
 
-    private function analyzeOne(string $text): Analysis
+    private function analyzeOne(string $text, bool $loose = false): Analysis
     {
         $this->boot();
 
@@ -52,6 +58,11 @@ final class Analyzer
         $folded = preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $folded) ?? $folded;
         $tokens = array_values(array_filter(preg_split('/\s+/u', trim($folded)) ?: [], fn ($t) => $t !== ''));
         $tokens = array_slice($tokens, 0, self::MAX_TOKENS);
+
+        // نداء المساعد في أول الجملة («يا مساعد …») مخاطَبة لا موضوع سؤال: لا يُحتسب مفهوم «المساعد».
+        if (count($tokens) > 2 && $tokens[0] === 'يا' && in_array($tokens[1], self::VOCATIVES, true)) {
+            $tokens = array_slice($tokens, 2);
+        }
 
         $singles = Lexicon::singles();
         $corrections = [];
@@ -65,7 +76,7 @@ final class Analyzer
             $fixed = null;
 
             foreach (Morphology::bases($token) as $base) {
-                $fixed = SpellCorrector::correct($base);
+                $fixed = SpellCorrector::correct($base, $loose);
 
                 if ($fixed !== null) {
                     break;
@@ -137,6 +148,11 @@ final class Analyzer
 
                     break;
                 }
+            }
+
+            // «الفرق بين …» اختلاف لا أندية: لا يُحتسب مفهوم «الفريق».
+            if ($found === 'team' && Lexicon::stripAl($token) === 'فرق' && ($tokens[$i + 1] ?? '') === 'بين') {
+                $found = null;
             }
 
             if ($found !== null) {
@@ -296,7 +312,9 @@ final class Analyzer
                 $key = Lexicon::stripAl($tokens[$i]);
 
                 if (isset($singles[$key])) {
-                    $found[$singles[$key]] = true;
+                    if ($singles[$key] !== 'diff' || $key !== 'فرق' || $this->differenceSense($tokens, $i)) {
+                        $found[$singles[$key]] = true;
+                    }
                 } else {
                     foreach (Morphology::bases($tokens[$i]) as $base) {
                         $b = Lexicon::stripAl($base);
@@ -314,6 +332,21 @@ final class Analyzer
         $order = ['diff', 'why', 'howmuch', 'how', 'where', 'when', 'who', 'can', 'what', 'which'];
 
         return array_values(array_filter($order, fn ($f) => isset($found[$f])));
+    }
+
+    /**
+     * «الفرق» تعني الاختلاف أو الأندية. تُعدّ اختلافًا إذا جاءت في أول الجملة أو بعد أداة استفهام/طلب شرح أو قبل «بين»؛
+     * أما في الإضافة بعد اسم («بطولات الفرق»، «ترتيب الفرق») فهي الأندية فلا تُنتج وجه «الفرق بين».
+     *
+     * @param  list<string>  $tokens
+     */
+    private function differenceSense(array $tokens, int $i): bool
+    {
+        if ($i === 0 || (isset($tokens[$i + 1]) && $tokens[$i + 1] === 'بين')) {
+            return true;
+        }
+
+        return in_array($tokens[$i - 1], self::DIFF_PRECEDERS, true);
     }
 
     private function boot(): void

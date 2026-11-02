@@ -12,9 +12,18 @@ final class Morphology
     /** @var list<array{0: string, 1: string, 2: bool}> [لاحقة، بديل، ملكية-المتكلم] بترتيب الأسبقية (الأطول أولًا). */
     private const SUFFIXES = [
         ['كم', '', false], ['هم', '', false], ['هن', '', false], ['ها', '', false], ['نا', '', false], ['ني', '', true],
-        ['ون', '', false], ['ين', '', false], ['ان', '', false], ['ات', 'ه', false], ['ات', '', false],
-        ['ي', '', true], ['ك', '', false], ['ه', '', false], ['ا', '', false],
+        ['ون', '', false], ['ين', '', false], ['ان', '', false], ['ات', 'ه', false], ['ات', '', false], ['وا', '', false],
+        ['ي', '', true], ['ك', '', false], ['ه', '', false], ['ا', '', false], ['ت', '', false],
     ];
+
+    /** بادئات المضارعة (ي/ت/ن/أ): المعجم يسرد صيغة واحدة غالبًا فنولّد البقية عند عدم التطابق (TI-Q1). */
+    private const IMPERFECT = ['ي', 'ت', 'ن', 'ا'];
+
+    /** صيغ غائب لأفعال القدرة/الفعل لا تُولَّد من صيغة المتكلم. */
+    private const ABILITY_THIRD_PERSON = ['يقدر', 'تقدر', 'يستطيع', 'تستطيع', 'يقدم', 'تقدم', 'يفعل', 'تفعل', 'يسوي', 'تسوي', 'يفعله', 'تفعله', 'يعرف', 'تعرف'];
+
+    /** بادئات المبني للمجهول العامّي (ينفتح، تنصرف، انحسبت): تُجرَّد ثم تُعاد بادئة المضارعة. */
+    private const PASSIVE = ['ين', 'تن', 'نن', 'ان'];
 
     /**
      * سوابق/لواحق مجرَّدة: قائمة (صيغة، هل جُرِّدت لاحقة ملكية المتكلم) بأول-الأسبقية.
@@ -58,7 +67,61 @@ final class Morphology
             }
         }
 
+        // TI-Q1: صيغ المضارعة والمبني للمجهول العامّي تأتي أخيرًا (أدنى أسبقية) فلا تغلب مطابقةً حرفية أو لاحقةً معروفة.
+        foreach ($out as [$form, $possessive]) {
+            foreach (self::verbVariants($form) as $variant) {
+                $push($variant, $possessive);
+            }
+        }
+
         return $out;
+    }
+
+    /**
+     * صيغ فعلية بديلة لكلمة: تبديل بادئة المضارعة، وتجريد بادئة المبني للمجهول العامّي. لا تُولَّد لكلمات قصيرة (جذر ≥ 3).
+     *
+     * @return list<string>
+     */
+    public static function verbVariants(string $form): array
+    {
+        $length = mb_strlen($form);
+        $out = [];
+
+        if ($length < 5) {
+            return $out;
+        }
+
+        $first = mb_substr($form, 0, 1);
+        $rest = mb_substr($form, 1);
+
+        if (in_array($first, self::IMPERFECT, true)) {
+            foreach (self::IMPERFECT as $prefix) {
+                if ($prefix !== $first) {
+                    $out[] = $prefix.$rest;
+                }
+            }
+        }
+
+        foreach (self::PASSIVE as $prefix) {
+            if ($length >= 5 && str_starts_with($form, $prefix)) {
+                $stem = mb_substr($form, mb_strlen($prefix));
+
+                if (mb_strlen($stem) >= 3) {
+                    $out[] = $stem;
+
+                    foreach (self::IMPERFECT as $p) {
+                        $out[] = $p.$stem;
+                    }
+                }
+            }
+        }
+
+        // أفعال القدرة/الخدمة بصيغة المتكلم («أستطيع»، «أقدر») تخص السائل لا المنصة: لا تُحوَّل إلى صيغة الغائب فتصير مفهوم «يقدر».
+        if (in_array($first, ['ا', 'ن'], true)) {
+            $out = array_values(array_diff($out, self::ABILITY_THIRD_PERSON));
+        }
+
+        return array_values(array_unique($out));
     }
 
     /**
