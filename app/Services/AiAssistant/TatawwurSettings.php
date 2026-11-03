@@ -40,6 +40,15 @@ final class TatawwurSettings
         return (bool) config('tatawwur_ai.local_engine.enabled', false);
     }
 
+    /**
+     * TATAWWUR-FINAL - طبقة الفهم المحلي المحسَّنة (مصنِّف خطي محلي + سياق متعدد الأدوار + أسئلة مركبة + حالات امتناع متمايزة). مغلقة افتراضيًا.
+     * مغلقةً: يعمل المحرك الداخلي (إن فُعّل) كما كان حرفيًا. لا تعمل إلا مع TATAWWUR_AI_LOCAL_ENGINE_ENABLED مفعّلًا، ولا تتصل بأي شبكة.
+     */
+    public static function localSemanticEnabled(): bool
+    {
+        return self::localEngineEnabled() && (bool) config('tatawwur_ai.local_semantic.enabled', false);
+    }
+
     public static function providerName(): string
     {
         return strtolower(trim((string) config('tatawwur_ai.provider', 'openai')));

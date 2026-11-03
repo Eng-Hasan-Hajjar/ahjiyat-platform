@@ -4,6 +4,12 @@ namespace App\Services\AiAssistant\Local;
 
 use App\Services\AiAssistant\Conversation\AssistantAnswer;
 use App\Services\AiAssistant\Conversation\AssistantTurn;
+use App\Services\AiAssistant\Local\Enhanced\ClauseSplitter;
+use App\Services\AiAssistant\Local\Enhanced\ContextualClassifier;
+use App\Services\AiAssistant\Local\Enhanced\EnhancedPolicy;
+use App\Services\AiAssistant\Local\Enhanced\EnhancedReplies;
+use App\Services\AiAssistant\Local\Enhanced\EntityTools;
+use App\Services\AiAssistant\Local\Enhanced\HybridResult;
 use App\Services\AiAssistant\Knowledge\KnowledgeIndex;
 use App\Services\AiAssistant\Local\Language\Analysis;
 use App\Services\AiAssistant\Local\Language\Analyzer;
@@ -13,6 +19,8 @@ use App\Services\AiAssistant\Safety\AiPuzzleSafetyGuard;
 use App\Services\AiAssistant\Safety\AiScopeGuard;
 use App\Services\AiAssistant\Safety\CannedReplies;
 use App\Services\AiAssistant\Safety\GuardVerdict;
+use App\Services\AiAssistant\TatawwurSettings;
+use App\Services\Search\TextFold;
 use App\Services\AiAssistant\Tools\Presenter;
 use App\Services\AiAssistant\Tools\ToolContext;
 
@@ -44,6 +52,9 @@ final class LocalEngine
         private readonly Analyzer $analyzer,
         private readonly IntentClassifier $classifier,
         private readonly SectionPrior $prior,
+        private readonly ContextualClassifier $contextual,
+        private readonly EntityTools $entities,
+        private readonly ClauseSplitter $splitter,
     ) {}
 
     /** آخر قرار اتخذه المحرك (للتقييم والاختبار فقط؛ لا يحوي نص السؤال). @return array<string, mixed>|null */
@@ -62,16 +73,23 @@ final class LocalEngine
     {
         self::$last = null;
 
+        // TATAWWUR-FINAL: طبقة الفهم المحسَّنة خلف علم مستقل مغلق افتراضيًا. مغلقًا ⇒ يبقى المسار التالي (TI-4) كما كان بلا أي فرق.
+        if (TatawwurSettings::localSemanticEnabled()) {
+            return $this->answerEnhanced($turn, $text, $member);
+        }
+
         $previous = $turn->previousUserMessage();
         $a = $this->analyzer->analyze($text, $previous);
-        $c = $this->classifier->classify($a, $this->prior->scores($a, $member));
+        $prior = $this->prior->scores($a, $member);
+        $c = $this->classifier->classify($a, $prior);
 
         // TI-Q1: محاولة ثانية بمصحّح إملائي أعمّ (مسافة تحريرية 1) فقط عند وجود كلمات مجهولة، وتُقبل بشرط زيادة الدليل، فلا تُفسد إجابة سليمة.
         if ($a->residual !== [] && in_array($c->status, ['none', 'close', 'ok'], true)) {
             $a2 = $this->analyzer->analyze($text, $previous, true);
 
             if ($a2->corrections !== $a->corrections) {
-                $c2 = $this->classifier->classify($a2, $this->prior->scores($a2, $member));
+                $prior2 = $this->prior->scores($a2, $member);
+                $c2 = $this->classifier->classify($a2, $prior2);
 
                 if ($this->preferRetry($c, $c2)) {
                     $a = $a2;
@@ -103,6 +121,309 @@ final class LocalEngine
             'ok', 'close' => $this->byKind($turn, $c, $a, $member, $text),
             default => null,
         };
+    }
+
+    // ───────────── TATAWWUR-FINAL: المسار المحسَّن (خلف TATAWWUR_AI_LOCAL_SEMANTIC_ENABLED، مغلق افتراضيًا) ─────────────
+
+    private function answerEnhanced(AssistantTurn $turn, string $text, bool $member): ?AssistantAnswer
+    {
+        $previous = $turn->previousUserMessage();
+
+        // تقوية المسار المحسَّن: تمويه التباعد («a n s w e r») يُفحص بالمحارس نفسها، و«الكلمة السرية للغز» بلفظ آخر لحلّه تُحجب.
+        $spaced = EnhancedPolicy::despaced($text);
+
+        if ($spaced !== null) {
+            foreach ([$this->puzzleGuard->inspect($spaced, $previous), $this->scopeGuard->inspect($spaced)] as $verdict) {
+                if (! $verdict->isAllowed() && $verdict->action !== GuardVerdict::CANNED) {
+                    self::$last = ['intent' => null, 'status' => 'blocked_despaced', 'context' => false, 'probability' => null];
+
+                    return $this->guarded($verdict);
+                }
+            }
+        }
+
+        if (EnhancedPolicy::secretWordOfPuzzle($text)) {
+            self::$last = ['intent' => 'blocked.puzzle_secret', 'status' => 'blocked_secret_word', 'context' => false, 'probability' => null];
+
+            return $this->guarded($this->verdictFor('blocked.puzzle_secret'));
+        }
+
+        [$result, $a, $usedContext] = $this->contextual->classify($text, $previous, $member);
+        $c = $result->classification;
+        $this->remember($c, $a);
+        self::$last['context'] = $usedContext;
+        self::$last['probability'] = $c->intent !== null ? round($result->probability($c->intent), 3) : null;
+
+        // فحص أمني لاحق للتحليل اللغوي (كالمسار القديم): لا يجوز أن يتحول سؤال إلى مطلب محجوب بعد التصحيح/التطبيع.
+        if ($a->corrections !== []) {
+            $corrected = $a->correctedText();
+
+            foreach ([$this->puzzleGuard->inspect($corrected, $previous), $this->scopeGuard->inspect($corrected)] as $verdict) {
+                if (! $verdict->isAllowed() && $verdict->action !== GuardVerdict::CANNED) {
+                    self::$last['status'] = 'blocked_after_correction';
+
+                    return $this->guarded($verdict);
+                }
+            }
+        }
+
+        $context = ToolContext::forUser($turn->user, $member);
+
+        // طلب صريح لكيان محدد (عنوان مقتبس/رابط/معرّف) ⇒ أدوات القراءة الست عبر موجّه الكيانات.
+        if (! in_array($c->status, ['blocked', 'oos'], true)) {
+            $entity = $this->entities->answer($text, $context);
+
+            if ($entity !== null) {
+                self::$last['status'] = 'entity';
+
+                return $this->finalize($entity);
+            }
+        }
+
+        if (in_array($c->status, ['ok', 'close', 'oos', 'no_figure', 'ambiguous_general', 'none'], true) && ($compound = $this->compound($text, $member, $context)) !== null) {
+            return $compound;
+        }
+
+        return match ($c->status) {
+            'blocked' => $this->guarded($this->verdictFor((string) $c->intent)),
+            'oos' => $this->outOfScope(),
+            'no_figure' => $this->undocumented($text),
+            'ambiguous' => $this->clarify(),
+            'ambiguous_general' => $this->clarifyGeneral($c, $member),
+            'ok', 'close' => $this->enhancedByKind($turn, $result, $a, $member, $text, $context) ?? $this->knowledgeGap($c, $member),
+            default => $this->knowledgeGap($c, $member),
+        };
+    }
+
+    /** فقرة قصيرة بلا موضوع معجمي وفيها فعل بضمير مفعول متصل («أطلبه»، «أمنعها»): تعود على ما قبلها فلا تُحكَم وحدها. */
+    private function anaphoric(string $clause, Analysis $a): bool
+    {
+        $folded = trim((string) preg_replace('/\s+/u', ' ', TextFold::fold($clause)));
+        $tokens = explode(' ', $folded);
+
+        if ($a->topicCount() > 0 || count($tokens) > 4) {
+            return false;
+        }
+
+        foreach ($tokens as $t) {
+            if (preg_match('/^(?:[انيت]|س)\p{L}{2,}(?:ها|هم|ه)$/u', $t) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function enhancedByKind(AssistantTurn $turn, HybridResult $result, Analysis $a, bool $member, string $text, ToolContext $context): ?AssistantAnswer
+    {
+        $c = $result->classification;
+        $def = IntentCatalog::get((string) $c->intent);
+
+        if ($def !== null && ($def['k'] ?? '') === 'know' && $this->wantsFullArticle($text) && ($full = $this->entities->guideArticle((string) ($def['a'] ?? ''), $context)) !== null) {
+            self::$last['status'] = 'guide_article';
+
+            return $this->finalize($full);
+        }
+
+        return $this->byKind($turn, $c, $a, $member, $text);
+    }
+
+    private function wantsFullArticle(string $text): bool
+    {
+        $folded = trim((string) preg_replace('/\s+/u', ' ', TextFold::fold($text)));
+
+        return preg_match('/(مقال|الدليل|الشرح|الصفحه).*(كامل|كاملا|بالتفصيل|التفاصيل الكامله)|(كامل|كاملا|بالتفصيل).*(مقال|الدليل|الشرح)/u', $folded) === 1;
+    }
+
+    /**
+     * سؤال مركّب: فقرتان إلى ثلاث، تُصنَّف كلٌّ على حدة. المعروفة تُجاب، وغير الموثّقة/خارج النطاق يُصرَّح بها بصدق في موضعها،
+     * ولا بدّ من فقرة معروفة واحدة على الأقل (وإلا يبقى التصنيف الكلي). فقرة غير محسومة ⇒ null. فقرة محجوبة ⇒ رفض الرسالة كلها.
+     */
+    private function compound(string $text, bool $member, ToolContext $context): ?AssistantAnswer
+    {
+        $clauses = $this->splitter->split($text);
+
+        if (count($clauses) < 2) {
+            return null;
+        }
+
+        $items = [];
+        $intents = [];
+
+        foreach ($clauses as $i => $clause) {
+            [$r, $ca] = $this->contextual->classify($clause, null, $member);
+            $cc = $r->classification;
+
+            switch ($cc->status) {
+                case 'blocked':
+                    return $this->guarded($this->verdictFor((string) $cc->intent));
+                case 'ok':
+                case 'close':
+                    if ($cc->intent === null || ($r->probability($cc->intent) < EnhancedPolicy::CLAUSE_MIN_P && $cc->score < IntentClassifier::MIN_SCORE + 2.0)) {
+                        return null;
+                    }
+
+                    if (! isset($intents[$cc->intent])) {
+                        $intents[$cc->intent] = true;
+                        $items[] = ['intent', $cc->intent, $ca, $clause];
+                    }
+
+                    break;
+                case 'no_figure':
+                    $items[] = ['unknown', EnhancedReplies::topicOf(trim((string) preg_replace('/\s+/u', ' ', TextFold::fold($clause))))];
+
+                    break;
+                case 'oos':
+                    // فقرة ناقصة تعود على سابقتها («… وكيف أطلبه؟»): لا يُجزَم بأنها خارج النطاق؛ يبقى التصنيف الكلي للرسالة.
+                    if ($i > 0 && $this->anaphoric($clause, $ca)) {
+                        return null;
+                    }
+
+                    $items[] = ['oos'];
+
+                    break;
+                default:
+                    return null;
+            }
+        }
+
+        $answerable = count($intents);
+
+        if ($answerable === 0 || ($answerable < 2 && count($items) === $answerable)) {
+            return null;
+        }
+
+        $labels = ['أولًا', 'ثانيًا', 'ثالثًا'];
+        $body = [];
+        $sources = [];
+        $calls = 0;
+        $area = null;
+        $first = (string) array_key_first($intents);
+        $seen = ['oos' => false];
+
+        foreach (array_slice($items, 0, EnhancedPolicy::MAX_COMPOUND) as $item) {
+            $part = null;
+
+            if ($item[0] === 'unknown') {
+                $part = EnhancedReplies::undocumented($item[1]);
+            } elseif ($item[0] === 'oos') {
+                $part = $seen['oos'] ? null : EnhancedReplies::OUT_OF_SCOPE_PART;
+                $seen['oos'] = true;
+            } else {
+                [, $intent, $ca, $clause] = $item;
+                $def = IntentCatalog::get($intent);
+
+                if ($def === null) {
+                    return null;
+                }
+
+                if (($def['k'] ?? '') === 'know') {
+                    $block = $this->block($def, $ca, $member);
+
+                    if ($block === null) {
+                        return null;
+                    }
+
+                    $part = $block['text'];
+                    $sources = array_merge($sources, $block['sources']);
+                    $area ??= $block['area'] !== '' ? $block['area'] : null;
+                } elseif (($def['k'] ?? '') === 'my' && ! $context->hasMember()) {
+                    $part = CannedReplies::NEEDS_VERIFIED;
+                } else {
+                    $live = $this->live->resolve($intent, $def, $ca, $context, $clause);
+
+                    if ($live === null) {
+                        return null;
+                    }
+
+                    $part = $live->text;
+                    $sources = array_merge($sources, $live->sources);
+                    $calls += $live->toolCalls;
+                    $area ??= $live->area;
+                }
+            }
+
+            if ($part !== null) {
+                $body[] = $labels[count($body)].': '.$part;
+            }
+        }
+
+        self::$last['intent'] = $first;
+        self::$last['status'] = 'ok';
+        self::$last['kind'] = IntentCatalog::get($first)['k'] ?? null;
+        self::$last['compound'] = array_keys($intents);
+
+        return $this->finalize(new AssistantAnswer(implode("\n\n", $body), $this->uniqueSources($sources), 'answered', self::REASON, $area, true, false, $calls));
+    }
+
+    private function outOfScope(): AssistantAnswer
+    {
+        return new AssistantAnswer(EnhancedReplies::OUT_OF_SCOPE, [], 'out_of_scope', 'out_of_scope');
+    }
+
+    private function undocumented(string $text): AssistantAnswer
+    {
+        $topic = EnhancedReplies::topicOf(trim((string) preg_replace('/\s+/u', ' ', TextFold::fold($text))));
+        self::$last['status'] = 'no_figure';
+
+        return new AssistantAnswer(EnhancedReplies::undocumented($topic), $this->helpSources(), 'abstained', 'missing_knowledge');
+    }
+
+    private function clarifyGeneral(Classification $c, bool $member): AssistantAnswer
+    {
+        self::$last['status'] = 'ambiguous';
+        $options = [];
+
+        foreach ($c->ranked as [$name]) {
+            $def = IntentCatalog::get($name);
+
+            if ($def !== null && ($def['k'] ?? '') === 'know') {
+                $title = $this->titleOf((string) $def['a'], $member);
+
+                if ($title !== null) {
+                    $options[$title] = true;
+                }
+            }
+        }
+
+        return new AssistantAnswer(EnhancedReplies::clarify(array_slice(array_keys($options), 0, 3)), $this->helpSources(), 'answered', 'clarify', null, false);
+    }
+
+    private function knowledgeGap(Classification $c, bool $member): AssistantAnswer
+    {
+        self::$last['status'] = 'knowledge_gap';
+        $sources = [];
+
+        foreach (array_slice($c->ranked, 0, 2) as [$name]) {
+            $def = IntentCatalog::get($name);
+            $entry = $def !== null && ($def['k'] ?? '') === 'know' ? $this->firstEntry((string) $def['a'], $member) : null;
+            $clean = $entry === null ? null : AiLinkPolicy::source((string) ($entry['label'] ?: $entry['title']), $entry['url'] ?? null);
+
+            if ($clean !== null) {
+                $sources[$clean['url']] = $clean;
+            }
+        }
+
+        return new AssistantAnswer(EnhancedReplies::KNOWLEDGE_GAP, $sources === [] ? $this->helpSources() : array_values($sources), 'abstained', 'missing_knowledge');
+    }
+
+    /** @return array<string, mixed>|null */
+    private function firstEntry(string $slug, bool $member): ?array
+    {
+        foreach ($this->index->entries($member) as $entry) {
+            if ($entry['slug'] === $slug) {
+                return $entry;
+            }
+        }
+
+        return null;
+    }
+
+    private function titleOf(string $slug, bool $member): ?string
+    {
+        $entry = $this->firstEntry($slug, $member);
+
+        return $entry === null ? null : trim((string) $entry['title']);
     }
 
     /** هل تُفضَّل نتيجة المحاولة الثانية (بعد التصحيح الأعمّ)؟ فقط عند دليل أقوى بوضوح؛ وإلا تبقى نتيجة الأولى. */

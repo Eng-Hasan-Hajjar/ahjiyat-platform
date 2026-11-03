@@ -83,6 +83,12 @@ return [
         'enabled' => (bool) env('TATAWWUR_AI_LOCAL_ENGINE_ENABLED', false),
     ],
 
+    // TATAWWUR-FINAL - طبقة الفهم المحلي المحسَّنة فوق المحرك الداخلي (مصنِّف خطي مدرَّب محليًا، سياق محادثة، أسئلة مركبة، حالات امتناع متمايزة).
+    // مغلقة افتراضيًا ولا تعمل بدون local_engine.enabled. لا شبكة ولا مزوّد ولا تنزيل نماذج: أوزان ثابتة في المستودع.
+    'local_semantic' => [
+        'enabled' => (bool) env('TATAWWUR_AI_LOCAL_SEMANTIC_ENABLED', false),
+    ],
+
     // حدود النشر: طول المقال/المقطع (أحرف).
     'knowledge' => [
         'max_body_chars' => 12000,

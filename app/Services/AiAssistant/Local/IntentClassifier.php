@@ -217,6 +217,42 @@ final class IntentClassifier
     /** @param array<string, float>|null $prior */
     public function score(Analysis $a, ?array $prior = null): Classification
     {
+        [$scores, $rescued] = $this->rawScores($a, $prior);
+
+        if ($scores === []) {
+            return new Classification('none', null);
+        }
+
+        arsort($scores);
+        $ranked = [];
+
+        foreach (array_slice($scores, 0, 4, true) as $name => $s) {
+            $ranked[] = [$name, round($s, 2)];
+        }
+
+        $best = $ranked[0][0];
+        $top = $ranked[0][1];
+        $second = $ranked[1] ?? null;
+        $margin = $second === null ? $top : round($top - $second[1], 2);
+
+        if ($top < self::MIN_SCORE) {
+            return new Classification('none', null, $top, $margin, $second[0] ?? null, $ranked);
+        }
+
+        $status = ($second !== null && $margin < self::CLOSE_MARGIN && $this->differentTopic($best, $second[0])) ? 'close' : 'ok';
+
+        return new Classification($status, $best, $top, $margin, $second[0] ?? null, $ranked, $rescued === $best ? 'prior_rescue' : null);
+    }
+
+    /**
+     * درجات كل النوايا (بعد نُدفة ترجيح الأقسام والإنقاذ) كما يحسبها المصنِّف الحتمي، غير مرتّبة. يستعملها دمج المصنِّف التعلّمي (TATAWWUR-FINAL)
+     * ويستعملها score() نفسها بلا أي تغيير في السلوك.
+     *
+     * @param  array<string, float>|null  $prior
+     * @return array{0: array<string, float>, 1: ?string} [الدرجات، النية المنقَذة]
+     */
+    public function rawScores(Analysis $a, ?array $prior = null): array
+    {
         $scores = [];
         $maxPrior = ($prior !== null && $prior !== []) ? max($prior) : 0.0;
         $usePrior = $maxPrior >= self::PRIOR_FLOOR;
@@ -271,29 +307,7 @@ final class IntentClassifier
             }
         }
 
-        if ($scores === []) {
-            return new Classification('none', null);
-        }
-
-        arsort($scores);
-        $ranked = [];
-
-        foreach (array_slice($scores, 0, 4, true) as $name => $s) {
-            $ranked[] = [$name, round($s, 2)];
-        }
-
-        $best = $ranked[0][0];
-        $top = $ranked[0][1];
-        $second = $ranked[1] ?? null;
-        $margin = $second === null ? $top : round($top - $second[1], 2);
-
-        if ($top < self::MIN_SCORE) {
-            return new Classification('none', null, $top, $margin, $second[0] ?? null, $ranked);
-        }
-
-        $status = ($second !== null && $margin < self::CLOSE_MARGIN && $this->differentTopic($best, $second[0])) ? 'close' : 'ok';
-
-        return new Classification($status, $best, $top, $margin, $second[0] ?? null, $ranked, $rescued === $best ? 'prior_rescue' : null);
+        return [$scores, $rescued];
     }
 
     /** @param array<string, mixed> $def */

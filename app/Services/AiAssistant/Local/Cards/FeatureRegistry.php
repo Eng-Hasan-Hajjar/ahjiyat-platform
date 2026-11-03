@@ -80,6 +80,110 @@ final class FeatureRegistry
         'help' => ['routes' => ['help.*', 'pages.*'], 'article' => 'al-shurut-wal-musaada', 'label' => 'الشروط والخصوصية والمساعدة'],
     ];
 
+    /**
+     * أدوات القراءة الحية/الشخصية (E45) المرتبطة بكل ميزة. كل أداة من الأدوات الـ23 يجب أن تظهر هنا مرة على الأقل (يفرض ذلك TIFinalCoverageTest)،
+     * وكلها موصولة بالمحرك: السبع عشرة في LiveResolver، والست في EntityTools (لا تقاطع بينهما؛ المجموع 23).
+     *
+     * @var array<string, list<string>>
+     */
+    public const LIVE_TOOLS = [
+        'progress' => ['get_my_progress_summary'],
+        'wallet' => ['get_my_progress_summary'],
+        'campaigns' => ['get_campaign_information', 'get_my_current_campaign_progress'],
+        'competitions' => ['get_competition_information', 'get_my_competition_status'],
+        'teams' => ['get_team_public_information'],
+        'pass' => ['get_ahjiyat_pass_information', 'get_my_pass_status'],
+        'seasons' => ['get_current_season', 'get_season_information', 'get_my_current_season_status'],
+        'writers' => ['get_writer_league_information', 'get_my_writer_star_budget'],
+        'supporters' => ['get_supporter_leaderboard_information', 'get_my_supporter_recognition'],
+        'creators' => ['get_creator_public_information', 'get_my_creator_status'],
+        'creator_series' => ['get_creator_series_public_information', 'get_my_premium_series_access'],
+        'store' => ['get_store_item_information'],
+        'search' => ['search_platform'],
+        'profile' => ['get_my_profile_summary'],
+        'help' => ['get_platform_guide_article'],
+    ];
+
+    /**
+     * حالات الرفض/الامتناع الموثّقة لكل ميزة (ما لا يفعله المساعد حولها). نصوص الرد نفسها ثابتة في CannedReplies/EnhancedReplies.
+     *
+     * @var array<string, list<string>>
+     */
+    public const REFUSALS = [
+        'puzzles' => ['حلول الأحجيات وإجاباتها وما يقود إليها', 'تلميحات بديلة عن ميزة التلميح الرسمية'],
+        'wallet' => ['أرصدة أو حركات مستخدم آخر', 'تعديل الرصيد أو منح الجواهر'],
+        'redemption' => ['تنفيذ طلب استبدال أو قبوله نيابة عن المستخدم', 'مبالغ أو سياسات غير منشورة'],
+        'progress' => ['شراء الخبرة أو المستوى أو تحويلها لجواهر'],
+        'friends' => ['بيانات أصدقاء غير ظاهرة للعموم'],
+        'chat' => ['محادثات خاصة لمستخدمين آخرين'],
+        'safety' => ['ملفات الإشراف أو تفاصيل الاحتيال الداخلية'],
+        'purchases' => ['إثباتات الدفع أو بيانات مالية'],
+        'creator_earnings' => ['أرباح أو كشوف مبدع آخر'],
+        'creator_series' => ['محتوى سلسلة مميزة غير مملوكة أو حلولها'],
+        'store' => ['الشراء أو التجهيز نيابة عن المستخدم'],
+        'help' => ['إعدادات الخوادم والأسرار والمسارات الإدارية'],
+    ];
+
+    /** تعريف ميزات المنصة بمعايير بطاقة الميزة الكاملة (للتقرير والبوابة): ينتج صفًا لكل ميزة. @return list<array<string, mixed>> */
+    public static function matrix(): array
+    {
+        $articles = [];
+
+        foreach (array_merge(CuratedKnowledge::articles(), CardLibrary::articles()) as $article) {
+            $articles[$article['slug']] = $article;
+        }
+
+        $intents = [];
+
+        foreach (IntentCatalog::knowledge() as $name => $def) {
+            $intents[$def['a'] ?? ''][] = $name;
+        }
+
+        $rows = [];
+
+        foreach (self::FEATURES as $key => $feature) {
+            $article = $articles[$feature['article']] ?? null;
+            $body = (string) ($article['body'] ?? '');
+            $sections = preg_match_all('/^##\s+/mu', $body);
+            $listItems = preg_match_all('/^\s*(?:-|\d+\.)\s+/mu', $body);
+
+            $rows[] = [
+                'feature' => $key,
+                'name' => $feature['label'],
+                'description' => (string) ($article['summary'] ?? ''),
+                'article' => $feature['article'],
+                'audience' => (string) ($article['audience'] ?? ''),
+                'sections' => (int) $sections,
+                'steps_or_conditions' => (int) $listItems,
+                'intents' => $intents[$feature['article']] ?? [],
+                'synonyms' => array_values(array_filter(array_map('trim', explode(',', (string) ($article['tags'] ?? ''))))),
+                'related_page' => (string) ($article['canonical_path'] ?? ''),
+                'live_tools' => self::LIVE_TOOLS[$key] ?? [],
+                'source_of_truth' => (string) ($article['source_reference'] ?? ''),
+                'review' => isset($article) && in_array($feature['article'], array_column(CardLibrary::articles(), 'slug'), true) ? 'مسودة ← مراجعة ← نشر (ai:knowledge:sync-cards؛ لا نشر آلي)' : 'مقال E45 منشور بعد المراجعة',
+                'refusals' => self::REFUSALS[$key] ?? [],
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** فجوات بطاقة الميزة (حقول إلزامية ناقصة). @return list<string> */
+    public static function matrixGaps(): array
+    {
+        $gaps = [];
+
+        foreach (self::matrix() as $r) {
+            foreach (['name' => $r['name'] === '', 'description' => $r['description'] === '', 'audience' => $r['audience'] === '', 'related_page' => $r['related_page'] === '', 'source_of_truth' => $r['source_of_truth'] === '', 'sections' => $r['sections'] < 1, 'intents' => $r['intents'] === [], 'synonyms' => $r['synonyms'] === []] as $field => $missing) {
+                if ($missing) {
+                    $gaps[] = $r['feature'].': حقل ناقص ('.$field.')';
+                }
+            }
+        }
+
+        return $gaps;
+    }
+
     /** ميزات المنصة التي تُشرح بمقال لا يرتبط بمسار GET واحد (لا تدخل في فحص المسارات). */
     public const NON_ROUTE_ARTICLES = ['tatawwur-ai'];
 

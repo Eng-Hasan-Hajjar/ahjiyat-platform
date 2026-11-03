@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Schema;
  */
 class LocalCoverage extends Command
 {
-    protected $signature = 'ai:local:coverage {--strict : رمز خروج 1 عند أي فجوة} {--db : افحص نشر المقالات في قاعدة البيانات الحالية (قراءة فقط)} {--format=text : text|md}';
+    protected $signature = 'ai:local:coverage {--strict : رمز خروج 1 عند أي فجوة} {--db : افحص نشر المقالات في قاعدة البيانات الحالية (قراءة فقط)} {--format=text : text|md} {--matrix : اطبع مصفوفة بطاقة الميزة الكاملة ويشمل --strict فجواتها}';
 
     protected $description = 'TI: يتحقق أن كل ميزة مستخدم جديدة لها بطاقة معرفة ونية في المحرك الداخلي (قراءة فقط).';
 
@@ -83,6 +83,14 @@ class LocalCoverage extends Command
 
         foreach ($unclassified as $u) {
             $gaps[] = 'مسار مستخدم غير مصنَّف: '.$u;
+        }
+
+        if ($this->option('matrix')) {
+            foreach (FeatureRegistry::matrixGaps() as $gap) {
+                $gaps[] = 'بطاقة ناقصة - '.$gap;
+            }
+
+            $this->table(['الميزة', 'النوايا', 'الأدوات الحية', 'الرفض الموثّق', 'المصدر', 'المراجعة'], array_map(fn (array $r) => [$r['feature'], count($r['intents']), implode('، ', $r['live_tools']) ?: '-', count($r['refusals']), $r['source_of_truth'], $r['review']], FeatureRegistry::matrix()));
         }
 
         if ($this->option('format') === 'md') {

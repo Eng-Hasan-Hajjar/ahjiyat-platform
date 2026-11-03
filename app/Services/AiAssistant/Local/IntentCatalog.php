@@ -85,7 +85,7 @@ final class IntentCatalog
             'teams.competition_score' => $K('al-furuq', ['الفرق في المنافسات'], ['score' => 3, 'counted' => 3, 'competition' => 2, 'big' => 5, 'top_three' => 6, 'points' => 2, 'team' => 3, 'winner' => 1], [['team'], ['score', 'counted', 'big', 'top_three', 'points']], ['how' => 1]),
             'teams.rewards' => $K('al-furuq', ['لا مكافآت'], ['reward' => 4, 'wallet' => 4, 'team' => 3, 'gems' => 2, 'xp' => 2], [['team'], ['reward', 'wallet']], ['can' => 1]),
             'teams.challenges' => $K('tahaddiyat-wa-butulat-al-furuq', ['تحدّي فريق ضد فريق'], ['team_challenge' => 9, 'challenge' => 2, 'team' => 2, 'roster' => 3], [['team_challenge', 'challenge']], ['how' => 1]),
-            'teams.championships' => $K('tahaddiyat-wa-butulat-al-furuq', ['بطولات الفرق'], ['championship' => 9, 'team' => 2, 'points' => 1, 'score' => 1], [['championship']], ['what' => 1]),
+            'teams.championships' => $K('tahaddiyat-wa-butulat-al-furuq', ['بطولات الفرق', 'كيف تشارك في بطولة فرق؟'], ['championship' => 9, 'team' => 2, 'points' => 1, 'score' => 1], [['championship']], ['what' => 1, 'how' => 1]),
             'chat.what' => $K('al-dardasha', ['الأنواع'], ['chat' => 5, 'room' => 5, 'private_message' => 2, 'types_word' => 4, 'outside' => -4], [['chat', 'room', 'private_message']], ['what' => 2]),
             'chat.rules' => $K('al-dardasha', ['القواعد'], ['report' => 4, 'delete' => 4, 'mute' => 5, 'violation' => 4, 'chat' => 2], [['report', 'delete', 'mute', 'violation']], ['how' => 1]),
             'chat.ai_privacy' => $K('al-dardasha', ['الخصوصية'], ['ai' => 4, 'read' => 6, 'private_message' => 3, 'chat' => 2, 'visibility' => 1], [['ai', 'read'], ['private_message', 'chat']], ['can' => 1]),
