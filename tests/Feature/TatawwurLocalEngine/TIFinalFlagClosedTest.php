@@ -22,11 +22,37 @@ function tiff_ask(string $q, array $history = [])
     return app(AssistantOrchestrator::class)->answer(new AssistantTurn($q, 'public', null, $history));
 }
 
-test('TIFF-01: every operational flag defaults to false in the shipped config (nothing is activated by the delivery)', function () {
-    $config = require base_path('config/tatawwur_ai.php');
+test('TIFF-01: every operational flag defaults to false in the shipped config and in .env.example (nothing is activated by the delivery, whatever the developer keeps in a local .env)', function () {
+    // عمدًا لا نقرأ القيمة الفعلية من البيئة: مطوّر قد يفتح علمًا في .env المحلي لتجربة المساعد، وهذا لا يعني أن التسليم فعّل شيئًا.
+    // الاختبار يفحص ما سلّمناه: القيمة الافتراضية داخل config/tatawwur_ai.php وسطر .env.example لكل علم من الأعلام الستة.
+    $flags = [
+        'TATAWWUR_AI_ENABLED',
+        'TATAWWUR_AI_PROVIDER_ENABLED',
+        'TATAWWUR_AI_GUESTS_ENABLED',
+        'TATAWWUR_AI_STREAMING_ENABLED',
+        'TATAWWUR_AI_LOCAL_ENGINE_ENABLED',
+        'TATAWWUR_AI_LOCAL_SEMANTIC_ENABLED',
+    ];
 
-    expect($config['enabled'])->toBeFalse()->and($config['provider_enabled'])->toBeFalse()->and($config['guests_enabled'])->toBeFalse()->and($config['streaming_enabled'])->toBeFalse()
-        ->and($config['local_engine']['enabled'])->toBeFalse()->and($config['local_semantic']['enabled'])->toBeFalse();
+    $config = (string) file_get_contents(base_path('config/tatawwur_ai.php'));
+    $example = (string) file_get_contents(base_path('.env.example'));
+    $problems = [];
+
+    foreach ($flags as $flag) {
+        if (preg_match_all('/env\(\''.$flag.'\',\s*([A-Za-z]+)\)/', $config, $inConfig) !== 1) {
+            $problems[] = "{$flag}: expected exactly one env() read in config/tatawwur_ai.php";
+        } elseif ($inConfig[1][0] !== 'false') {
+            $problems[] = "{$flag}: config default is {$inConfig[1][0]}, expected false";
+        }
+
+        if (preg_match('/^'.$flag.'=(.*)$/m', $example, $inExample) !== 1) {
+            $problems[] = "{$flag}: missing from .env.example";
+        } elseif (trim($inExample[1]) !== 'false') {
+            $problems[] = "{$flag}: .env.example value is ".trim($inExample[1]).', expected false';
+        }
+    }
+
+    expect($problems)->toBe([]);
 });
 
 test('TIFF-02: the semantic flag cannot work without the local-engine flag (no hidden activation path)', function () {

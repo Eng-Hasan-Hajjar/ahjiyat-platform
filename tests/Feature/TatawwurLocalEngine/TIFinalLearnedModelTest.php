@@ -56,9 +56,7 @@ test('TIL-04: probabilities are a proper distribution and the scorer is determin
     expect($scorer->probabilities([], 5))->toBe([]);
 });
 
-test('TIL-05: the flags are independent and closed by default; the semantic flag also needs the local engine flag', function () {
-    expect((bool) config('tatawwur_ai.local_semantic.enabled'))->toBeFalse();
-
+test('TIL-05: the flags are independent; the semantic flag also needs the local engine flag (the shipped defaults themselves are checked by TIFF-01, which does not depend on a developer\'s local .env)', function () {
     config(['tatawwur_ai.local_engine.enabled' => false, 'tatawwur_ai.local_semantic.enabled' => true]);
     expect(TatawwurSettings::localSemanticEnabled())->toBeFalse();
 
