@@ -29,6 +29,9 @@ final class FeatureRegistry
         'health.*' => 'فحوص الصحة التشغيلية',
         'commerce.sandbox.*' => 'بوابة دفع تجريبية (بيئة اختبار)',
         'community.review.preview' => 'معاينة المراجع (طاقم)',
+        'cinematic.media' => 'تقديم ملفات الوسائط الموقَّعة',
+        'cinematic.cover' => 'تقديم أغلفة القصص الموقَّعة',
+        'cinematic.preview' => 'معاينة السلاسل السينمائية (طاقم)',
         'tatawwur.*' => 'نقاط نهاية المساعد نفسه',
         'verification.verify' => 'رابط توثيق مُوقَّع',
         'referrals.landing' => 'تحويل رابط الدعوة (يُشرح ضمن ميزة الدعوات)',
@@ -45,7 +48,7 @@ final class FeatureRegistry
     public const FEATURES = [
         'home' => ['routes' => ['home'], 'article' => 'ma-hiya-ahjiyat', 'label' => 'الصفحة الرئيسية'],
         'auth' => ['routes' => ['login', 'register', 'password.*', 'verification.*'], 'article' => 'kayfa-abda', 'label' => 'التسجيل والدخول والتوثيق'],
-        'puzzles' => ['routes' => ['puzzles.*'], 'article' => 'al-ahjiyat-wa-anwaauha', 'label' => 'الأحجيات'],
+        'puzzles' => ['routes' => ['puzzles.*', 'cinematic.*'], 'article' => 'al-ahjiyat-wa-anwaauha', 'label' => 'الأحجيات'],
         'wallet' => ['routes' => ['wallet.*'], 'article' => 'al-jawahir', 'label' => 'المحفظة والجواهر'],
         'redemption' => ['routes' => ['redemption.*'], 'article' => 'al-istibdal', 'label' => 'استبدال الجواهر'],
         'progress' => ['routes' => ['progress.*'], 'article' => 'al-taqaddum-wal-mustawayat', 'label' => 'التقدم والمستويات'],
