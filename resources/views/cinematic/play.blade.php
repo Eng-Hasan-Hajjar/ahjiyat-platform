@@ -345,6 +345,13 @@ document.addEventListener('alpine:init', function () {
                         <p class="text-xs text-slate-300 break-words" x-show="ix.instructions" x-text="ix.instructions"></p>
                         <p class="text-xs text-slate-400 break-words" x-show="ix.alt_text" x-text="ix.alt_text"></p>
 
+                        <!-- CIN-1-FIX: صورة المشهد للأنواع التي لا تعرض صورتها داخل كتلتها (ترتيب / سحب وإفلات / اختيار / مقارنة). مرجع بصري فقط: لا تتدخل في الإرسال، وتُخفى إن تعذّر تحميلها فلا تظهر صورة مكسورة. hotspot/container/flashlight تعرض صورتها في كتلها كما كانت (لا تكرار). -->
+                        <template x-if="scene.image && ['sequence', 'drag_drop', 'choose_item', 'compare'].indexOf(kind) !== -1">
+                            <div class="relative aspect-video rounded-2xl overflow-hidden border border-white/10 bg-slate-900 select-none" data-cinematic-scene-image x-data="{ broken: false }" x-show="!broken">
+                                <img :src="scene.image" alt="" draggable="false" class="absolute inset-0 w-full h-full object-cover pointer-events-none" loading="lazy" x-on:error="broken = true">
+                            </div>
+                        </template>
+
                         <!-- مساحات (نقطة ساخنة / باب أو درج) -->
                         <template x-if="kind === 'hotspot' || kind === 'container'">
                             <div class="space-y-3">
