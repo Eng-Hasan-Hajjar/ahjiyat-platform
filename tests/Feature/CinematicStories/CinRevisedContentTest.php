@@ -122,8 +122,11 @@ function cin_rev_answer(array $scene): array
 test('REV-01: the original demo file is untouched byte for byte (the baseline fingerprint) and the installer still reads only that file', function () {
     $path = database_path('demo/cinematic/library-mystery-stage-1.json');
 
+    // على Windows يبني المثبّت المسار بـDIRECTORY_SEPARATOR (\) بينما أبني أنا المسار بـ/ ؛ هما الملف نفسه، فنوحّد الفاصل قبل المقارنة.
+    $normalize = fn (string $p): string => str_replace('\\', '/', $p);
+
     expect(hash_file('sha256', $path))->toBe(CIN_REV_ORIGINAL_SHA256)
-        ->and(Stage1DemoInstaller::definitionPath())->toBe($path)
+        ->and($normalize(Stage1DemoInstaller::definitionPath()))->toBe($normalize($path))
         ->and(cin_rev_original()['chapters'])->not->toBeEmpty();
 
     // لا كود ولا إعداد يقرأ الملف المراجَع: هو مرجع محتوى فقط.
