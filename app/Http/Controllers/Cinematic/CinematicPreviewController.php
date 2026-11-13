@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Cinematic;
 
+use App\Filament\Pages\CinematicBuilderPage;
+use App\Filament\Pages\CinematicStoriesPage;
 use App\Http\Controllers\Controller;
 use App\Models\Cinematic\CinematicRevision;
 use App\Models\Cinematic\CinematicScene;
 use App\Services\Cinematic\CinematicAccess;
 use App\Services\Cinematic\CinematicException;
 use App\Services\Cinematic\CinematicPlayService;
+use App\Services\Cinematic\CinematicReadinessChecker;
 use App\Services\Cinematic\CinematicScenePayload;
 use App\Services\Cinematic\CinematicStructure;
 use Illuminate\Http\JsonResponse;
@@ -28,17 +31,43 @@ class CinematicPreviewController extends Controller
         $scenes = CinematicStructure::scenes($model)->load(['video', 'poster', 'subtitle', 'audio', 'puzzle'])
             ->mapWithKeys(fn (CinematicScene $s) => [$s->public_id => $this->payloads->make($s, $request->user(), 'available', true)])->all();
 
+        // مشهد البداية الاختياري (?scene=): يُقبل فقط إن كان من هذه النسخة، وإلا نبدأ من الأول (لا إعادة توجيه ولا كشف لمعلومات).
+        $start = (string) $request->query('scene', '');
+        $start = array_key_exists($start, $scenes) ? $start : null;
+
+        // CIN-1 IMMERSIVE: وضعان للمعاينة. الافتراضي «إداري» (درج أدوات قابل للطي)، و?mode=player «كما يراها اللاعب» (بلا أي أدوات في الواجهة).
+        // الوضعان كلاهما معاينة معزولة: لا تقدّم محفوظ ولا ملكية ولا اقتصاد، وتُقيَّم الإجابات في الخادم بالحل الحقيقي.
+        $playerLike = (string) $request->query('mode', '') === 'player';
+
+        $user = $request->user();
+        $story = $model->story;
+        $urls = [
+            'submit' => route('cinematic.preview.submit', [$model->public_id, '__SCENE__']),
+            'back' => CinematicStoriesPage::canAccess() ? CinematicStoriesPage::getUrl() : url('/admin'),
+            // تبديل الوضع مع الإبقاء على المشهد الحالي (يُبنى هنا من معرّف النسخة، و__SCENE__ يُستبدل في الواجهة بمعرّف مشهد من هذه النسخة فقط).
+            'admin_like' => route('cinematic.preview', ['revision' => $model->public_id, 'scene' => '__SCENE__']),
+            'player_like' => route('cinematic.preview', ['revision' => $model->public_id, 'scene' => '__SCENE__', 'mode' => 'player']),
+        ];
+
+        // العودة إلى محرّر المشهد: تُبنى هنا على الخادم من معرّفات النسخة (لا من مدخل المستخدم) ولا تظهر إلا لمن يستطيع فتح المنشئ.
+        if (CinematicBuilderPage::canAccess()) {
+            $urls['builder'] = CinematicBuilderPage::getUrl(['story' => $story->public_id, 'revision' => $model->public_id, 'scene' => '__SCENE__']);
+        }
+
         return view('cinematic.play', [
-            'story' => $model->story,
+            'story' => $story,
             'preview' => true,
+            'playerLike' => $playerLike,
             'config' => [
                 'mode' => 'preview',
+                'view' => $playerLike ? 'player' : 'admin',
                 'title' => $model->title.' — معاينة',
                 'state' => $state,
                 'scenes' => $scenes,
+                'start_scene' => $start,
                 'status' => $model->status,
-                'readiness' => $model->readiness,
-                'urls' => ['submit' => route('cinematic.preview.submit', [$model->public_id, '__SCENE__']), 'back' => url('/admin')],
+                'readiness' => $this->readiness($model),
+                'urls' => $urls,
             ],
         ]);
     }
@@ -57,6 +86,22 @@ class CinematicPreviewController extends Controller
         }
 
         return response()->json(['result' => ['correct' => $correct, 'locked' => $locked, 'message' => $message, 'reveal' => $reveal, 'attempts_left' => null]])->header('Cache-Control', 'no-store');
+    }
+
+    /** جاهزية النسخة محسوبة الآن (قراءة فقط)، وبديلها المخزَّن إن تعذّر الحساب. تحوي رسائل ناقصة/تحذيرات فقط، لا حلولًا. */
+    protected function readiness(CinematicRevision $model): array
+    {
+        try {
+            $r = app(CinematicReadinessChecker::class)->check($model);
+        } catch (\Throwable) {
+            $r = (array) $model->readiness;
+        }
+
+        return [
+            'ok' => (bool) ($r['ok'] ?? false),
+            'blockers' => array_values(array_map(fn ($b) => ['code' => (string) ($b['code'] ?? ''), 'message' => (string) ($b['message'] ?? ''), 'scene' => $b['scene'] ?? null], (array) ($r['blockers'] ?? []))),
+            'warnings' => array_values(array_map(fn ($b) => ['code' => (string) ($b['code'] ?? ''), 'message' => (string) ($b['message'] ?? ''), 'scene' => $b['scene'] ?? null], (array) ($r['warnings'] ?? []))),
+        ];
     }
 
     protected function revision(Request $request, string $revision): CinematicRevision

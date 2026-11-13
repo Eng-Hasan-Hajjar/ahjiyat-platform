@@ -32,6 +32,14 @@ class CinematicMediaController extends Controller
         $model = CinematicMediaAsset::query()->where('public_id', $asset)->first();
         abort_unless($model !== null && $model->isReady(), 404);
 
+        // معاينة من مكتبة الإدارة (بلا مشهد): للمسؤولين فقط، والعلم مفعّل، وبصلاحية الوسائط أو المعاينة. الرابط موقَّع ومربوط بالمستخدم كالباقي.
+        if ((string) $request->query('t') === CinematicMediaLinks::SCOPE_LIBRARY) {
+            abort_unless((string) $request->query('s') === CinematicMediaLinks::LIBRARY_ID, 404);
+            abort_unless($this->access->enabled() && ($user->can('cinematic-stories.media') || $this->access->canPreview($user)), 403);
+
+            return $this->file($model, private: true);
+        }
+
         $preview = (string) $request->query('p') === '1';
         $scene = CinematicScene::query()->where('public_id', (string) $request->query('s'))->first();
         abort_unless($scene !== null && (string) $request->query('t') === CinematicMediaLinks::SCOPE_SCENE, 404);

@@ -16,6 +16,11 @@ class CinematicMediaLinks
 
     public const SCOPE_STORY = 'story';
 
+    /** معاينة ملف من مكتبة الإدارة (بلا مشهد): للمسؤولين فقط وبصلاحية الوسائط/المعاينة، ورابط موقَّع ومربوط بالمستخدم كغيره. */
+    public const SCOPE_LIBRARY = 'library';
+
+    public const LIBRARY_ID = 'admin-library';
+
     public function url(CinematicMediaAsset $asset, string $scope, string $scopeId, User $user, bool $preview = false): string
     {
         return URL::temporarySignedRoute('cinematic.media', now()->addSeconds((int) config('cinematic_stories.media.link_ttl_seconds', 900)), [

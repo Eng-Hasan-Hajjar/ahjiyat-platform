@@ -33,6 +33,11 @@
     // E22: بنية التنقل (عرض فقط) - مصدر واحد للرأس وللتنقل السفلي.
     $menu = \App\Support\NavigationMenu::build(auth()->user(), $navigation);
 
+    // CIN-1 IMMERSIVE: الصفحة التي تُعرّف @section('immersive') (مشغّل السلاسل السينمائية فقط) تُعرض «شاشة لعب» كاملة:
+    // بلا رأس ولا تذييل ولا شريط سفلي ولا خلفية الأورورا ولا غلاف محتوى مقيَّد، ومع viewport-fit=cover لمناطق iOS الآمنة.
+    // كل الصفحات الأخرى تُرسَم كما كانت بلا أي فرق (المتغير false).
+    $immersive = $__env->hasSection('immersive');
+
 @endphp
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -56,7 +61,7 @@
         })();
     </script>
 
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1{{ $immersive ? ', viewport-fit=cover' : '' }}">
     <meta name="theme-color" content="{{ $appearance['color_primary'] }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -114,11 +119,16 @@
     @stack('head')
 </head>
 
+@if ($immersive)
+<body class="cin-immersive-body antialiased">
+@else
 <body class="min-h-screen flex flex-col antialiased @auth has-bottom-nav @endauth">
+@endif
 
     {{-- E22: رابط تخطّي للوحة المفاتيح وقارئات الشاشة: أول عنصر قابل للتركيز، يظهر عند التركيز فقط. --}}
     <a href="#main-content" data-skip-link class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-[100] focus:rounded-xl focus:bg-night-900 focus:px-4 focus:py-2.5 focus:text-sm focus:font-bold focus:text-white focus:outline-none focus:ring-2 focus:ring-amethyst">تخطَّ إلى المحتوى</a>
 
+    @unless ($immersive)
     <div class="aurora-bg"></div>
 
     @if ($announcement['enabled'] && $announcement['text'])
@@ -129,7 +139,14 @@
 
     {{-- E27: تراكب البحث العام (JavaScript فقط؛ يفتحه زر الرأس أو «/»). --}}
     @include('layouts.partials.search-overlay')
+    @endunless
 
+    @if ($immersive)
+    {{-- CIN-1 IMMERSIVE: المحتوى يملأ الشاشة بنفسه (موضع ثابت)؛ يبقى main#main-content ورابط التخطّي لإمكانية الوصول. --}}
+    <main id="main-content" tabindex="-1" class="focus:outline-none">
+        @yield('content')
+    </main>
+    @else
     <main id="main-content" tabindex="-1" class="flex-1 focus:outline-none">
         {{-- E22: غلاف المحتوى مقيَّد القراءة ومستقل عن غلاف الرأس السائل. الصفحة تعدّل عرضه بـ@section('content_width', 'max-w-7xl') مثلًا. --}}
         <div class="mx-auto w-full {{ trim($__env->yieldContent('content_width')) ?: 'max-w-6xl' }} px-4 sm:px-6 py-6 sm:py-10">
@@ -138,7 +155,9 @@
             @yield('content')
         </div>
     </main>
+    @endif
 
+    @unless ($immersive)
     <footer class="app-footer mt-10">
         <div class="max-w-6xl mx-auto px-4 py-8">
             @if ($footer['description'])
@@ -174,6 +193,7 @@
 
     {{-- E45: زر تطوّر AI العائم (يُعرَض فقط إن فُعّل المساعد للمشاهد). --}}
     @include('layouts.partials.tatawwur-widget')
+    @endunless
 
 </body>
 

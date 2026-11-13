@@ -17,8 +17,11 @@ use App\Services\Cinematic\CinematicPublishingService;
 use App\Services\Cinematic\CinematicPuzzleBridge;
 use App\Services\Cinematic\CinematicReadinessChecker;
 use App\Services\Cinematic\Interactions\InteractionEngine;
+use App\Services\Cinematic\Media\CinematicMediaLinks;
+use Filament\Notifications\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\MaxWidth;
 use Livewire\Attributes\Url;
 
 /**
@@ -59,6 +62,8 @@ class CinematicBuilderPage extends Page
     /** @var array<string, array<string, string>> */
     public array $newScene = [];
 
+    /** المشهد المفتوح في المحرّر. مربوط بالعنوان (?scene=) فيمكن فتح المحرّر مباشرة من المعاينة/المكتبة وتبقى الصفحة صالحة للتحديث. */
+    #[Url(as: 'scene', history: false)]
     public ?string $editingScene = null;
 
     /** @var array<string, mixed> */
@@ -71,6 +76,12 @@ class CinematicBuilderPage extends Page
         return (bool) config('cinematic_stories.enabled') && (auth()->user()?->can('cinematic-stories.view') ?? false);
     }
 
+    /** مساحة عرض كاملة: المنشئ يضم قائمة المشاهد ولوحة المحرّر جنبًا إلى جنب. */
+    public function getMaxContentWidth(): MaxWidth|string|null
+    {
+        return MaxWidth::Full;
+    }
+
     public function mount(): void
     {
         abort_unless(static::canAccess(), 403);
@@ -79,6 +90,19 @@ class CinematicBuilderPage extends Page
         $this->storyForm = ['title' => $story->title, 'summary' => (string) $story->summary, 'label_kind' => $story->label_kind, 'access_mode' => $story->access_mode, 'creator_series_id' => (string) ($story->creator_series_id ?? '')];
         $this->cover = (string) $story->cover?->public_id;
         $this->loadRevisionForm();
+
+        // فتح المحرّر مباشرة عند وجود ?scene= (رابط من المعاينة أو المكتبة). معرّف لا يخص هذه النسخة يُهمل بصمت بدل خطأ 404.
+        if ($this->editingScene !== null && $this->editingScene !== '') {
+            $exists = CinematicScene::query()->where('public_id', $this->editingScene)->where('revision_id', $this->revision()->id)->exists();
+
+            if ($exists) {
+                $this->loadSceneForm($this->editingScene);
+            } else {
+                $this->editingScene = null;
+            }
+        } else {
+            $this->editingScene = null;
+        }
     }
 
     public function story(): ?CinematicStory
@@ -135,7 +159,10 @@ class CinematicBuilderPage extends Page
     {
         $this->revisionId = $publicId;
         $this->editingScene = null;
+        $this->sf = [];
+        $this->resetValidation();
         $this->loadRevisionForm();
+        $this->dispatch('cin-scene-closed');
     }
 
     // ───────────────────────── القصة والنسخ ─────────────────────────
@@ -170,7 +197,9 @@ class CinematicBuilderPage extends Page
             $authoring->deleteDraft($this->revision());
             $this->revisionId = null;
             $this->editingScene = null;
+            $this->sf = [];
             $this->loadRevisionForm();
+            $this->dispatch('cin-scene-closed');
         }, 'حُذفت المسودة.');
     }
 
@@ -267,13 +296,26 @@ class CinematicBuilderPage extends Page
     {
         $this->run('manage', function () use ($id, $authoring) {
             $authoring->removeScene($this->sceneOf($id));
-            $this->editingScene = null;
+
+            if ($this->editingScene === $id) {
+                $this->editingScene = null;
+                $this->sf = [];
+                $this->dispatch('cin-scene-closed');
+            }
         }, 'حُذف المشهد من المسودة.');
     }
 
     // ───────────────────────── محرّر المشهد ─────────────────────────
 
+    /** يفتح محرّر المشهد المطلوب. يبني النموذج من قاعدة البيانات دائمًا (لا يرث شيئًا من مشهد سابق) ثم يبلّغ الواجهة لتنقل التركيز إليه. */
     public function editScene(string $id): void
+    {
+        $this->loadSceneForm($id);
+        $this->resetValidation();
+        $this->dispatch('cin-scene-opened', id: $id);
+    }
+
+    protected function loadSceneForm(string $id): void
     {
         $scene = $this->sceneOf($id);
         $config = (array) $scene->config;
@@ -291,18 +333,31 @@ class CinematicBuilderPage extends Page
             'wrong_message' => (string) ($config['wrong_message'] ?? ''), 'success_message' => (string) ($config['success_message'] ?? ''),
             'kind' => (string) ($public['kind'] ?? 'choose_item'),
             'ix' => $this->can('manage') && $public !== [] ? SceneFormCodec::encodeInteraction($public, $solution ? (array) $solution->payload : []) : SceneFormCodec::encodeInteraction(['kind' => 'choose_item'], []),
-            'media' => ['video' => (string) $scene->video?->public_id, 'poster' => (string) $scene->poster?->public_id, 'subtitle' => (string) $scene->subtitle?->public_id, 'audio' => (string) $scene->audio?->public_id],
+            'media' => $this->mediaForm($scene),
         ];
+    }
+
+    /** @return array<string, string> */
+    protected function mediaForm(CinematicScene $scene): array
+    {
+        $scene->unsetRelations();
+
+        return ['video' => (string) $scene->video?->public_id, 'poster' => (string) $scene->poster?->public_id, 'subtitle' => (string) $scene->subtitle?->public_id, 'audio' => (string) $scene->audio?->public_id];
     }
 
     public function closeScene(): void
     {
         $this->editingScene = null;
+        $this->sf = [];
+        $this->resetValidation();
+        $this->dispatch('cin-scene-closed');
     }
 
     public function saveScene(CinematicAuthoringService $authoring, InteractionEngine $engine): void
     {
-        $this->run('manage', function () use ($authoring) {
+        $clean = true;
+
+        $saved = $this->run('manage', function () use ($authoring, &$clean) {
             $scene = $this->sceneOf((string) $this->editingScene);
             $sf = $this->sf;
             $config = ['description' => $sf['description'] ?? ''];
@@ -329,7 +384,8 @@ class CinematicBuilderPage extends Page
 
             $data = [
                 'title' => $sf['title'] ?? '', 'is_optional' => (bool) ($sf['optional'] ?? false), 'is_skippable' => (bool) ($sf['skippable'] ?? false), 'allow_replay' => (bool) ($sf['replay'] ?? false),
-                'awaiting_media' => (bool) ($sf['awaiting'] ?? false), 'duration_hint_seconds' => $sf['duration'] ?? null,
+                // فيديو مربوط فعلًا = ليس «بانتظار الإنتاج» (يمنع علم قديم في النموذج من إعادة المشهد إلى حالة الانتظار بعد ربط الوسائط).
+                'awaiting_media' => $scene->video_asset_id !== null ? false : (bool) ($sf['awaiting'] ?? false), 'duration_hint_seconds' => $sf['duration'] ?? null,
                 'unlock_rule' => ['requires' => SceneFormCodec::csv((string) ($sf['requires'] ?? ''))], 'config' => $config,
             ];
 
@@ -343,16 +399,28 @@ class CinematicBuilderPage extends Page
                 $errors = $authoring->setInteractionSolution($scene->fresh(), $solution);
 
                 if ($errors !== []) {
+                    $clean = false;
                     Notification::make()->warning()->title('حُفظ المشهد لكن تعريف التفاعل غير مكتمل')->body(implode(' — ', $errors))->persistent()->send();
                 }
             }
         }, 'حُفظ المشهد.');
+
+        if ($saved) {
+            // بعد حفظ سليم نعرض ما حُفظ فعلًا (بعد التطبيع)؛ وإن كان الحل ناقصًا نُبقي ما كتبه المسؤول كي لا يضيع.
+            if ($clean) {
+                $this->loadSceneForm((string) $this->editingScene);
+            }
+
+            $this->dispatch('cin-scene-saved', id: $this->editingScene, kind: 'scene');
+        }
     }
 
-    /** يربط/يبدّل وسائط المشهد من المكتبة (صلاحية media). مسموح حتى على نسخة منشورة دون المساس بمنطقها. */
+    /** يربط/يبدّل وسائط المشهد من المكتبة (صلاحية media). مسموح حتى على نسخة منشورة دون المساس بمنطقها. لا ينسخ أي ملف: الربط مرجع إلى ملف المكتبة فقط. */
     public function saveMedia(CinematicAuthoringService $authoring): void
     {
-        $this->run('media', function () use ($authoring) {
+        $changed = [];
+
+        $ok = $this->run('media', function () use ($authoring, &$changed) {
             $scene = $this->sceneOf((string) $this->editingScene);
 
             foreach (['video', 'poster', 'subtitle', 'audio'] as $role) {
@@ -368,8 +436,43 @@ class CinematicBuilderPage extends Page
                 }
 
                 $authoring->replaceMedia($scene, $role, $picked === '' ? null : CinematicMediaAsset::query()->where('public_id', $picked)->firstOrFail());
+                $changed[] = $role;
             }
-        }, 'حُفظت وسائط المشهد.');
+        });
+
+        if (! $ok) {
+            return;
+        }
+
+        // نقرأ الحالة المحفوظة فعلًا ونحدّث الحقول المتأثرة (لا نعيد بناء النموذج كله كي لا نمحو تعديلات نص غير محفوظة).
+        $scene = $this->sceneOf((string) $this->editingScene);
+        $this->sf['media'] = $this->mediaForm($scene);
+        $this->sf['awaiting'] = (bool) $scene->awaiting_media;
+
+        $notification = Notification::make()->success();
+
+        if ($changed === []) {
+            $notification->title('لا تغيير في الوسائط: الاختيار الحالي هو المحفوظ أصلًا.');
+        } else {
+            $ready = $scene->type === CinematicScene::TYPE_VIDEO && $scene->video !== null && $scene->video->isReady();
+            $notification->title($ready ? 'حُفظت وسائط المشهد — فيديو جاهز' : 'حُفظت وسائط المشهد')
+                ->body('الربط مرجع إلى ملف المكتبة؛ لم يُنسخ أي ملف ولم يتغير منطق المشهد.');
+
+            if ($this->can('preview')) {
+                $notification->actions([
+                    NotificationAction::make('preview')->label('معاينة هذا المشهد')->button()->url($this->sceneUrl($scene), shouldOpenInNewTab: true),
+                ]);
+            }
+        }
+
+        $notification->send();
+        $this->dispatch('cin-scene-saved', id: $this->editingScene, kind: 'media');
+    }
+
+    /** رابط المعاينة الإشرافية لمشهد بعينه (بلا تقدّم محفوظ). $asPlayer = «معاينة كما يراها اللاعب» (?mode=player): الشاشة الغامرة بلا أدوات، وهي معاينة معزولة أيضًا. */
+    protected function sceneUrl(CinematicScene $scene, bool $asPlayer = false): string
+    {
+        return route('cinematic.preview', array_filter(['revision' => $this->revision()->public_id, 'scene' => $scene->public_id, 'mode' => $asPlayer ? 'player' : null]));
     }
 
     // ───────────────────────── داخلي ─────────────────────────
@@ -389,19 +492,110 @@ class CinematicBuilderPage extends Page
         return CinematicScene::query()->where('public_id', $publicId)->where('revision_id', $this->revision()->id)->firstOrFail();
     }
 
+    /** رابط موقَّع قصير العمر لمعاينة ملف من المكتبة داخل لوحة الإدارة (لا مسار تخزين مباشر أبدًا). */
+    public function libraryUrl(?CinematicMediaAsset $asset): ?string
+    {
+        $user = auth()->user();
+
+        if ($asset === null || $user === null || ! $asset->isReady() || ! ($this->can('media') || $this->can('preview'))) {
+            return null;
+        }
+
+        return app(CinematicMediaLinks::class)->url($asset, CinematicMediaLinks::SCOPE_LIBRARY, CinematicMediaLinks::LIBRARY_ID, $user, true);
+    }
+
     /** @return array<string, mixed> */
     public function data(): array
     {
         $story = $this->story();
         $revision = $this->revision();
         $tree = CinematicStage::query()->where('revision_id', $revision->id)->orderBy('position')
-            ->with(['chapters' => fn ($q) => $q->orderBy('position'), 'chapters.scenes' => fn ($q) => $q->orderBy('position')->with(['video', 'poster'])])->get();
+            ->with(['chapters' => fn ($q) => $q->orderBy('position'), 'chapters.scenes' => fn ($q) => $q->orderBy('position')->with(['video', 'poster', 'subtitle', 'audio'])])->get();
         $report = app(CinematicReadinessChecker::class)->check($revision);
         $bridge = app(CinematicPuzzleBridge::class);
-        $assets = fn (string $role) => CinematicMediaAsset::query()->where('role', $role)->where('status', CinematicMediaAsset::STATUS_READY)->orderByDesc('id')->limit(200)->get(['public_id', 'original_name', 'duration_ms']);
+        $columns = ['id', 'public_id', 'role', 'status', 'original_name', 'mime', 'size_bytes', 'duration_ms', 'width', 'height'];
+
+        // قوائم الاختيار: الملفات الجاهزة + الملف المربوط حاليًا بالمشهد المفتوح (حتى لو سُحب) كي لا يختفي اختيار محفوظ من القائمة.
+        $linkedNow = [];
+
+        foreach ($tree as $stage) {
+            foreach ($stage->chapters as $chapter) {
+                foreach ($chapter->scenes as $scene) {
+                    foreach (['video', 'poster', 'subtitle', 'audio'] as $role) {
+                        if ($scene->{$role} !== null && $scene->public_id === $this->editingScene) {
+                            $linkedNow[$role] = $scene->{$role}->id;
+                        }
+                    }
+                }
+            }
+        }
+
+        $assets = function (string $role) use ($columns, $linkedNow) {
+            $query = CinematicMediaAsset::query()->where('role', $role)
+                ->where(fn ($q) => $q->where('status', CinematicMediaAsset::STATUS_READY)->when(isset($linkedNow[$role]), fn ($qq) => $qq->orWhere('id', $linkedNow[$role])));
+
+            return $query->orderByDesc('id')->limit(200)->get($columns);
+        };
+
         $puzzles = $this->editingScene && in_array($this->sf['type'] ?? '', ['puzzle'], true)
             ? Puzzle::query()->where('is_active', true)->orderBy('title')->limit(300)->get()->filter(fn (Puzzle $p) => $bridge->ineligibleReason($p) === null)->values()
             : collect();
+
+        // استعمال الوسائط داخل هذه النسخة: asset id => قائمة مشاهد. يكشف ربط فيديو واحد بمشهدين (يُعرض الفيديو مرتين) قبل الحفظ.
+        $usage = [];
+        $flat = [];
+        $counts = ['scenes' => 0, 'video' => 0, 'video_ready' => 0, 'video_missing' => 0, 'interaction' => 0, 'interaction_no_image' => 0];
+
+        foreach ($tree as $stage) {
+            foreach ($stage->chapters as $chapter) {
+                foreach ($chapter->scenes as $scene) {
+                    $counts['scenes']++;
+                    $flat[] = ['id' => $scene->public_id, 'key' => $scene->stable_key, 'title' => $scene->title, 'type' => $scene->type, 'stage' => $stage->title, 'chapter' => $chapter->title];
+
+                    foreach (['video', 'poster', 'subtitle', 'audio'] as $role) {
+                        if ($scene->{$role.'_asset_id'} !== null) {
+                            $usage[$scene->{$role.'_asset_id'}][] = ['id' => $scene->public_id, 'title' => $scene->title, 'key' => $scene->stable_key];
+                        }
+                    }
+
+                    if ($scene->type === CinematicScene::TYPE_VIDEO) {
+                        $counts['video']++;
+                        $scene->video !== null && $scene->video->isReady() ? $counts['video_ready']++ : $counts['video_missing']++;
+                    } elseif (in_array($scene->type, [CinematicScene::TYPE_INTERACTION, CinematicScene::TYPE_EXPLORATION], true)) {
+                        $counts['interaction']++;
+                        $scene->poster === null || ! $scene->poster->isReady() ? $counts['interaction_no_image']++ : null;
+                    }
+                }
+            }
+        }
+
+        $position = $this->editingScene ? array_search($this->editingScene, array_column($flat, 'id'), true) : false;
+        $current = $position === false ? null : $flat[$position];
+        $editing = null;
+        $sceneModel = $this->editingScene ? CinematicScene::query()->where('public_id', $this->editingScene)->where('revision_id', $revision->id)->with(['video', 'poster', 'subtitle', 'audio'])->first() : null;
+
+        if ($sceneModel !== null) {
+            $pickedPoster = (string) ($this->sf['media']['poster'] ?? '');
+            $posterAsset = $pickedPoster === '' ? null : CinematicMediaAsset::query()->where('public_id', $pickedPoster)->first();
+
+            $editing = [
+                'model' => $sceneModel,
+                'stage' => $current['stage'] ?? '',
+                'chapter' => $current['chapter'] ?? '',
+                'prev' => $position > 0 ? $flat[$position - 1] : null,
+                'next' => $position !== false && $position < count($flat) - 1 ? $flat[$position + 1] : null,
+                'index' => $position === false ? 0 : $position + 1,
+                'previewUrl' => $this->can('preview') ? $this->sceneUrl($sceneModel) : null,
+                'playerPreviewUrl' => $this->can('preview') ? $this->sceneUrl($sceneModel, true) : null,
+                'blockers' => array_values(array_filter($report['blockers'], fn ($b) => ($b['scene'] ?? null) === $sceneModel->stable_key)),
+                'warnings' => array_values(array_filter($report['warnings'], fn ($b) => ($b['scene'] ?? null) === $sceneModel->stable_key)),
+                // صورة المشهد المختارة (حتى قبل الحفظ) لأداة المعايرة البصرية: رابط موقَّع، وأبعادها الحقيقية من فحص الرفع.
+                'imageUrl' => $this->libraryUrl($posterAsset),
+                'imageWidth' => $posterAsset?->width,
+                'imageHeight' => $posterAsset?->height,
+                'uploadUrl' => $this->can('media') ? CinematicMediaLibraryPage::getUrl(['role' => ($this->sf['type'] ?? '') === 'video' ? 'video' : 'poster', 'story' => $story->public_id, 'revision' => $revision->public_id, 'scene' => $sceneModel->public_id]) : null,
+            ];
+        }
 
         return [
             'story' => $story,
@@ -410,12 +604,17 @@ class CinematicBuilderPage extends Page
             'editable' => $revision->isEditable(),
             'tree' => $tree,
             'report' => $report,
+            'counts' => $counts,
+            'flat' => $flat,
+            'usage' => $usage,
+            'editing' => $editing,
             'assets' => ['video' => $assets('video'), 'poster' => $assets('poster'), 'subtitle' => $assets('subtitle'), 'audio' => $assets('audio')],
             'puzzles' => $puzzles,
             'kinds' => ['hotspot' => 'نقطة ساخنة', 'container' => 'باب/درج بشرط', 'sequence' => 'ترتيب', 'drag_drop' => 'سحب وإفلات', 'choose_item' => 'اختيار عنصر', 'compare' => 'مقارنة', 'reveal_code' => 'كشف رمز بشرط', 'flashlight' => 'مصباح'],
             'types' => ['video' => 'فيديو', 'narrative' => 'سرد', 'puzzle' => 'أحجية', 'interaction' => 'تفاعل', 'exploration' => 'استكشاف', 'transition' => 'انتقال'],
             'statusLabels' => ['draft' => 'مسودة', 'in_review' => 'قيد المراجعة', 'published' => 'منشورة', 'superseded' => 'مستبدلة', 'unpublished' => 'مسحوبة'],
             'previewUrl' => $this->can('preview') ? route('cinematic.preview', $revision->public_id) : null,
+            'playerPreviewUrl' => $this->can('preview') ? route('cinematic.preview', ['revision' => $revision->public_id, 'mode' => 'player']) : null,
             'publicUrl' => $story->liveRevision ? route('cinematic.show', $story->slug) : null,
             'listUrl' => CinematicStoriesPage::getUrl(),
             'mediaUrl' => CinematicMediaLibraryPage::getUrl(),
