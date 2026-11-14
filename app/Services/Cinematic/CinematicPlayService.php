@@ -296,7 +296,8 @@ class CinematicPlayService
                 throw CinematicException::make('attempts_exhausted', 'استنفدت عدد المحاولات المسموح بها لهذا المشهد.', 403);
             }
 
-            [$correct, $locked, $message, $reveal] = $this->evaluate($p, $s, $submission);
+            // CIN-2: رقم المحاولة الحالية يحدد أي تلميح يُعرض عند الخطأ (التلميحات في الحل الخادمي، لا في الواجهة).
+            [$correct, $locked, $message, $reveal, $hint, $detail] = $this->evaluate($p, $s, $submission, $state->attempts_count + 1);
 
             if (! $completed) {
                 $state->forceFill(['attempts_count' => $state->attempts_count + 1, 'last_attempt_at' => now(), 'started_at' => $state->started_at ?? now()])->save();
@@ -311,6 +312,8 @@ class CinematicPlayService
                 'locked' => $locked,
                 'message' => $message,
                 'reveal' => $reveal,
+                'hint' => $hint,
+                'detail' => $detail,
                 'attempts_left' => $max === null ? null : max(0, $max - $state->attempts_count),
             ];
         });
@@ -470,16 +473,16 @@ class CinematicPlayService
 
     /**
      * @param  array<string, mixed>  $submission
-     * @return array{0: bool, 1: bool, 2: ?string, 3: ?string}
+     * @return array{0: bool, 1: bool, 2: ?string, 3: ?string, 4: ?string, 5: ?array<string, bool>}
      */
-    protected function evaluate(CinematicProgress $progress, CinematicScene $scene, array $submission): array
+    protected function evaluate(CinematicProgress $progress, CinematicScene $scene, array $submission, int $attempt = 1): array
     {
         $completedKeys = CinematicSceneState::query()
             ->where('cinematic_scene_states.progress_id', $progress->id)->whereNotNull('completed_at')
             ->join('cinematic_scenes', 'cinematic_scenes.id', '=', 'cinematic_scene_states.scene_id')
             ->pluck('cinematic_scenes.stable_key')->all();
 
-        return $this->evaluateWith($scene, $submission, $completedKeys);
+        return $this->evaluateWith($scene, $submission, $completedKeys, ['attempt' => $attempt]);
     }
 
     /**
@@ -487,9 +490,10 @@ class CinematicPlayService
      *
      * @param  array<string, mixed>  $submission
      * @param  list<string>  $completedKeys
-     * @return array{0: bool, 1: bool, 2: ?string, 3: ?string} [صحيح؟، مقفل بشرط؟، رسالة، رمز مكشوف]
+     * @param  array<string, mixed>  $context  attempt: رقم المحاولة (للتلميحات)
+     * @return array{0: bool, 1: bool, 2: ?string, 3: ?string, 4: ?string, 5: ?array<string, bool>} [صحيح؟، مقفل بشرط؟، رسالة، كشف، تلميح، تفصيل الأقفال]
      */
-    public function evaluateWith(CinematicScene $scene, array $submission, array $completedKeys): array
+    public function evaluateWith(CinematicScene $scene, array $submission, array $completedKeys, array $context = []): array
     {
         if ($scene->type === CinematicScene::TYPE_PUZZLE) {
             $puzzle = $scene->puzzle;
@@ -501,7 +505,7 @@ class CinematicPlayService
             $answer = $submission['answer'] ?? '';
             $correct = is_scalar($answer) && $this->puzzles->check($puzzle, (string) $answer);
 
-            return [$correct, false, $correct ? ($scene->config['success_message'] ?? null) : ($scene->config['wrong_message'] ?? 'ليست الإجابة الصحيحة، حاول مرة أخرى.'), null];
+            return [$correct, false, $correct ? ($scene->config['success_message'] ?? null) : ($scene->config['wrong_message'] ?? 'ليست الإجابة الصحيحة، حاول مرة أخرى.'), null, null, null];
         }
 
         if (! in_array($scene->type, [CinematicScene::TYPE_INTERACTION, CinematicScene::TYPE_EXPLORATION], true)) {
@@ -515,8 +519,8 @@ class CinematicPlayService
             throw CinematicException::make('scene_unready', 'هذا المشهد غير جاهز.', 422);
         }
 
-        $r = $this->engine->evaluate((string) $public['kind'], $public, (array) $solution->payload, $submission, $completedKeys);
+        $r = $this->engine->evaluate((string) $public['kind'], $public, (array) $solution->payload, $submission, $completedKeys, $context);
 
-        return [$r['correct'], $r['locked'], $r['message'], $r['reveal']];
+        return [$r['correct'], $r['locked'], $r['message'], $r['reveal'], $r['hint'] ?? null, $r['detail'] ?? null];
     }
 }

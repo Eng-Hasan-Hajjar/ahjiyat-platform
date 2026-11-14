@@ -73,6 +73,8 @@
 </style>
 @include('cinematic.partials.immersive-styles')
 @include('cinematic.partials.immersive-scripts')
+@include('cinematic.partials.cin2-styles')
+@include('cinematic.partials.cin2-scripts')
 <script>
 @verbatim
 document.addEventListener('alpine:init', function () {
@@ -124,6 +126,7 @@ document.addEventListener('alpine:init', function () {
             init() {
                 try { this.cfg = JSON.parse(this.$el.dataset.config || '{}'); } catch (e) { this.cfg = {}; }
                 this.state = this.cfg.state || null;
+                this.evidence = Array.isArray(this.cfg.evidence) ? this.cfg.evidence : [];
                 this.initImmersive();
                 if (!this.state || !this.state.scenes) { this.fail('تعذّر تحميل المشغّل.'); return; }
                 if (this.preview) {
@@ -145,6 +148,8 @@ document.addEventListener('alpine:init', function () {
                 });
                 var data = {};
                 try { data = await res.json(); } catch (e) { data = {}; }
+                /* CIN-2: سجل الأدلة يأتي من الخادم مع كل استجابة تحمل الحالة (مشاهد مكتملة فقط). */
+                if (res.ok && data && Array.isArray(data.evidence)) { this.evidence = data.evidence; }
                 if (!res.ok) {
                     var err = new Error(data.message || 'تعذّر إتمام الطلب، حاول مجددًا.');
                     err.reason = data.reason || ''; err.status = res.status;
@@ -159,6 +164,7 @@ document.addEventListener('alpine:init', function () {
                 this.pick = null; this.order = []; this.held = null; this.placed = {}; this.points = []; this.light = { x: 50, y: 50 };
                 this.answer = ''; this.revealed = ''; this.nextScene = null;
                 this.stageRatio = 16 / 9; this.hoverId = null; this.ping = null; this.nudge = '';
+                if (typeof this.resetStage2 === 'function') { this.resetStage2(); }
                 this.resetImmersive();
             },
 
@@ -230,9 +236,13 @@ document.addEventListener('alpine:init', function () {
             async submit(submission) {
                 if (this.busy || !this.scene) { return; }
                 this.busy = true; this.error = ''; this.result = null; this.nudge = '';
+                var body = { submission: submission };
+                /* المعاينة لا تحفظ محاولات: رقم المحاولة المحلي يكفي لاختيار التلميح المناسب (اللعب الحقيقي يحسبه الخادم). */
+                if (this.preview) { this.tries = (this.tries || 0) + 1; body.attempt = Math.min(50, this.tries); }
                 try {
-                    var data = await this.call('POST', this.url('submit', this.scene.id), { submission: submission });
+                    var data = await this.call('POST', this.url('submit', this.scene.id), body);
                     this.result = data.result || null;
+                    if (typeof this.applyLockDetail === 'function') { this.applyLockDetail(this.result); }
                     if (data.state) { this.state = data.state; }
                     this.nextScene = data.scene || null;
                     if (this.result && this.result.correct && this.result.reveal) { this.revealed = this.result.reveal; }
@@ -253,6 +263,14 @@ document.addEventListener('alpine:init', function () {
             onVideoError() {
                 this.videoFailed = true; this.videoLoading = false;
                 if (!this.preview && !this.reloaded && this.scene) { this.reloaded = true; this.openCurrent(this.scene.id); }
+            },
+            /* مشهدا فيديو متتاليان يبقيان على عنصر video نفسه فيتغيّر <source> ولا يُعاد التحميل (المتصفح يتجاهل تغيير source بعد التحميل الأول)، فيُعرض مقطع المشهد السابق. نستدعي load() عند تغيّر المصدر فقط. */
+            syncVideoSrc(el) {
+                var src = this.scene && this.scene.video ? this.scene.video.src : null;
+                if (!el || !src) { return; }
+                var changed = el._cinSrc !== undefined && el._cinSrc !== src;
+                el._cinSrc = src;
+                if (changed) { this.$nextTick(function () { try { el.load(); } catch (e) { /* لا شيء: زر إعادة المحاولة متاح */ } }); }
             },
             playVideo() { var v = this.$refs.video; if (v) { var p = v.play(); if (p && p.catch) { p.catch(function () { /* المتصفح يطلب نقرة المستخدم: أدوات التحكم الأصلية متاحة */ }); } } },
             replayVideo() { var v = this.$refs.video; if (v) { v.currentTime = 0; this.videoEnded = false; this.playVideo(); } },
@@ -328,7 +346,8 @@ document.addEventListener('alpine:init', function () {
             placedIds() { return Object.keys(this.placed); },
 
             pointerLight(ev) {
-                var box = this.$refs.stage ? this.$refs.stage.getBoundingClientRect() : null;
+                /* مرجع خاص بالمصباح (lightStage): لو شاركه مرجع مسرح النقر (stage) لحذفه Alpine عند الانتقال المباشر من مشهد نقر إلى مشهد المصباح فيثبت الضوء على المنتصف. */
+                var stage = this.$refs.lightStage; var box = stage ? stage.getBoundingClientRect() : null;
                 if (!box || !box.width || !box.height) { return; }
                 this.light = { x: Math.max(0, Math.min(100, Math.round((ev.clientX - box.left) * 1000 / box.width) / 10)), y: Math.max(0, Math.min(100, Math.round((ev.clientY - box.top) * 1000 / box.height) / 10)) };
             },
@@ -338,7 +357,10 @@ document.addEventListener('alpine:init', function () {
         };
         /* سلوك الوضع الغامر (partials/immersive-scripts) يُدمج مع الاحتفاظ بالـgetters. */
         var extra = typeof window.cinImmersiveMixin === 'function' ? window.cinImmersiveMixin() : {};
-        return Object.defineProperties(base, Object.getOwnPropertyDescriptors(extra));
+        Object.defineProperties(base, Object.getOwnPropertyDescriptors(extra));
+        /* CIN-2: أنواع التفاعل الجديدة وسجل الأدلة. */
+        var extra2 = typeof window.cinStage2Mixin === 'function' ? window.cinStage2Mixin() : {};
+        return Object.defineProperties(base, Object.getOwnPropertyDescriptors(extra2));
     });
 });
 @endverbatim
@@ -402,6 +424,12 @@ document.addEventListener('alpine:init', function () {
                     @endverbatim
                 @endif
                 @verbatim
+                <template x-if="evidenceList.length">
+                    <button type="button" class="imm-iconbtn" x-ref="evToggle" x-on:click="openEvidence()" aria-label="سجل الأدلة" data-cin2-evidence-toggle>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 110-15 7.5 7.5 0 010 15z"/></svg>
+                        <span class="imm-hide-sm">الأدلة</span><span class="cin2-count" x-text="evidenceList.length"></span>
+                    </button>
+                </template>
                 <button type="button" class="imm-iconbtn" x-show="fsSupported" x-cloak x-on:click="toggleFs()" :aria-pressed="fs ? 'true' : 'false'" :aria-label="fs ? 'إنهاء ملء الشاشة' : 'ملء الشاشة'" data-imm-fullscreen>
                     <svg x-show="!fs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9V5.25A1.5 1.5 0 015.25 3.75H9M15 3.75h3.75a1.5 1.5 0 011.5 1.5V9M20.25 15v3.75a1.5 1.5 0 01-1.5 1.5H15M9 20.25H5.25a1.5 1.5 0 01-1.5-1.5V15"/></svg>
                     <svg x-show="fs" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3.75V7.5A1.5 1.5 0 017.5 9H3.75M20.25 9H16.5A1.5 1.5 0 0115 7.5V3.75M15 20.25V16.5a1.5 1.5 0 011.5-1.5h3.75M3.75 15H7.5A1.5 1.5 0 019 16.5v3.75"/></svg>
@@ -526,7 +554,7 @@ document.addEventListener('alpine:init', function () {
                     <!-- فيديو: ملصق، زر تشغيل واضح، حالة تحميل، نهاية مع إعادة/متابعة، ورسالة فشل مع إعادة محاولة -->
                     <template x-if="scene.type === 'video' && videoState() === 'ready' && !videoFailed">
                         <div class="cin-video" data-cinematic-video-frame>
-                            <video x-ref="video" controls playsinline preload="metadata" controlslist="nodownload noremoteplayback nofullscreen" disablepictureinpicture
+                            <video x-ref="video" x-effect="syncVideoSrc($el)" controls playsinline preload="metadata" controlslist="nodownload noremoteplayback nofullscreen" disablepictureinpicture
                                 :poster="scene.video.poster || null" :aria-label="'فيديو: ' + scene.title"
                                 x-on:loadedmetadata="fitVideo($event)" x-on:ended="videoEnded = true; videoStarted = true; onVideoStop()" x-on:error="onVideoError()" x-on:play="onVideoPlay()" x-on:pause="onVideoStop()"
                                 x-on:waiting="videoLoading = true" x-on:loadstart="videoLoading = true" x-on:canplay="videoLoading = false" x-on:playing="videoLoading = false; videoStarted = true">
@@ -571,7 +599,7 @@ document.addEventListener('alpine:init', function () {
 
                     <!-- مصباح: يكشف الظلام موضعًا موضعًا؛ بعد النجاح فقط يُكشف المشهد كاملًا (لا حل قبل تحقق الشرط على الخادم). أزراره في الورقة. -->
                     <template x-if="kind === 'flashlight'">
-                        <div x-ref="stage" class="cin-stage touch-none cursor-crosshair focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" dir="ltr" :style="stageStyle" tabindex="0" role="application" aria-label="منطقة الاستكشاف: حرّك الضوء بالأسهم واضغط Enter لفحص الموضع" data-cinematic-flashlight-stage
+                        <div x-ref="lightStage" class="cin-stage touch-none cursor-crosshair focus:outline-none focus-visible:ring-2 focus-visible:ring-amethyst" dir="ltr" :style="stageStyle" tabindex="0" role="application" aria-label="منطقة الاستكشاف: حرّك الضوء بالأسهم واضغط Enter لفحص الموضع" data-cinematic-flashlight-stage
                             x-on:pointermove="pointerLight($event)" x-on:click="clickLight($event)"
                             x-on:keydown.arrow-left.prevent="moveLight(-4, 0)" x-on:keydown.arrow-right.prevent="moveLight(4, 0)" x-on:keydown.arrow-up.prevent="moveLight(0, -4)" x-on:keydown.arrow-down.prevent="moveLight(0, 4)" x-on:keydown.enter.prevent="markPoint()" x-on:keydown.space.prevent="markPoint()">
                             <template x-if="scene.image"><img :src="scene.image" :alt="ix.alt_text || ''" draggable="false" class="cin-stage-img" x-on:load="imgLoaded($event)" x-init="if ($el.complete && $el.naturalWidth) { imgLoaded({ target: $el }); }"></template>
@@ -593,6 +621,11 @@ document.addEventListener('alpine:init', function () {
                             <template x-if="ping"><span class="cin-ping" :style="'left:' + ping.x + '%;top:' + ping.y + '%;'" aria-hidden="true"></span></template>
                         </div>
                     </template>
+
+                    <!-- CIN-2: فحص صورة بتكبير/سحب/قلب -->
+                    @endverbatim
+                    @include('cinematic.partials.cin2-stage')
+                    @verbatim
 
                     <!-- انتقال: بطاقة عنوان سينمائية -->
                     <template x-if="scene.type === 'transition'">
@@ -716,6 +749,11 @@ document.addEventListener('alpine:init', function () {
                                 </div>
                             </template>
 
+                            <!-- CIN-2: إجابة / فحص / خزانة متعددة الأقفال -->
+                            @endverbatim
+                            @include('cinematic.partials.cin2-paper')
+                            @verbatim
+
                             <!-- أزرار المصباح: عدد المواضع المفحوصة، مسح، تحقق -->
                             <template x-if="kind === 'flashlight'">
                                 <div class="imm-ls">
@@ -765,6 +803,11 @@ document.addEventListener('alpine:init', function () {
                 <p class="imm-hint-rotate" aria-hidden="true">أدر الجهاز أفقيًا لتجربة مشاهدة أوسع</p>
             </article>
         </template>
+
+        <!-- CIN-2: سجل الأدلة -->
+        @endverbatim
+        @include('cinematic.partials.cin2-evidence')
+        @verbatim
 
         <!-- الطبقة 5: ستارة الانتقال بين المشاهد -->
         <div class="imm-veil" :class="veil ? 'is-on' : ''" aria-hidden="true" data-imm-veil></div>

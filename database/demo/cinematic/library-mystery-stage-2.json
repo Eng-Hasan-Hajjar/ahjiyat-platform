@@ -1,0 +1,1311 @@
+{
+  "format": "cinematic-stage-addon/1",
+  "source": "طلب CIN-2 «الصورة المفقودة — المرحلة الثانية» (هيكل الفصول السبعة والقرائن الأربع). ملف PDF القصة الخاص بالمرحلة 2 لم يصل عند التنفيذ، فكل نص ليس في الطلب مقترح تنفيذي أو علامة [[بانتظار …]].",
+  "target_story_slug": "unwritten-page",
+  "requires_existing": {
+    "stage_key": "stage_1",
+    "scene_key": "stage_1_end"
+  },
+  "provisional_notice": "كل ما يرد في مصفوفة provisional معايَر مؤقتًا (إحداثيات وصور مرجعية) ويُعاد ضبطه مع الفن النهائي من لوحة الإدارة. حقل editorial=proposal يعني نصًّا مقترحًا ينتظر اعتماد ياسمين/المالك.",
+  "warning": "يحتوي هذا الملف الحلول المرجعية للألغاز. لا تنشره ولا تضعه في مجلد عام.",
+  "story_notes": "لا يُنشئ هذا الملف قصة جديدة: يُضاف إلى القصة الموجودة (unwritten-page) كمرحلة ثانية دون لمس المرحلة الأولى.",
+  "stage": {
+    "stable_key": "stage_2",
+    "title": "المرحلة الثانية: الصورة المفقودة",
+    "summary": "صورة قديمة فيها شخص ثامن غامض، وقرائن تقود آدم إلى خزانة في أرشيف المكتبة."
+  },
+  "chapters": [
+    {
+      "stable_key": "ch2_photo",
+      "title": "الفصل الأول: الصورة التي لا تتذكر",
+      "summary": null,
+      "scenes": [
+        {
+          "stable_key": "stage2_photo_intro_video",
+          "type": "video",
+          "title": "الصورة بين يدي آدم",
+          "duration_hint_seconds": null,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage_1_end"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "آدم",
+                "text": "[[بانتظار حوار آدم من وثيقة المرحلة الثانية]]"
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "فيديو قصير: آدم جالس في المكتبة تحت ضوء المصباح يتأمل الصورة التي وجدها في الدرج.",
+              "image": null,
+              "sfx": [
+                "دقات الساعة بصوت خافت",
+                "حفيف ورق"
+              ],
+              "interaction_assets": []
+            },
+            "start_frame": "الشاشة السوداء التي انتهى بها فيديو المرحلة الأولى (المشهد الختامي)، ثم يتلاشى الأسود إلى ضوء المصباح.",
+            "end_frame": "لقطة قريبة للصورة في يد آدم وهي ثابتة (تكون هي الإطار الأول لمشهد فحص الصورة).",
+            "on_end": "تظهر ورقة الفحص (مشهد «فحص الصورة»).",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "مدة الفيديو وحواره من الوثيقة. لا يظهر وجه الشخص الثامن بوضوح."
+          }
+        },
+        {
+          "stable_key": "stage2_photo_inspect",
+          "type": "interaction",
+          "title": "فحص الصورة القديمة",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_photo_intro_video"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "inspect",
+              "prompt": "افحص الصورة جيدًا: كبّرها، وحرّكها، وانقر على ما يلفت نظرك، ثم اقلبها.",
+              "instructions": "كبّر الصورة بالأزرار أو بالقرص بإصبعين، وانقر على التفاصيل. زر «اقلب الصورة» يعرض ظهرها.",
+              "alt_text": "صورة فوتوغرافية قديمة لسبعة أشخاص وبجانبهم شخص ثامن لا تتضح ملامحه، وإحدى حوافها مقصوصة.",
+              "success_message": "لم تعد الصورة صامتة كما كانت.",
+              "wrong_message": "ما زال في الصورة ما لم تنتبه إليه.",
+              "areas": [
+                {
+                  "id": "group_seven",
+                  "label": "الأشخاص السبعة",
+                  "x": 6,
+                  "y": 24,
+                  "w": 66,
+                  "h": 46,
+                  "note": "سبعة أشخاص ملامحهم واضحة نسبيًا."
+                },
+                {
+                  "id": "person_8",
+                  "label": "الشخص الثامن",
+                  "x": 76,
+                  "y": 24,
+                  "w": 15,
+                  "h": 46,
+                  "note": "شخص ثامن لا تتضح ملامحه."
+                },
+                {
+                  "id": "cut_edge",
+                  "label": "حافة الصورة",
+                  "x": 92,
+                  "y": 4,
+                  "w": 7,
+                  "h": 92,
+                  "note": "حافة الصورة تبدو مقصوصة، كأن جزءًا منها أُزيل."
+                }
+              ],
+              "required_count": 4,
+              "back": {
+                "label": "ظهر الصورة",
+                "text": "[[بانتظار نص ظهر الصورة (العبارة المرجعية، وفيه الوقت المكتوب 11:40) من وثيقة المرحلة الثانية]]"
+              }
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "الصورة القديمة",
+              "summary": "سبعة أشخاص بملامح واضحة وثامن لا تتضح ملامحه. حافة الصورة مقصوصة، وعلى ظهرها كتابة بخط اليد.",
+              "clue": null,
+              "show_image": true
+            }
+          },
+          "solution": {
+            "required": [
+              "group_seven",
+              "person_8",
+              "cut_edge",
+              "back"
+            ],
+            "requires_scenes": [
+              "stage2_photo_intro_video"
+            ],
+            "hints": [
+              "ما زالت هناك تفاصيل لم تفحصها: الحافة، والوجوه، وظهر الصورة."
+            ]
+          },
+          "provisional": [
+            "areas.*.x/y/w/h (مواضع التفاصيل على الصورة النهائية)",
+            "back.text (نص ظهر الصورة من الوثيقة)"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "صورة الصورة الفوتوغرافية القديمة بدقة عالية (لا تقل عن 2400px للضلع الأطول) بلا ضغط مبالغ فيه؛ تُرسم الوجوه السبعة بوضوح نسبي، والشخص الثامن بلا ملامح واضحة وبمحاذاة الحافة المقصوصة.",
+              "sfx": [],
+              "interaction_assets": [
+                "لا حاجة لأصل إضافي: ظهر الصورة يُعرض كنص (back.text) داخل الواجهة؛ يمكن لاحقًا استبداله بصورة الظهر إن أراد المخرج."
+              ]
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "يُفتح المشهد التالي (ساعة الحائط)؛ لا يُكشف أي شيء عن هوية الشخص الثامن.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "التفاعل: تكبير/سحب/قرص + أربع تفاصيل مطلوبة (الأشخاص السبعة، الشخص الثامن، الحافة، ظهر الصورة)."
+          }
+        },
+        {
+          "stable_key": "stage2_clock_notice",
+          "type": "interaction",
+          "title": "بين الصورة والمكان",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_photo_inspect"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "hotspot",
+              "prompt": "هناك شيء في المكتبة يمكن مقارنته بما كُتب خلف الصورة. أين تنظر؟",
+              "instructions": "انقر على العنصر الذي تظن أنه يحمل الوقت.",
+              "alt_text": "المكتبة من الداخل: الكتب فوق الطاولة، والمصباح القديم، وساعة الحائط في الأعلى.",
+              "success_message": "تتجه عيناك إلى عقارب الساعة: 11:20.",
+              "wrong_message": "ليس هذا… ما الذي يقيس الزمن في المكان؟",
+              "locked_message": "افحص الصورة أولًا.",
+              "areas": [
+                {
+                  "id": "wall_clock",
+                  "label": "ساعة الحائط",
+                  "x": 44,
+                  "y": 6,
+                  "w": 12,
+                  "h": 20
+                },
+                {
+                  "id": "table_lamp",
+                  "label": "المصباح القديم",
+                  "x": 72,
+                  "y": 44,
+                  "w": 8,
+                  "h": 20
+                },
+                {
+                  "id": "table_books",
+                  "label": "الكتب فوق الطاولة",
+                  "x": 8,
+                  "y": 56,
+                  "w": 62,
+                  "h": 14
+                }
+              ]
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "ساعة الحائط",
+              "summary": "الساعة في المكتبة تشير إلى 11:20.",
+              "clue": null,
+              "show_image": true,
+              "marker": {
+                "x": 50,
+                "y": 16,
+                "label": "11:20"
+              }
+            }
+          },
+          "solution": {
+            "correct": [
+              "wall_clock"
+            ],
+            "requires_scenes": [
+              "stage2_photo_inspect"
+            ]
+          },
+          "provisional": [
+            "areas.*.x/y/w/h (نفس صورة المكتبة في المرحلة الأولى؛ إحداثيات الساعة مطابقة لمنطقة wall_clock هناك)"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "صورة المكتبة نفسها المستعملة في المرحلة الأولى لكن عقارب الساعة على 11:20 بوضوح.",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "يُفتح مشهد «الوقت الذي لا يتطابق».",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "تحقق من استمرارية الصورة مع مشهد «الدرج المخفي» في المرحلة الأولى (الطاولة والكتب السبعة والمصباح والساعة)."
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch2_time",
+      "title": "الفصل الثاني: الوقت الذي لا يتطابق",
+      "summary": null,
+      "scenes": [
+        {
+          "stable_key": "stage2_time_difference",
+          "type": "interaction",
+          "title": "الوقت الذي لا يتطابق",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_clock_notice"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "answer",
+              "prompt": "كم دقيقة تفصل بين الوقت المكتوب خلف الصورة والوقت الذي تشير إليه الساعة؟",
+              "instructions": "اكتب الرقم فقط، بالأرقام العربية أو الإنجليزية.",
+              "alt_text": "ورقة مقارنة بين وقتين: المكتوب خلف الصورة 11:40 وساعة الحائط 11:20.",
+              "input": "number",
+              "placeholder": "عدد الدقائق",
+              "unit_label": "دقيقة",
+              "facts": [
+                {
+                  "label": "المكتوب خلف الصورة",
+                  "value": "11:40"
+                },
+                {
+                  "label": "ساعة الحائط",
+                  "value": "11:20"
+                }
+              ],
+              "success_message": "عشرون دقيقة بالضبط… شيء ما في هذا المكان لا يسير مع الزمن.",
+              "wrong_message": "لا يتطابق الرقم مع ما تراه. أعد قراءة الوقتين.",
+              "locked_message": "تحقق من ساعة الحائط أولًا."
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "فارق عشرين دقيقة",
+              "summary": "المكتوب خلف الصورة 11:40 وساعة الحائط 11:20: بينهما 20 دقيقة.",
+              "clue": 1,
+              "show_image": true
+            }
+          },
+          "solution": {
+            "accepted": [
+              "20"
+            ],
+            "units": [
+              "دقيقة",
+              "دقائق",
+              "min",
+              "minutes"
+            ],
+            "hints": [
+              "قارن بين الوقت المكتوب خلف الصورة والوقت الذي تشير إليه الساعة.",
+              "الفارق يُحسب بالدقائق بين الوقتين.",
+              "ابدأ من الوقت الأصغر وعُدّ حتى تصل إلى الأكبر."
+            ],
+            "reveal": "في طرف الطاولة السفلي، حيث يلتقي الخشب بالجدار، درج رفيع جدًا، وفي طرفه شريط ورقي.",
+            "requires_scenes": [
+              "stage2_clock_notice"
+            ]
+          },
+          "provisional": [
+            "facts: القيمتان 11:40 و11:20 من نص الطلب الرسمي"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "لوحة/صورة المقارنة بين الوقتين (ظهر الصورة وساعة الحائط) أو لقطة المكتبة نفسها.",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "تظهر رسالة النجاح، ثم يُكشف موضع الدرج الرفيع والشريط الورقي (نص الكشف) ويُحفظ الدليل الأول.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "الإجابة تُحقق على الخادم، والأرقام العربية والإنجليزية مقبولة، ولا عقوبة وقت."
+          }
+        },
+        {
+          "stable_key": "stage2_time_result_video",
+          "type": "video",
+          "title": "الدرج الرفيع",
+          "duration_hint_seconds": null,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage2_time_difference"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "آدم",
+                "text": "[[بانتظار حوار آدم من وثيقة المرحلة الثانية]]"
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "آدم يكتشف الدرج الرفيع في طرف الطاولة ويسحب منه شريطًا ورقيًا (من لوحة الكشف).",
+              "image": null,
+              "sfx": [
+                "احتكاك خشب خفيف",
+                "ورقة تُسحب"
+              ],
+              "interaction_assets": []
+            },
+            "start_frame": "لقطة الطاولة من الأمام مع الموضع السفلي (مطابقة لصورة تفاعل الفصل السابق).",
+            "end_frame": "الشريط الورقي في يد آدم، وعليه كتابة غير واضحة بعد.",
+            "on_end": "يُفتح الفصل الثالث.",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "لا يُعرض قبل نجاح الإجابة 20. يمكن حذف هذا الفيديو إن قرر محمد دمجه مع غيره (المنطق لا يعتمد عليه)."
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch2_glass",
+      "title": "الفصل الثالث: أثر على الزجاج",
+      "summary": null,
+      "scenes": [
+        {
+          "stable_key": "stage2_glass_compare",
+          "type": "interaction",
+          "title": "المكتبة بين زمنين",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_time_difference"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "compare",
+              "prompt": "قارن المكتبة في الصورة القديمة بالمكتبة الآن: أي شيء تغيّر موضعه؟",
+              "instructions": "الصورة تعرض المكتبة القديمة والحالية متجاورتين. اختر ما تغيّر.",
+              "alt_text": "صورتان متجاورتان للمكتبة: القديمة (من الصورة الفوتوغرافية) والحالية.",
+              "options": [
+                {
+                  "id": "lamp",
+                  "label": "المصباح"
+                },
+                {
+                  "id": "chair",
+                  "label": "الكرسي"
+                },
+                {
+                  "id": "curtain",
+                  "label": "الستارة"
+                }
+              ],
+              "success_message": "الكرسي لم يكن هنا… كان قرب النافذة.",
+              "wrong_message": "هذا في مكانه. تأمل الفرق بين الصورتين مرة أخرى.",
+              "locked_message": "ما زال هناك ما لم تكتشفه في الفصل السابق."
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "الكرسي تغيّر موضعه",
+              "summary": "في الصورة القديمة كان الكرسي قرب النافذة، وهو الآن في موضع آخر.",
+              "clue": null,
+              "show_image": true
+            }
+          },
+          "solution": {
+            "correct": "chair",
+            "requires_scenes": [
+              "stage2_time_difference"
+            ],
+            "hints": [
+              "انظر إلى القطعة التي يجلس عليها أحدهم عادة."
+            ]
+          },
+          "provisional": [
+            "صورة مركّبة: اليسار المكتبة القديمة (من الصورة)، اليمين المكتبة الحالية"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "صورة مركّبة بعرض 16:9: نصفها الأيسر المكتبة كما في الصورة القديمة، ونصفها الأيمن المكتبة الآن، والفرق الوحيد الواضح موضع الكرسي (يمكن اختلاف طفيف في المصباح والستارة كمشتتات).",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "يُفتح مشهد الموضع القديم قرب النافذة.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": null
+          }
+        },
+        {
+          "stable_key": "stage2_glass_old_position",
+          "type": "interaction",
+          "title": "الموضع الأول",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_glass_compare"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "hotspot",
+              "prompt": "أين كان الكرسي في الصورة القديمة؟ انقر على موضعه الأول.",
+              "instructions": "قارن بين موضع الكرسي القديم والنافذة.",
+              "alt_text": "جزء من المكتبة قرب النافذة: زجاج النافذة وحافة الستارة وأرضية خالية.",
+              "success_message": "هنا كان الكرسي. على الزجاج المقابل آثار باهتة.",
+              "wrong_message": "ليس هنا. ابحث عن مكان الكرسي القديم قرب النافذة.",
+              "locked_message": "اعرف أولًا ما الذي تغيّر.",
+              "areas": [
+                {
+                  "id": "old_chair_spot",
+                  "label": "موضع الكرسي القديم",
+                  "x": 20,
+                  "y": 62,
+                  "w": 22,
+                  "h": 24
+                },
+                {
+                  "id": "window_pane",
+                  "label": "زجاج النافذة",
+                  "x": 52,
+                  "y": 10,
+                  "w": 36,
+                  "h": 50
+                },
+                {
+                  "id": "curtain_edge",
+                  "label": "حافة الستارة",
+                  "x": 4,
+                  "y": 8,
+                  "w": 12,
+                  "h": 60
+                }
+              ]
+            },
+            "editorial": "proposal"
+          },
+          "solution": {
+            "correct": [
+              "old_chair_spot"
+            ],
+            "requires_scenes": [
+              "stage2_glass_compare"
+            ]
+          },
+          "provisional": [
+            "areas.*.x/y/w/h"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "صورة قرب النافذة: الأرضية الخالية حيث كان الكرسي، والزجاج عليه آثار باهتة غير مقروءة بعد.",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "يُفتح مشهد الآثار على الزجاج.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": null
+          }
+        },
+        {
+          "stable_key": "stage2_glass_trace",
+          "type": "interaction",
+          "title": "الآثار على الزجاج",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_glass_old_position"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "drag_drop",
+              "prompt": "حرّك الأثرين إلى موضعيهما على الزجاج حتى تتضح الكتابة.",
+              "instructions": "اختر أثرًا ثم اختر موضعه، أو اسحبه بالفأرة.",
+              "alt_text": "زجاج نافذة عليه أثران باهتان وموضعان محتملان لهما.",
+              "items": [
+                {
+                  "id": "trace_first",
+                  "label": "الأثر الأول",
+                  "symbol": "◐"
+                },
+                {
+                  "id": "trace_second",
+                  "label": "الأثر الثاني",
+                  "symbol": "◑"
+                }
+              ],
+              "targets": [
+                {
+                  "id": "pos_upper",
+                  "label": "الموضع الأعلى"
+                },
+                {
+                  "id": "pos_lower",
+                  "label": "الموضع الأسفل"
+                }
+              ],
+              "success_message": "اتضحت الكتابة على الزجاج.",
+              "wrong_message": "لا يتطابق الأثران مع هذين الموضعين. جرّب ترتيبًا آخر.",
+              "locked_message": "ابدأ من موضع الكرسي القديم."
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "درج ب / ملف 04",
+              "summary": "الآثار على الزجاج تشير إلى الدرج «ب» والملف 04.",
+              "clue": 2,
+              "show_image": true
+            }
+          },
+          "solution": {
+            "map": {
+              "trace_first": "pos_upper",
+              "trace_second": "pos_lower"
+            },
+            "requires_scenes": [
+              "stage2_glass_old_position"
+            ],
+            "reveal": "درج ب / ملف 04",
+            "hints": [
+              "الأثر الأول يبدأ من الأعلى كما تُقرأ الكتابة."
+            ]
+          },
+          "provisional": [
+            "صورة الزجاج بآثار قابلة للقراءة بعد الحل"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "صورة الزجاج مع الأثرين قبل الحل؛ (اختياري) صورة بعد الحل تُظهر «درج ب / ملف 04» بوضوح.",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "يظهر نص «درج ب / ملف 04» (من الخادم) ويُحفظ الدليل الثاني.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": null
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch2_register",
+      "title": "الفصل الرابع: فهرس لا يذكر صاحبه",
+      "summary": null,
+      "scenes": [
+        {
+          "stable_key": "stage2_register_view",
+          "type": "interaction",
+          "title": "فهرس الأرشيف",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_glass_trace"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "inspect",
+              "prompt": "اقرأ صفحة الفهرس بعناية: ابحث عن قيد الملف، وحالته، وأي علامة بجانبه.",
+              "instructions": "كبّر الصفحة وانقر على القيد وحالته والعلامة.",
+              "alt_text": "صفحة من فهرس أرشيف قديم مكتوبة بخط اليد، فيها قيد الملف 04 وحالته وعلامة صغيرة بجانبه.",
+              "success_message": "الفهرس يقول الكثير دون أن يذكر أحدًا.",
+              "wrong_message": "ما زالت في الصفحة تفاصيل لم تقرأها.",
+              "areas": [
+                {
+                  "id": "row_file_04",
+                  "label": "قيد الملف 04",
+                  "x": 8,
+                  "y": 34,
+                  "w": 70,
+                  "h": 10,
+                  "note": "قيد الملف 04 مسجَّل في الفهرس."
+                },
+                {
+                  "id": "status_cell",
+                  "label": "حالة الملف",
+                  "x": 62,
+                  "y": 34,
+                  "w": 28,
+                  "h": 10,
+                  "note": "الحالة: نسخة معدّلة."
+                },
+                {
+                  "id": "moved_mark",
+                  "label": "العلامة الجانبية",
+                  "x": 84,
+                  "y": 30,
+                  "w": 10,
+                  "h": 18,
+                  "note": "علامة صغيرة تدل على أن الأصل نُقل من مكانه."
+                }
+              ],
+              "required_count": 3
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "فهرس الأرشيف",
+              "summary": "الملف 04 مسجَّل كنسخة معدّلة، وبجانبه علامة تدل على نقل الأصل. الفهرس لا يذكر من عدّله.",
+              "clue": null,
+              "show_image": true
+            }
+          },
+          "solution": {
+            "required": [
+              "row_file_04",
+              "status_cell",
+              "moved_mark"
+            ],
+            "requires_scenes": [
+              "stage2_glass_trace"
+            ]
+          },
+          "provisional": [
+            "areas.*.x/y/w/h"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "صورة صفحة الفهرس بدقة عالية وبخط يد مقروء عند التكبير؛ القيد 04 وخانة الحالة والعلامة الجانبية ظاهرة. لا اسم لأي شخص في الصفحة.",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "يُفتح مشهد اختيار ما يجب البحث عنه.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "يجب ألا تحمل الصفحة اسم من عدّل الملف (شرط قصصي)."
+          }
+        },
+        {
+          "stable_key": "stage2_original_choice",
+          "type": "interaction",
+          "title": "ما الذي يلزمك؟",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_register_view"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "choose_item",
+              "prompt": "بعد قراءة الفهرس، ماذا يجب أن تبحث عنه الآن؟",
+              "instructions": "اختر الشيء الذي يقودك إلى الحقيقة.",
+              "alt_text": "ثلاثة خيارات: النسخة الأصلية، النسخة المعدّلة، صفحة أخرى من السجل.",
+              "items": [
+                {
+                  "id": "original_copy",
+                  "label": "النسخة الأصلية"
+                },
+                {
+                  "id": "modified_copy",
+                  "label": "النسخة المعدّلة"
+                },
+                {
+                  "id": "other_page",
+                  "label": "صفحة أخرى من السجل"
+                }
+              ],
+              "success_message": "الأصل هو ما نُقل… وهو ما يجب أن تجده.",
+              "wrong_message": "هذا لا يقودك إلى الحقيقة. فكّر فيما تغيّر في الفهرس.",
+              "locked_message": "اقرأ الفهرس أولًا."
+            },
+            "editorial": "proposal"
+          },
+          "solution": {
+            "correct": "original_copy",
+            "requires_scenes": [
+              "stage2_register_view"
+            ]
+          },
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "يمكن إعادة صورة الفهرس نفسها كخلفية مرجعية.",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "يُفتح مشهد تحديد موضع الخزانة على مخطط المكتبة.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": null
+          }
+        },
+        {
+          "stable_key": "stage2_cabinet_locate",
+          "type": "interaction",
+          "title": "مخطط المكتبة",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_original_choice"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "hotspot",
+              "prompt": "أين تُحفظ الأصول في هذه المكتبة؟ حدّد الموضع على مخطط المكتبة.",
+              "instructions": "انقر على المكان الذي يضم الأرشيف.",
+              "alt_text": "مخطط المكتبة من الأعلى: الباب والطاولة وأماكن الحفظ.",
+              "success_message": "ظهرت خزانة الأرشيف على مخطط المكتبة.",
+              "wrong_message": "ليس هنا. أين يحفظ أصحاب المكان أصولهم القديمة؟",
+              "locked_message": "حدّد ما تبحث عنه أولًا.",
+              "areas": [
+                {
+                  "id": "archive_cabinet",
+                  "label": "خزانة الأرشيف",
+                  "x": 70,
+                  "y": 18,
+                  "w": 14,
+                  "h": 26
+                },
+                {
+                  "id": "reading_table",
+                  "label": "طاولة القراءة",
+                  "x": 36,
+                  "y": 52,
+                  "w": 24,
+                  "h": 18
+                },
+                {
+                  "id": "main_door",
+                  "label": "الباب الرئيسي",
+                  "x": 6,
+                  "y": 70,
+                  "w": 10,
+                  "h": 20
+                }
+              ]
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "النسخة الأصلية في خزانة الأرشيف",
+              "summary": "النسخة الأصلية محفوظة في خزانة الأرشيف، وهي الآن مرسومة على مخطط المكتبة.",
+              "clue": 3,
+              "show_image": true,
+              "marker": {
+                "x": 77,
+                "y": 31,
+                "label": "خزانة الأرشيف"
+              }
+            }
+          },
+          "solution": {
+            "correct": [
+              "archive_cabinet"
+            ],
+            "requires_scenes": [
+              "stage2_original_choice"
+            ]
+          },
+          "provisional": [
+            "areas.*.x/y/w/h",
+            "marker (موضع الخزانة على المخطط)"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "مخطط المكتبة من الأعلى بنفس هوية المرحلة الأولى (الطاولة والكتب السبعة والمصباح والساعة)، وموضع الخزانة واضح.",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "تُحفظ القرينة الثالثة وتظهر الخزانة على المخطط (علامة في سجل الأدلة).",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "لا يُذكر في أي نص من عدّل النسخة."
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch2_cabinet",
+      "title": "الفصل الخامس: الخزانة ذات القفلين",
+      "summary": null,
+      "scenes": [
+        {
+          "stable_key": "stage2_cabinet_locks",
+          "type": "interaction",
+          "title": "الخزانة ذات القفلين",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_cabinet_locate"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "multi_lock",
+              "prompt": "الخزانة مقفلة بقفلين. استعن بالقرائن التي جمعتها.",
+              "instructions": "القفل الأول أرقام، والثاني حرف ثم رقمان. افتح «سجل الأدلة» لتراجع ما اكتشفته.",
+              "alt_text": "خزانة أرشيف خشبية بقفلين: الأول رقمي بخانتين، والثاني حرفي رقمي.",
+              "locks": [
+                {
+                  "id": "lock_time",
+                  "label": "القفل الأول",
+                  "segments": [
+                    {
+                      "type": "digits",
+                      "length": 2
+                    }
+                  ]
+                },
+                {
+                  "id": "lock_drawer",
+                  "label": "القفل الثاني",
+                  "segments": [
+                    {
+                      "type": "letter",
+                      "options": [
+                        "أ",
+                        "ب",
+                        "ج"
+                      ]
+                    },
+                    {
+                      "type": "digits",
+                      "length": 2
+                    }
+                  ]
+                }
+              ],
+              "success_message": "تنفتح الخزانة ببطء، ويعلو صرير المفصلات.",
+              "wrong_message": "لم ينفتح القفلان معًا. راجع القرائن.",
+              "locked_message": "ما زالت تنقصك قرائن قبل أن تقترب من الخزانة."
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "الخزانة مفتوحة",
+              "summary": "في داخل الخزانة ظرف قديم، وتحته النسخة الأصلية.",
+              "clue": null,
+              "show_image": true
+            }
+          },
+          "solution": {
+            "codes": {
+              "lock_time": "20",
+              "lock_drawer": "ب04"
+            },
+            "lock_hints": {
+              "lock_time": "فكّر في الفارق الذي اكتشفته بين الوقتين.",
+              "lock_drawer": "حرف الدرج ثم رقم الملف كما ظهرا لك."
+            },
+            "reveal": "في داخل الخزانة ظرف قديم، وتحته النسخة الأصلية.",
+            "requires_scenes": [
+              "stage2_time_difference",
+              "stage2_glass_trace",
+              "stage2_cabinet_locate"
+            ]
+          },
+          "provisional": [
+            "أبعاد الخزانة والقفلين في الصورة"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "صورة الخزانة مغلقة بقفلين واضحين (للمرجع البصري).",
+              "sfx": [],
+              "interaction_assets": [
+                "لا أصول إضافية: القفلان واجهة برمجية (خانات أرقام وأزرار حروف)."
+              ]
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "تُعرض رسالة الفتح ثم فيديو فتح الخزانة.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "القفل الأول = 20 (القرينة الأولى). القفل الثاني = ب04 (القرينة الثانية). لا يُكشف أي هوية."
+          }
+        },
+        {
+          "stable_key": "stage2_cabinet_open_video",
+          "type": "video",
+          "title": "ما بداخل الخزانة",
+          "duration_hint_seconds": null,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage2_cabinet_locks"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "آدم",
+                "text": "[[بانتظار حوار آدم من وثيقة المرحلة الثانية]]"
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "الخزانة تنفتح؛ آدم يرفع الظرف ويرى تحته النسخة الأصلية.",
+              "image": null,
+              "sfx": [
+                "صرير مفصلات",
+                "قفل ينفتح"
+              ],
+              "interaction_assets": []
+            },
+            "start_frame": "الخزانة مغلقة بالقفلين (مطابقة لصورة تفاعل الفصل).",
+            "end_frame": "لقطة قريبة للنسخة الأصلية فوق الطاولة.",
+            "on_end": "يُفتح الفصل السادس.",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "لا يُعرض قبل نجاح القفلين. لا يكشف هوية الشخص الثامن."
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch2_original",
+      "title": "الفصل السادس: ما تكشفه النسخة الأصلية",
+      "summary": null,
+      "scenes": [
+        {
+          "stable_key": "stage2_projector_video",
+          "type": "video",
+          "title": "عرض النسخة الأصلية",
+          "duration_hint_seconds": null,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage2_cabinet_locks"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "آدم",
+                "text": "[[بانتظار حوار آدم من وثيقة المرحلة الثانية]]"
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "آدم يضع النسخة الأصلية في جهاز العرض (البروجكتر) فتظهر مكبّرة على الحائط.",
+              "image": null,
+              "sfx": [
+                "طقطقة جهاز العرض",
+                "طنين خفيف"
+              ],
+              "interaction_assets": []
+            },
+            "start_frame": "النسخة الأصلية فوق الطاولة (آخر لقطة من فيديو الخزانة).",
+            "end_frame": "الصورة المعروضة على الحائط ثابتة (الإطار الأول لمشهد فحص النسخة الأصلية).",
+            "on_end": "تُعرض ورقة فحص النسخة الأصلية.",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "يبقى الشخص الثامن غامضًا في العرض."
+          }
+        },
+        {
+          "stable_key": "stage2_original_inspect",
+          "type": "interaction",
+          "title": "فحص النسخة الأصلية",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_cabinet_locks"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "inspect",
+              "prompt": "فحص النسخة الأصلية المعروضة: كبّرها وانقر على اللافتة والكتاب والشخص الثامن.",
+              "instructions": "كبّر الصورة بالأزرار أو بالقرص، وانقر على التفاصيل.",
+              "alt_text": "النسخة الأصلية للصورة معروضة على الحائط: فيها لافتة صغيرة خلف المجموعة، وكتاب بيد أحد الأشخاص، وشخص ثامن لا تتضح ملامحه.",
+              "success_message": "النسخة الأصلية تحمل ما حُذف من الأخرى.",
+              "wrong_message": "ما زال في النسخة الأصلية ما لم تفحصه.",
+              "areas": [
+                {
+                  "id": "projected_sign",
+                  "label": "اللافتة",
+                  "x": 40,
+                  "y": 8,
+                  "w": 20,
+                  "h": 14,
+                  "note": "لافتة صغيرة فوق باب في خلفية الصورة."
+                },
+                {
+                  "id": "projected_book",
+                  "label": "الكتاب",
+                  "x": 24,
+                  "y": 56,
+                  "w": 16,
+                  "h": 14,
+                  "note": "كتاب مفتوح بين يدي أحد الأشخاص."
+                },
+                {
+                  "id": "projected_person_8",
+                  "label": "الشخص الثامن",
+                  "x": 76,
+                  "y": 24,
+                  "w": 15,
+                  "h": 46,
+                  "note": "الشخص الثامن ما زال بلا ملامح واضحة."
+                }
+              ],
+              "required_count": 3
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "النسخة الأصلية",
+              "summary": "نسخة الصورة الأصلية تُظهر لافتة فوق باب، وكتابًا بيد أحد الأشخاص، وشخصًا ثامن ما زال بلا ملامح واضحة.",
+              "clue": null,
+              "show_image": true
+            }
+          },
+          "solution": {
+            "required": [
+              "projected_sign",
+              "projected_book",
+              "projected_person_8"
+            ],
+            "requires_scenes": [
+              "stage2_cabinet_locks"
+            ]
+          },
+          "provisional": [
+            "areas.*.x/y/w/h"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "النسخة الأصلية للصورة بدقة عالية (غير مقصوصة الحافة)، والكتابة على اللافتة مقروءة عند التكبير. الشخص الثامن بلا ملامح واضحة.",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "يُفتح مشهد اختيار القرينة.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "يجب أن تكون اللافتة هي مصدر اسم القاعة، ولا تُذكر هوية الشخص الثامن."
+          }
+        },
+        {
+          "stable_key": "stage2_hall_clue_choice",
+          "type": "interaction",
+          "title": "ما الذي يشير إلى المكان الجديد؟",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_original_inspect"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "choose_item",
+              "prompt": "أي تفصيل في النسخة الأصلية يشير إلى مكان جديد؟",
+              "instructions": "اختر التفصيل الذي يقودك إلى المكان التالي.",
+              "alt_text": "أربعة خيارات: اسم القاعة، ملامح الشخص الثامن، غلاف الكتاب، تاريخ الصورة.",
+              "items": [
+                {
+                  "id": "hall_name",
+                  "label": "اسم القاعة"
+                },
+                {
+                  "id": "eighth_face",
+                  "label": "ملامح الشخص الثامن"
+                },
+                {
+                  "id": "book_cover",
+                  "label": "غلاف الكتاب"
+                },
+                {
+                  "id": "photo_date",
+                  "label": "تاريخ الصورة"
+                }
+              ],
+              "success_message": "اللافتة الصغيرة فوق الباب تحمل اسم مكان لم تدخله بعد.",
+              "wrong_message": "هذا التفصيل لا يشير إلى مكان. انظر إلى ما يدل على المكان.",
+              "locked_message": "افحص النسخة الأصلية أولًا."
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "اسم القاعة: قاعة المخطوطات",
+              "summary": "اللافتة في النسخة الأصلية تشير إلى قاعة المخطوطات، وهي الآن مضافة إلى مخطط المكتبة.",
+              "clue": 4,
+              "show_image": true,
+              "marker": {
+                "x": 90,
+                "y": 48,
+                "label": "قاعة المخطوطات"
+              }
+            }
+          },
+          "solution": {
+            "correct": "hall_name",
+            "requires_scenes": [
+              "stage2_original_inspect"
+            ],
+            "reveal": "اللافتة تقول: قاعة المخطوطات."
+          },
+          "provisional": [
+            "marker (موضع القاعة على المخطط)"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "مخطط المكتبة نفسه أو صورة اللافتة بعد التكبير.",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "تُحفظ القرينة الرابعة، ويُضاف اسم القاعة إلى مخطط المكتبة.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "اسم «قاعة المخطوطات» لا يظهر في أي نص قبل هذا المشهد (لا في العناوين ولا في الفصول)."
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch2_finale",
+      "title": "الفصل السابع: المشهد الختامي",
+      "summary": null,
+      "scenes": [
+        {
+          "stable_key": "stage2_finale_video",
+          "type": "video",
+          "title": "الممر المغلق",
+          "duration_hint_seconds": 45,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage2_hall_clue_choice"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "آدم",
+                "text": "[[بانتظار العبارة المرجعية الختامية من وثيقة المرحلة الثانية]]"
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "آدم يغادر الغرفة إلى ممر مغلق قديم، وفي نهايته باب القاعة.",
+              "image": null,
+              "sfx": [
+                "خطوات على أرضية خشبية",
+                "صدى ممر"
+              ],
+              "interaction_assets": []
+            },
+            "start_frame": "لافتة اسم القاعة في النسخة الأصلية ثابتة.",
+            "end_frame": "شاشة سوداء عند باب القاعة (دون كتابة العنوان).",
+            "on_end": "تظهر بطاقة الانتقال إلى المرحلة الثالثة (تنفذها Laravel).",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "لا يظهر ما خلف الباب. لا يُكشف أي شيء من المرحلة الثالثة."
+          }
+        },
+        {
+          "stable_key": "stage2_end",
+          "type": "transition",
+          "title": "نهاية المرحلة الثانية",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage2_finale_video"
+            ]
+          },
+          "config": {
+            "title": "المرحلة الثالثة",
+            "subtitle": "",
+            "next_stage_title": "قاعة المخطوطات",
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "laravel": "بطاقة انتقال تنفذها Laravel على خلفية سوداء: «المرحلة الثالثة» ثم «قاعة المخطوطات». لا فيديو مطلوب. لا محتوى للمرحلة الثالثة يُنشأ هنا."
+          }
+        }
+      ]
+    }
+  ],
+  "pending_from_pdf": [
+    "نص ظهر الصورة (العبارة المرجعية) في مشهد stage2_photo_inspect، ويجب أن يتضمن الوقت المكتوب 11:40.",
+    "حوار آدم في الفيديوهات الأربعة السابقة للختام (stage2_photo_intro_video, stage2_time_result_video, stage2_cabinet_open_video, stage2_projector_video).",
+    "العبارة المرجعية الختامية في stage2_finale_video.",
+    "كل نصوص النجاح/الخطأ/التلميحات المقترحة (editorial=proposal) تحتاج مطابقة مع نص ياسمين الأصلي."
+  ],
+  "not_in_pdf": [
+    "محتوى المرحلة الثالثة وما بعدها (لا يُنشأ ولا يُختلق): آخر مشهد هنا بطاقة الانتقال فقط.",
+    "هوية الشخص الثامن (تبقى غامضة في كل المشاهد).",
+    "من عدّل النسخة (لا يُذكر في أي نص)."
+  ]
+}

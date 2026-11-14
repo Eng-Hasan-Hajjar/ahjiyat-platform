@@ -66,6 +66,18 @@ class SceneConfigNormalizer
                 break;
         }
 
+        // CIN-2: دليل يُسجَّل في «سجل الأدلة» عند إتمام المشهد. لا يُرسَل مع بيانات المشهد أبدًا (CinematicScenePayload قائمة بيضاء)، بل يخرج فقط من CinematicEvidenceLog بعد الإتمام.
+        $evidence = $this->evidence($input['evidence'] ?? null);
+
+        if ($evidence !== null) {
+            $out['evidence'] = $evidence;
+        }
+
+        // حالة المراجعة التحريرية: proposal = نص مقترح يحتاج اعتماد المؤلفة والمالك، approved = معتمد. (الغياب = لا حالة.)
+        if (in_array($input['editorial'] ?? null, ['proposal', 'approved'], true)) {
+            $out['editorial'] = $input['editorial'];
+        }
+
         if (strlen((string) json_encode($out, JSON_UNESCAPED_UNICODE)) > (int) config('cinematic_stories.limits.max_config_bytes')) {
             throw CinematicException::make('config_too_large', 'إعداد المشهد أكبر من الحد المسموح.');
         }
@@ -110,6 +122,32 @@ class SceneConfigNormalizer
         }
 
         return $out;
+    }
+
+    /** @return array{title: string, summary: string, clue: ?int, show_image: bool, marker: ?array{x: float, y: float, label: string}}|null */
+    private function evidence(mixed $raw): ?array
+    {
+        if (! is_array($raw)) {
+            return null;
+        }
+
+        $title = $this->text($raw['title'] ?? '', 120);
+        $summary = $this->text($raw['summary'] ?? '', 600);
+
+        if ($title === '' && $summary === '') {
+            return null;
+        }
+
+        $marker = null;
+        $m = $raw['marker'] ?? null;
+
+        if (is_array($m) && is_numeric($m['x'] ?? null) && is_numeric($m['y'] ?? null) && $m['x'] >= 0 && $m['x'] <= 100 && $m['y'] >= 0 && $m['y'] <= 100) {
+            $marker = ['x' => round((float) $m['x'], 1), 'y' => round((float) $m['y'], 1), 'label' => $this->text($m['label'] ?? '', 60)];
+        }
+
+        $clue = isset($raw['clue']) && is_numeric($raw['clue']) && (int) $raw['clue'] >= 1 && (int) $raw['clue'] <= 9 ? (int) $raw['clue'] : null;
+
+        return ['title' => $title, 'summary' => $summary, 'clue' => $clue, 'show_image' => (bool) ($raw['show_image'] ?? false), 'marker' => $marker];
     }
 
     private function text(mixed $value, int $max): string

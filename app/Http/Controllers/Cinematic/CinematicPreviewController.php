@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cinematic\CinematicRevision;
 use App\Models\Cinematic\CinematicScene;
 use App\Services\Cinematic\CinematicAccess;
+use App\Services\Cinematic\CinematicEvidenceLog;
 use App\Services\Cinematic\CinematicException;
 use App\Services\Cinematic\CinematicPlayService;
 use App\Services\Cinematic\CinematicReadinessChecker;
@@ -22,14 +23,17 @@ use Illuminate\Http\Request;
  */
 class CinematicPreviewController extends Controller
 {
-    public function __construct(protected CinematicAccess $access, protected CinematicPlayService $play, protected CinematicScenePayload $payloads) {}
+    public function __construct(protected CinematicAccess $access, protected CinematicPlayService $play, protected CinematicScenePayload $payloads, protected CinematicEvidenceLog $evidence) {}
 
     public function show(Request $request, string $revision)
     {
         $model = $this->revision($request, $revision);
         $state = $this->play->previewState($model);
-        $scenes = CinematicStructure::scenes($model)->load(['video', 'poster', 'subtitle', 'audio', 'puzzle'])
-            ->mapWithKeys(fn (CinematicScene $s) => [$s->public_id => $this->payloads->make($s, $request->user(), 'available', true)])->all();
+        $sceneModels = CinematicStructure::scenes($model)->load(['video', 'poster', 'subtitle', 'audio', 'puzzle']);
+        $scenes = $sceneModels->mapWithKeys(fn (CinematicScene $s) => [$s->public_id => $this->payloads->make($s, $request->user(), 'available', true)])->all();
+
+        // CIN-2: أدلة المشاهد للمعاينة (إدارة فقط). الواجهة تُظهر منها ما «اجتازه» المعاين في جلسته فقط؛ لا شيء يُحفظ.
+        $evidenceByScene = $sceneModels->mapWithKeys(fn (CinematicScene $s) => [$s->public_id => $this->evidence->entry($s, $request->user(), true)])->filter()->all();
 
         // مشهد البداية الاختياري (?scene=): يُقبل فقط إن كان من هذه النسخة، وإلا نبدأ من الأول (لا إعادة توجيه ولا كشف لمعلومات).
         $start = (string) $request->query('scene', '');
@@ -64,6 +68,7 @@ class CinematicPreviewController extends Controller
                 'title' => $model->title.' — معاينة',
                 'state' => $state,
                 'scenes' => $scenes,
+                'evidence_by_scene' => $evidenceByScene,
                 'start_scene' => $start,
                 'status' => $model->status,
                 'readiness' => $this->readiness($model),
@@ -75,17 +80,17 @@ class CinematicPreviewController extends Controller
     public function submit(Request $request, string $revision, string $scene): JsonResponse
     {
         $model = $this->revision($request, $revision);
-        $data = $request->validate(['submission' => ['required', 'array', 'max:24']]);
+        $data = $request->validate(['submission' => ['required', 'array', 'max:24'], 'attempt' => ['sometimes', 'integer', 'min:1', 'max:50']]);
         $sceneModel = CinematicScene::query()->where('public_id', $scene)->where('revision_id', $model->id)->firstOrFail();
 
         try {
             $allKeys = CinematicScene::query()->where('revision_id', $model->id)->pluck('stable_key')->all();
-            [$correct, $locked, $message, $reveal] = $this->play->evaluateWith($sceneModel, $data['submission'], $allKeys);
+            [$correct, $locked, $message, $reveal, $hint, $detail] = $this->play->evaluateWith($sceneModel, $data['submission'], $allKeys, ['attempt' => (int) ($data['attempt'] ?? 1)]);
         } catch (CinematicException $e) {
             return response()->json(['message' => $e->getMessage(), 'reason' => $e->reason], $e->httpStatus);
         }
 
-        return response()->json(['result' => ['correct' => $correct, 'locked' => $locked, 'message' => $message, 'reveal' => $reveal, 'attempts_left' => null]])->header('Cache-Control', 'no-store');
+        return response()->json(['result' => ['correct' => $correct, 'locked' => $locked, 'message' => $message, 'reveal' => $reveal, 'hint' => $hint, 'detail' => $detail, 'attempts_left' => null]])->header('Cache-Control', 'no-store');
     }
 
     /** جاهزية النسخة محسوبة الآن (قراءة فقط)، وبديلها المخزَّن إن تعذّر الحساب. تحوي رسائل ناقصة/تحذيرات فقط، لا حلولًا. */

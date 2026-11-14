@@ -8,6 +8,7 @@ use App\Models\Cinematic\CinematicRevision;
 use App\Models\Cinematic\CinematicScene;
 use App\Models\Cinematic\CinematicStory;
 use App\Services\Cinematic\CinematicAccess;
+use App\Services\Cinematic\CinematicEvidenceLog;
 use App\Services\Cinematic\CinematicException;
 use App\Services\Cinematic\CinematicPlayService;
 use App\Services\Cinematic\CinematicScenePayload;
@@ -22,7 +23,7 @@ class CinematicPlayController extends Controller
 {
     use ResolvesCinematicStory;
 
-    public function __construct(protected CinematicAccess $access, protected CinematicPlayService $play, protected CinematicScenePayload $payloads) {}
+    public function __construct(protected CinematicAccess $access, protected CinematicPlayService $play, protected CinematicScenePayload $payloads, protected CinematicEvidenceLog $evidence) {}
 
     public function state(Request $request, string $story): JsonResponse
     {
@@ -110,7 +111,15 @@ class CinematicPlayController extends Controller
                 return response()->json(['message' => 'هذه السلسلة غير متاحة حاليًا.', 'reason' => 'unavailable'], 404);
             }
 
-            return response()->json($action($story, $progress))->header('Cache-Control', 'no-store');
+            $out = $action($story, $progress);
+
+            // CIN-2: سجل الأدلة يرافق كل استجابة تحمل حالة التقدّم (مشتق من المشاهد المكتملة فقط، بعد تنفيذ الإجراء).
+            if (isset($out['state'])) {
+                $current = $this->play->progressFor($user, $story);
+                $out['evidence'] = $current ? $this->evidence->forProgress($current, $user) : [];
+            }
+
+            return response()->json($out)->header('Cache-Control', 'no-store');
         } catch (CinematicException $e) {
             return $this->failure($e);
         }

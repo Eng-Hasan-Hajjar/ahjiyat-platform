@@ -20,6 +20,9 @@
             </span>
         </p>
     </template>
+    <template x-if="result && !result.correct && !result.locked && result.hint">
+        <p class="imm-msg is-hint" data-cin2-hint><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-1m0-12a5 5 0 00-3 9v1h6v-1a5 5 0 00-3-9zm-2 16h4"/></svg><span x-text="result.hint"></span></p>
+    </template>
     <template x-if="auto"><div class="imm-auto" aria-hidden="true"><span :style="'width:' + autoPct + '%'"></span></div></template>
 </div>
 @endverbatim

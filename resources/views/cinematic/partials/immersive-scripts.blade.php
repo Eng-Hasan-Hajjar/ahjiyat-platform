@@ -18,7 +18,7 @@
     };
     var AREA_KINDS = ['hotspot', 'container'];
     var STAGE_KINDS = ['hotspot', 'container', 'flashlight'];
-    var OK_FALLBACK = { hotspot: 'أصبتَ الموضع… ينفتح الطريق أمامك.', container: 'أصبتَ الموضع… ينفتح الطريق أمامك.', flashlight: 'ظهر شيء تحت الضوء…', sequence: 'ترتيبك في محلّه.', drag_drop: 'استقرّت القطع في أماكنها.', choose_item: 'اختيار موفّق.', compare: 'اختيار موفّق.', reveal_code: 'انكشف السر.' };
+    var OK_FALLBACK = { hotspot: 'أصبتَ الموضع… ينفتح الطريق أمامك.', container: 'أصبتَ الموضع… ينفتح الطريق أمامك.', flashlight: 'ظهر شيء تحت الضوء…', sequence: 'ترتيبك في محلّه.', drag_drop: 'استقرّت القطع في أماكنها.', choose_item: 'اختيار موفّق.', compare: 'اختيار موفّق.', reveal_code: 'انكشف السر.', answer: 'إجابة صحيحة.', inspect: 'أنهيت الفحص.', multi_lock: 'انفتح القفلان.' };
 
     window.cinImmersiveMixin = function () {
         return {
@@ -142,10 +142,10 @@
             setAdmin(open) { this.adminOpen = !!open; store.set('cin-imm-admin', this.adminOpen ? '1' : '0'); if (this.adminOpen) { this.hudIdle = false; this.refreshDiag(); } },
             setZones(on) { this.showZones = !!on; store.set('cin-imm-zones', this.showZones ? '1' : '0'); },
             refreshDiag() {
-                var st = this.$refs.stage; var box = st ? st.getBoundingClientRect() : null; var s = this.scene;
+                var st = this.$refs.stage || this.$refs.lightStage || this.$refs.inspectStage; var box = st ? st.getBoundingClientRect() : null; var s = this.scene;
                 var rows = [
                     ['مفتاح المشهد', s ? s.key : '—'], ['نوع المشهد', s ? s.type : '—'], ['نوع التفاعل', this.kind || '—'], ['التخطيط', this.layoutKind],
-                    ['نسبة صورة المشهد', this.ix && (this.kind === 'hotspot' || this.kind === 'container' || this.kind === 'flashlight') ? this.stageRatio.toFixed(3) : '—'],
+                    ['نسبة صورة المشهد', this.ix && (this.kind === 'hotspot' || this.kind === 'container' || this.kind === 'flashlight' || this.kind === 'inspect') ? this.stageRatio.toFixed(3) : '—'],
                     ['حجم إطار الصورة', box ? Math.round(box.width) + '×' + Math.round(box.height) + 'px' : '—'],
                     ['حجم الشاشة', window.innerWidth + '×' + window.innerHeight + 'px'],
                     ['الاتجاه', window.innerWidth >= window.innerHeight ? 'أفقي' : 'عمودي'],

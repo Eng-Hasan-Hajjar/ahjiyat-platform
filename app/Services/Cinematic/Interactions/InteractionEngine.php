@@ -7,13 +7,15 @@ namespace App\Services\Cinematic\Interactions;
  *
  * الأنواع: hotspot (نقطة ساخنة)، container (فتح باب/درج بشرط)، sequence (ترتيب)، drag_drop (سحب وإفلات)، choose_item (اختيار عنصر)،
  * compare (مقارنة صورة/مخطط بالمشهد)، reveal_code (كشف رمز بعد شرط)، flashlight (استكشاف بمصباح).
+ * CIN-2: answer (إدخال إجابة رقمية/نصية بتطبيع الأرقام العربية)، inspect (فحص صورة بتكبير: مناطق فحص مطلوبة)، multi_lock (قفل مركب من عدة أقفال).
+ * حقلان عامان في الحل لكل الأنواع: reveal (نص يُكشف بعد النجاح فقط) وhints (تلميحات تُعرض بالتتابع عند الخطأ) — كلاهما خادمي ولا يصل المتصفح قبل وقته.
  * كل نوع يعمل باللمس والفأرة ولوحة المفاتيح لأن الإرسال دائمًا معرّفات عناصر (id) أو إحداثيات نسبية؛ الواجهة تقدّم بديلًا بالقوائم.
  *
  * الدوال نقية (بلا قاعدة بيانات ولا حالة) لتُختبر بسهولة. لا اقتصاد: لا جواهر ولا خبرة.
  */
 final class InteractionEngine
 {
-    public const KINDS = ['hotspot', 'container', 'sequence', 'drag_drop', 'choose_item', 'compare', 'reveal_code', 'flashlight'];
+    public const KINDS = ['hotspot', 'container', 'sequence', 'drag_drop', 'choose_item', 'compare', 'reveal_code', 'flashlight', 'answer', 'inspect', 'multi_lock'];
 
     private const ID = '/\A[a-z0-9_]{1,40}\z/';
 
@@ -131,6 +133,108 @@ final class InteractionEngine
                     }
                 }
                 break;
+
+            case 'answer':
+                $input = $public['input'] ?? 'text';
+
+                if (! in_array($input, ['number', 'text'], true)) {
+                    $errors[] = 'نوع الإدخال: number أو text.';
+                }
+
+                $accepted = $solution['accepted'] ?? null;
+
+                if (! is_array($accepted) || $accepted === [] || count($accepted) > 12 || array_filter($accepted, fn ($a) => ! is_scalar($a) || trim((string) $a) === '' || mb_strlen((string) $a) > 80) !== []) {
+                    $errors[] = 'حدّد إجابة مقبولة واحدة على الأقل (حتى 12، كل منها حتى 80 حرفًا).';
+                } elseif ($input === 'number' && array_filter($accepted, fn ($a) => $this->numeric((string) $a) === null) !== []) {
+                    $errors[] = 'الإجابة المقبولة في الإدخال الرقمي يجب أن تكون رقمًا.';
+                }
+
+                $units = $solution['units'] ?? [];
+
+                if (! is_array($units) || count($units) > 12 || array_filter($units, fn ($u) => ! is_string($u) || mb_strlen($u) > 24) !== []) {
+                    $errors[] = 'وحدات القياس المسموح بكتابتها غير صالحة.';
+                }
+
+                $facts = $public['facts'] ?? [];
+
+                if (! is_array($facts) || count($facts) > 6 || array_filter($facts, fn ($f) => ! is_array($f) || trim((string) ($f['label'] ?? '')) === '' || trim((string) ($f['value'] ?? '')) === '') !== []) {
+                    $errors[] = 'المعطيات المعروضة: حتى 6، لكل منها اسم وقيمة.';
+                }
+
+                $this->requiresList($solution, $errors);
+                break;
+
+            case 'inspect':
+                $ids = $this->areaIds($public, $errors);
+                $back = $public['back'] ?? null;
+
+                // «قلب الصورة»: وجه خلفي اختياري (نص بخط اليد مثلًا). يُعدّ منطقة فحص افتراضية بالمعرّف back.
+                if ($back !== null) {
+                    if (! is_array($back) || trim((string) ($back['label'] ?? '')) === '' || mb_strlen((string) $back['label']) > 40 || trim((string) ($back['text'] ?? '')) === '' || mb_strlen((string) $back['text']) > 600) {
+                        $errors[] = 'الوجه الخلفي: اسم (حتى 40 حرفًا) ونص (حتى 600 حرف).';
+                    } else {
+                        $ids[] = 'back';
+                    }
+                }
+
+                $required = $solution['required'] ?? null;
+
+                if (! is_array($required) || $required === [] || array_diff($required, $ids) !== [] || count(array_unique($required)) !== count($required)) {
+                    $errors[] = 'حدّد مناطق الفحص المطلوبة من المناطق المعرّفة.';
+                } elseif ((int) ($public['required_count'] ?? 0) !== count($required)) {
+                    $errors[] = 'عدد مناطق الفحص المطلوبة لا يطابق التعريف العام (required_count).';
+                }
+
+                $this->requiresList($solution, $errors);
+                break;
+
+            case 'multi_lock':
+                $locks = $public['locks'] ?? null;
+                $codes = $solution['codes'] ?? null;
+
+                if (! is_array($locks) || $locks === [] || count($locks) > 4) {
+                    $errors[] = 'عرّف من 1 إلى 4 أقفال.';
+                    break;
+                }
+
+                $seen = [];
+
+                foreach ($locks as $lock) {
+                    $segments = is_array($lock) ? ($lock['segments'] ?? null) : null;
+
+                    if (! is_array($lock) || ! $this->validId($lock['id'] ?? null) || in_array($lock['id'], $seen, true) || trim((string) ($lock['label'] ?? '')) === '' || ! $this->validSegments($segments)) {
+                        $errors[] = 'قفل غير صالح (معرّف فريد، اسم، وأجزاء: أرقام 1–6 خانات أو حروف من 2–12 خيارًا).';
+                        break;
+                    }
+
+                    $seen[] = $lock['id'];
+
+                    if (! is_array($codes) || ! is_string($codes[$lock['id']] ?? null) || ! $this->codeMatches($segments, (string) $codes[$lock['id']])) {
+                        $errors[] = "الرمز الصحيح للقفل «{$lock['id']}» مفقود أو لا يطابق أجزاءه.";
+                        break;
+                    }
+                }
+
+                $this->requiresList($solution, $errors);
+                break;
+        }
+
+        $reveal = $solution['reveal'] ?? null;
+
+        if ($reveal !== null && (! is_string($reveal) || mb_strlen($reveal) > 600)) {
+            $errors[] = 'نص الكشف بعد النجاح: حتى 600 حرف.';
+        }
+
+        $hints = $solution['hints'] ?? [];
+
+        if (! is_array($hints) || count($hints) > 8 || array_filter($hints, fn ($h) => ! is_string($h) || mb_strlen($h) > 300) !== []) {
+            $errors[] = 'التلميحات: حتى 8 نصوص (كل منها حتى 300 حرف).';
+        }
+
+        $hintsBy = $solution['lock_hints'] ?? [];
+
+        if (! is_array($hintsBy) || array_filter($hintsBy, fn ($h) => ! is_string($h) || mb_strlen($h) > 300) !== []) {
+            $errors[] = 'تلميحات الأقفال غير صالحة.';
         }
 
         return array_values(array_unique($errors));
@@ -172,6 +276,28 @@ final class InteractionEngine
             $out['light_radius'] = (float) ($public['light_radius'] ?? 15);
         }
 
+        if ($kind === 'answer') {
+            $out['input'] = ($public['input'] ?? 'text') === 'number' ? 'number' : 'text';
+            $out['placeholder'] = $this->text($public['placeholder'] ?? '');
+            $out['unit_label'] = $this->text($public['unit_label'] ?? '');
+            $out['facts'] = array_map(fn (array $f) => ['label' => $this->text($f['label'] ?? ''), 'value' => $this->text($f['value'] ?? '')], array_slice($this->listOf($public, 'facts'), 0, 6));
+        }
+
+        if ($kind === 'inspect') {
+            $out['areas'] = array_map(fn (array $a) => ['id' => $a['id'], 'label' => $this->text($a['label'] ?? ''), 'x' => (float) $a['x'], 'y' => (float) $a['y'], 'w' => (float) $a['w'], 'h' => (float) $a['h'], 'note' => $this->text($a['note'] ?? '')], $this->listOf($public, 'areas'));
+            $out['required_count'] = (int) ($public['required_count'] ?? 0);
+
+            if (is_array($public['back'] ?? null)) {
+                $out['back'] = ['label' => $this->text($public['back']['label'] ?? ''), 'text' => $this->text($public['back']['text'] ?? '')];
+            }
+        }
+
+        if ($kind === 'multi_lock') {
+            $out['locks'] = array_map(fn (array $l) => ['id' => $l['id'], 'label' => $this->text($l['label'] ?? ''), 'segments' => array_map(fn (array $g) => ($g['type'] ?? '') === 'letter'
+                ? ['type' => 'letter', 'options' => array_values(array_map(fn ($o) => $this->text($o), (array) ($g['options'] ?? [])))]
+                : ['type' => 'digits', 'length' => (int) ($g['length'] ?? 1)], array_values(array_filter((array) ($l['segments'] ?? []), 'is_array')))], $this->listOf($public, 'locks'));
+        }
+
         return $out;
     }
 
@@ -184,7 +310,37 @@ final class InteractionEngine
      * @param  list<string>  $completedKeys  مفاتيح المشاهد المكتملة في تقدّم اللاعب (لشروط requires_scenes)
      * @return array{correct: bool, locked: bool, message: ?string, reveal: ?string}
      */
-    public function evaluate(string $kind, array $public, array $solution, array $submission, array $completedKeys = []): array
+    public function evaluate(string $kind, array $public, array $solution, array $submission, array $completedKeys = [], array $context = []): array
+    {
+        $r = $this->evaluateCore($kind, $public, $solution, $submission, $completedKeys) + ['hint' => null, 'detail' => null];
+
+        // CIN-2: نص الكشف يُسلَّم بعد النجاح فقط، والتلميحات بالتتابع عند الخطأ فقط (تقدير التلميح = رقم المحاولة؛ لا عقوبة زمنية).
+        $reveal = $solution['reveal'] ?? null;
+
+        if ($r['correct'] && $r['reveal'] === null && is_string($reveal) && trim($reveal) !== '') {
+            $r['reveal'] = $this->text($reveal);
+        }
+
+        if (! $r['correct'] && ! $r['locked'] && $r['hint'] === null) {
+            $hints = array_values(array_filter((array) ($solution['hints'] ?? []), 'is_string'));
+
+            if ($hints !== []) {
+                $attempt = max(1, (int) ($context['attempt'] ?? 1));
+                $r['hint'] = $this->text($hints[min($attempt, count($hints)) - 1]);
+            }
+        }
+
+        return $r;
+    }
+
+    /**
+     * @param  array<string, mixed>  $public
+     * @param  array<string, mixed>  $solution
+     * @param  array<string, mixed>  $submission
+     * @param  list<string>  $completedKeys
+     * @return array{correct: bool, locked: bool, message: ?string, reveal: ?string, hint?: ?string, detail?: ?array<string, bool>}
+     */
+    protected function evaluateCore(string $kind, array $public, array $solution, array $submission, array $completedKeys = []): array
     {
         $wrong = $this->text($public['wrong_message'] ?? 'ليست الإجابة الصحيحة، حاول مرة أخرى.');
         $ok = fn (?string $reveal = null) => ['correct' => true, 'locked' => false, 'message' => isset($public['success_message']) ? $this->text($public['success_message']) : null, 'reveal' => $reveal];
@@ -240,6 +396,76 @@ final class InteractionEngine
 
                 return $ok((string) ($solution['code'] ?? ''));
 
+            case 'answer':
+                if (array_diff((array) ($solution['requires_scenes'] ?? []), $completedKeys) !== []) {
+                    return $no(true);
+                }
+
+                $given = $submission['answer'] ?? null;
+
+                if (! is_scalar($given) || mb_strlen((string) $given) > 80) {
+                    return $no();
+                }
+
+                $number = ($public['input'] ?? 'text') === 'number';
+                $units = array_values(array_filter((array) ($solution['units'] ?? []), 'is_string'));
+
+                foreach ((array) ($solution['accepted'] ?? []) as $accepted) {
+                    $match = $number
+                        ? ($this->numeric((string) $given, $units) !== null && $this->numeric((string) $given, $units) === $this->numeric((string) $accepted))
+                        : ($this->normText((string) $given) !== '' && $this->normText((string) $given) === $this->normText((string) $accepted));
+
+                    if ($match) {
+                        return $ok();
+                    }
+                }
+
+                return $no();
+
+            case 'inspect':
+                if (array_diff((array) ($solution['requires_scenes'] ?? []), $completedKeys) !== []) {
+                    return $no(true);
+                }
+
+                $inspected = $submission['inspected'] ?? null;
+                $inspected = is_array($inspected) ? array_values(array_filter($inspected, 'is_string')) : [];
+
+                if (array_diff((array) ($solution['required'] ?? []), $inspected) === [] && (array) ($solution['required'] ?? []) !== []) {
+                    return $ok();
+                }
+
+                return ['correct' => false, 'locked' => false, 'message' => isset($public['wrong_message']) ? $this->text($public['wrong_message']) : 'ما زال هناك ما يستحق الفحص.', 'reveal' => null];
+
+            case 'multi_lock':
+                if (array_diff((array) ($solution['requires_scenes'] ?? []), $completedKeys) !== []) {
+                    return $no(true);
+                }
+
+                $values = is_array($submission['values'] ?? null) ? $submission['values'] : [];
+                $codes = (array) ($solution['codes'] ?? []);
+                $detail = [];
+                $firstWrong = null;
+
+                foreach ($this->listOf($public, 'locks') as $lock) {
+                    $id = (string) ($lock['id'] ?? '');
+                    $v = $values[$id] ?? null;
+                    $given = is_array($v) ? implode('', array_map(fn ($x) => is_scalar($x) ? (string) $x : '', $v)) : (is_scalar($v) ? (string) $v : '');
+                    $ok1 = mb_strlen($given) <= 40 && $this->normText($given) !== '' && $this->normText($given) === $this->normText((string) ($codes[$id] ?? ''));
+                    $detail[$id] = $ok1;
+
+                    if (! $ok1 && $firstWrong === null) {
+                        $firstWrong = $id;
+                    }
+                }
+
+                if ($firstWrong === null && $detail !== []) {
+                    return $ok() + ['hint' => null, 'detail' => $detail];
+                }
+
+                $hint = isset($solution['lock_hints'][$firstWrong]) && is_string($solution['lock_hints'][$firstWrong]) ? $this->text($solution['lock_hints'][$firstWrong]) : null;
+
+                return $no() + ['hint' => $hint, 'detail' => $detail];
+
             case 'flashlight':
                 $targets = (array) ($solution['targets'] ?? []);
                 $required = (int) ($solution['required'] ?? count($targets));
@@ -267,6 +493,118 @@ final class InteractionEngine
         }
 
         return $no();
+    }
+
+    /** رقم معيَّر (نص عشري قانوني) من إدخال يقبل الأرقام العربية والفارسية والفاصلة العشرية العربية ووحدات مسموحة؛ null إن لم يكن رقمًا. */
+    private function numeric(string $raw, array $units = []): ?string
+    {
+        $s = trim(strtr($this->digits(trim($raw)), ['٫' => '.', '٬' => '', ',' => '.', '،' => '.']));
+        $list = array_values(array_filter(array_map(fn ($u) => is_string($u) ? $this->digits(trim($u)) : '', $units), fn ($u) => $u !== ''));
+        usort($list, fn ($a, $b) => mb_strlen($b) <=> mb_strlen($a));
+
+        // الوحدة المسموحة تُقبل قبل الرقم أو بعده فقط (لا في وسطه): «20 دقيقة» و«دقيقة 20» مقبولتان، و«2 دقيقة 0» ليست كذلك.
+        foreach ($list as $unit) {
+            $q = preg_quote($unit, '/');
+            $s = trim((string) preg_replace(['/\A'.$q.'(?=[\s\d.\-]|\z)/ui', '/(?<=[\d.\s])'.$q.'\z/ui'], '', $s));
+        }
+
+        // مسافة بين رقمين تعني إدخالًا مختلفًا («2 0»، «20 20») لا الرقم 20.
+        if (preg_match('/\d\s+\d/u', $s) === 1) {
+            return null;
+        }
+
+        $s = (string) preg_replace('/\s+/u', '', $s);
+
+        if (preg_match('/\A-?\d{1,9}(\.\d{1,4})?\z/', $s) !== 1) {
+            return null;
+        }
+
+        return rtrim(rtrim(number_format((float) $s, 4, '.', ''), '0'), '.');
+    }
+
+    private function digits(string $s): string
+    {
+        return strtr($s, ['٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+            '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4', '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9']);
+    }
+
+    /** تطبيع نص للمقارنة: أرقام لاتينية، بلا تشكيل/تطويل/مسافات/ترقيم، وتوحيد الألف والياء والتاء المربوطة، وأحرف صغيرة. */
+    private function normText(string $s): string
+    {
+        $s = $this->digits($s);
+        $s = (string) preg_replace('/[\x{064B}-\x{065F}\x{0670}\x{0640}]/u', '', $s);
+        $s = strtr($s, ['أ' => 'ا', 'إ' => 'ا', 'آ' => 'ا', 'ى' => 'ي', 'ة' => 'ه', 'ؤ' => 'و', 'ئ' => 'ي']);
+
+        return (string) preg_replace('/[\s\p{P}\p{S}]+/u', '', mb_strtolower($s));
+    }
+
+    /** @param mixed $segments */
+    private function validSegments(mixed $segments): bool
+    {
+        if (! is_array($segments) || $segments === [] || count($segments) > 4) {
+            return false;
+        }
+
+        foreach ($segments as $g) {
+            if (! is_array($g)) {
+                return false;
+            }
+
+            if (($g['type'] ?? null) === 'digits') {
+                if (! is_int($g['length'] ?? null) && ! (is_numeric($g['length'] ?? null) && (int) $g['length'] == $g['length'])) {
+                    return false;
+                }
+
+                if ((int) $g['length'] < 1 || (int) $g['length'] > 6) {
+                    return false;
+                }
+            } elseif (($g['type'] ?? null) === 'letter') {
+                $o = $g['options'] ?? null;
+
+                if (! is_array($o) || count($o) < 2 || count($o) > 12 || array_filter($o, fn ($x) => ! is_string($x) || trim($x) === '' || mb_strlen($x) > 3) !== [] || count(array_unique($o)) !== count($o)) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** هل الرمز الصحيح المحفوظ يطابق أجزاء القفل (أرقام بالعدد المطلوب، أو حرف من الخيارات)؟ */
+    private function codeMatches(array $segments, string $code): bool
+    {
+        $rest = $this->digits(trim($code));
+
+        foreach ($segments as $g) {
+            if (($g['type'] ?? '') === 'digits') {
+                $n = (int) $g['length'];
+
+                if (preg_match('/\A\d{'.$n.'}/', $rest) !== 1) {
+                    return false;
+                }
+
+                $rest = substr($rest, $n);
+            } else {
+                $hit = null;
+
+                foreach ((array) ($g['options'] ?? []) as $opt) {
+                    if (str_starts_with($rest, $this->digits((string) $opt))) {
+                        $hit = $this->digits((string) $opt);
+                        break;
+                    }
+                }
+
+                if ($hit === null) {
+                    return false;
+                }
+
+                $rest = substr($rest, strlen($hit));
+            }
+        }
+
+        return $rest === '';
     }
 
     /** @param list<string> $errors @return list<string> */

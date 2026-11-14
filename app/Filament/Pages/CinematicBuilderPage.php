@@ -333,6 +333,10 @@ class CinematicBuilderPage extends Page
             'wrong_message' => (string) ($config['wrong_message'] ?? ''), 'success_message' => (string) ($config['success_message'] ?? ''),
             'kind' => (string) ($public['kind'] ?? 'choose_item'),
             'ix' => $this->can('manage') && $public !== [] ? SceneFormCodec::encodeInteraction($public, $solution ? (array) $solution->payload : []) : SceneFormCodec::encodeInteraction(['kind' => 'choose_item'], []),
+            // CIN-2: بطاقة الدليل (سجل الأدلة) وعلامة الاعتماد التحريري — تُحفظ لكل أنواع المشاهد كي لا تضيع عند الحفظ من اللوحة.
+            // بطاقة الدليل قد تلخّص حلًّا (مثل الفارق بين وقتين) فلا تصل لمن لا يملك manage.
+            'ev' => SceneFormCodec::evidenceToForm($this->can('manage') ? (array) ($config['evidence'] ?? []) : []),
+            'editorial' => (string) ($config['editorial'] ?? ''),
             'media' => $this->mediaForm($scene),
         ];
     }
@@ -381,6 +385,9 @@ class CinematicBuilderPage extends Page
                     $config['interaction'] = $public;
                 }
             }
+
+            $config['evidence'] = SceneFormCodec::formToEvidence((array) ($sf['ev'] ?? []));
+            $config['editorial'] = (string) ($sf['editorial'] ?? '');
 
             $data = [
                 'title' => $sf['title'] ?? '', 'is_optional' => (bool) ($sf['optional'] ?? false), 'is_skippable' => (bool) ($sf['skippable'] ?? false), 'allow_replay' => (bool) ($sf['replay'] ?? false),
@@ -610,7 +617,7 @@ class CinematicBuilderPage extends Page
             'editing' => $editing,
             'assets' => ['video' => $assets('video'), 'poster' => $assets('poster'), 'subtitle' => $assets('subtitle'), 'audio' => $assets('audio')],
             'puzzles' => $puzzles,
-            'kinds' => ['hotspot' => 'نقطة ساخنة', 'container' => 'باب/درج بشرط', 'sequence' => 'ترتيب', 'drag_drop' => 'سحب وإفلات', 'choose_item' => 'اختيار عنصر', 'compare' => 'مقارنة', 'reveal_code' => 'كشف رمز بشرط', 'flashlight' => 'مصباح'],
+            'kinds' => ['hotspot' => 'نقطة ساخنة', 'container' => 'باب/درج بشرط', 'sequence' => 'ترتيب', 'drag_drop' => 'سحب وإفلات', 'choose_item' => 'اختيار عنصر', 'compare' => 'مقارنة', 'reveal_code' => 'كشف رمز بشرط', 'flashlight' => 'مصباح', 'answer' => 'إجابة رقمية/نصية', 'inspect' => 'فحص مناطق (تكبير/قلب)', 'multi_lock' => 'خزانة متعددة الأقفال'],
             'types' => ['video' => 'فيديو', 'narrative' => 'سرد', 'puzzle' => 'أحجية', 'interaction' => 'تفاعل', 'exploration' => 'استكشاف', 'transition' => 'انتقال'],
             'statusLabels' => ['draft' => 'مسودة', 'in_review' => 'قيد المراجعة', 'published' => 'منشورة', 'superseded' => 'مستبدلة', 'unpublished' => 'مسحوبة'],
             'previewUrl' => $this->can('preview') ? route('cinematic.preview', $revision->public_id) : null,

@@ -77,6 +77,7 @@ class CinematicReadinessChecker
         }
 
         $seenKeys = [];
+        $clues = [];
 
         foreach ($scenes as $scene) {
             $key = $scene->stable_key;
@@ -96,6 +97,19 @@ class CinematicReadinessChecker
                 CinematicScene::TYPE_PUZZLE => $this->checkPuzzle($scene, $add),
                 default => $this->checkInteraction($scene, $solutions->get($scene->id), $add),
             };
+
+            $this->checkContent($scene, $solutions->get($scene->id), $clues, $add);
+        }
+
+        // CIN-2: كل مرحلة ليست الأخيرة يُفضَّل أن تنتهي بمشهد انتقال (تنبيه لا يمنع النشر).
+        if ($stages->count() > 1) {
+            foreach ($stages as $stage) {
+                $last = $scenes->where('stage_id', $stage->id)->last();
+
+                if ($last !== null && $last->type !== CinematicScene::TYPE_TRANSITION) {
+                    $add('warning', 'stage_transition_missing', "المرحلة «{$stage->title}» لا تنتهي بمشهد انتقال.", $last->stable_key);
+                }
+            }
         }
 
         return [
@@ -105,6 +119,76 @@ class CinematicReadinessChecker
             'counts' => ['stages' => $stages->count(), 'chapters' => $chapters->flatten()->count(), 'scenes' => $scenes->count()],
             'checked_at' => now()->toIso8601String(),
         ];
+    }
+
+    /**
+     * CIN-2 - فحوص عامة لكل المشاهد: نصوص مؤقتة بانتظار النص المرجعي (تمنع النشر)، حالة المراجعة التحريرية (تنبيه)، تعريف الدليل، وصورة المشهد للأنواع التي تحتاجها.
+     *
+     * @param  array<int, int>  $clues  رقم القرينة ⇒ مفتاح المشهد (لكشف التكرار)
+     */
+    protected function checkContent(CinematicScene $scene, ?CinematicSceneSolution $solution, array &$clues, \Closure $add): void
+    {
+        $config = (array) $scene->config;
+        $key = $scene->stable_key;
+
+        // نص مؤقت [[...]]: يُفحص في كل النصوص (الإعداد العام) وفي نصوص الحل الخادمية (الكشف والتلميحات).
+        $found = false;
+        $this->walkStrings($config, function (string $text) use (&$found) {
+            $found = $found || preg_match('/\[\[[^\]]{1,200}\]\]/u', $text) === 1;
+        });
+        $this->walkStrings((array) ($solution?->payload ?? []), function (string $text) use (&$found) {
+            $found = $found || preg_match('/\[\[[^\]]{1,200}\]\]/u', $text) === 1;
+        });
+
+        if ($found) {
+            $add('blocker', 'placeholder_text', "مشهد «{$scene->title}» يحتوي نصًا مؤقتًا بين [[ ]] بانتظار النص المرجعي المعتمد؛ استبدله قبل النشر.", $key);
+        }
+
+        if (($config['editorial'] ?? null) === 'proposal') {
+            $add('warning', 'editorial_pending', "مشهد «{$scene->title}»: محتوى مقترح يحتاج اعتماد مؤلفة القصة والمالك.", $key);
+        }
+
+        if (isset($config['evidence'])) {
+            $ev = (array) $config['evidence'];
+
+            if (trim((string) ($ev['title'] ?? '')) === '' || trim((string) ($ev['summary'] ?? '')) === '') {
+                $add('blocker', 'evidence_incomplete', "دليل مشهد «{$scene->title}» بلا عنوان أو ملخص.", $key);
+            }
+
+            if (($ev['show_image'] ?? false) && $scene->poster === null) {
+                $add('warning', 'evidence_image_missing', "دليل مشهد «{$scene->title}» يعرض صورة المشهد لكن لا توجد صورة مربوطة.", $key);
+            }
+
+            if (isset($ev['clue'])) {
+                if (isset($clues[(int) $ev['clue']])) {
+                    $add('warning', 'evidence_clue_duplicate', "رقم القرينة {$ev['clue']} مكرر بين «{$clues[(int) $ev['clue']]}» و«{$key}».", $key);
+                }
+
+                $clues[(int) $ev['clue']] = $key;
+            }
+        }
+
+        $kind = (string) ($config['interaction']['kind'] ?? '');
+
+        if (in_array($scene->type, [CinematicScene::TYPE_INTERACTION, CinematicScene::TYPE_EXPLORATION], true) && in_array($kind, ['inspect', 'answer', 'multi_lock'], true)) {
+            if ($scene->poster === null) {
+                $add($kind === 'inspect' ? 'blocker' : 'warning', 'scene_image_missing', "مشهد «{$scene->title}» ({$kind}) بلا صورة مشهد مربوطة.", $key);
+            } elseif ($scene->poster->width && $scene->poster->height && $scene->poster->width / $scene->poster->height > 2.4) {
+                $add('warning', 'image_aspect_wide', "صورة مشهد «{$scene->title}» عريضة جدًا (أكثر من 2.4:1)؛ على الجوال العمودي ستظهر صغيرة (يبقى التكبير متاحًا).", $key);
+            }
+        }
+    }
+
+    /** @param array<mixed> $data @param \Closure(string): void $visit */
+    protected function walkStrings(array $data, \Closure $visit): void
+    {
+        foreach ($data as $value) {
+            if (is_string($value)) {
+                $visit($value);
+            } elseif (is_array($value)) {
+                $this->walkStrings($value, $visit);
+            }
+        }
     }
 
     protected function checkVideo(CinematicScene $scene, \Closure $add): void

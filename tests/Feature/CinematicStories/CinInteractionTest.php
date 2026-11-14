@@ -9,11 +9,13 @@ require_once __DIR__.'/_support.php';
 | التحقق من التعريف، العرض العام بقائمة بيضاء بلا أي حل، التقييم الصحيح/الخاطئ، المدخلات المشوَّهة، الشروط.
 */
 
-test('INT-01: every one of the eight kinds validates a complete definition and rejects an incomplete or inconsistent one', function () {
+test('INT-01: every one of the eight CIN-1 kinds validates a complete definition and rejects an incomplete or inconsistent one (CIN-2 added three more kinds, covered in CinStage2EngineTest)', function () {
     $engine = new InteractionEngine;
     $defs = cin_defs();
+    $cin2 = ['answer', 'inspect', 'multi_lock'];
 
-    expect(array_keys($defs))->toEqualCanonicalizing($engine->kinds())->and(count($engine->kinds()))->toBe(8);
+    // الأنواع الثمانية الأصلية كلها معرّفة هنا، وCIN-2 أضاف ثلاثة أنواع (لها اختبارات مستقلة)، فالمجموع 11.
+    expect(array_keys($defs))->toEqualCanonicalizing(array_values(array_diff($engine->kinds(), $cin2)))->and(count($engine->kinds()))->toBe(11)->and(count($defs))->toBe(8);
 
     foreach ($defs as $kind => [$public, $solution]) {
         expect($engine->validate($kind, $public, $solution))->toBe([], "kind {$kind} should be valid");

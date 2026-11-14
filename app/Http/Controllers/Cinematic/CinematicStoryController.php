@@ -7,6 +7,7 @@ use App\Models\Cinematic\CinematicRevision;
 use App\Models\Cinematic\CinematicStage;
 use App\Models\Cinematic\CinematicStory;
 use App\Services\Cinematic\CinematicAccess;
+use App\Services\Cinematic\CinematicEvidenceLog;
 use App\Services\Cinematic\CinematicPlayService;
 use App\Services\Cinematic\Media\CinematicMediaLinks;
 use Illuminate\Http\Request;
@@ -20,7 +21,7 @@ class CinematicStoryController extends Controller
 {
     use ResolvesCinematicStory;
 
-    public function __construct(protected CinematicAccess $access, protected CinematicPlayService $play, protected CinematicMediaLinks $links) {}
+    public function __construct(protected CinematicAccess $access, protected CinematicPlayService $play, protected CinematicMediaLinks $links, protected CinematicEvidenceLog $evidence) {}
 
     public function index(Request $request)
     {
@@ -96,6 +97,7 @@ class CinematicStoryController extends Controller
                 'mode' => 'play',
                 'title' => $story->title,
                 'state' => $state,
+                'evidence' => $progress ? $this->evidence->forProgress($progress, $user) : [],
                 'urls' => [
                     'state' => route('cinematic.state', $story->slug),
                     'start' => route('cinematic.scene.start', [$story->slug, '__SCENE__']),

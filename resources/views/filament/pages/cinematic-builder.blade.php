@@ -400,6 +400,39 @@
                                         @if ($kind === 'reveal_code')
                                             <label class="cin-field">نص زر الكشف<input type="text" wire:model="sf.ix.reveal_label" maxlength="600"></label>
                                         @endif
+                                        @if ($kind === 'answer')
+                                            <div class="cin-grid cin-grid-3" data-ix-answer-public>
+                                                <label class="cin-field">نوع الإدخال
+                                                    <select wire:model="sf.ix.input"><option value="number">رقم (يقبل ٠-٩ و0-9)</option><option value="text">نص</option></select>
+                                                </label>
+                                                <label class="cin-field">نص توضيحي داخل الحقل<input type="text" wire:model="sf.ix.placeholder" maxlength="80"></label>
+                                                <label class="cin-field">وحدة تُعرض بجانب الحقل (مثل: دقيقة)<input type="text" wire:model="sf.ix.unit_label" maxlength="12"></label>
+                                            </div>
+                                            <label class="cin-field">معطيات تُعرض أمام اللاعب — سطر: <span class="cin-ltr">الاسم|القيمة</span> (مثل: المكتوب في الدفتر|11:40)<textarea wire:model="sf.ix.facts" rows="3"></textarea></label>
+                                        @endif
+                                        @if ($kind === 'inspect')
+                                            {{-- CIN-2: المعايرة البصرية نفسها لمناطق الفحص (الصيغة النصية نفسها id|الاسم|x|y|العرض|الارتفاع؛ لا مسار حفظ جديد). --}}
+                                            <div class="cin-block" data-calibrator-block>
+                                                <div class="cin-block-title">معايرة مناطق الفحص فوق الصورة</div>
+                                                @if ($editing['imageUrl'])
+                                                    @include('filament.pages.partials.cinematic-calibrator', ['format' => 'areas', 'source' => 'cin-src-inspect', 'editing' => $editing, 'pickedPoster' => $sf['media']['poster'] ?? '', 'prefix' => 'area', 'canEdit' => $editable && $canManage])
+                                                @elseif (($sf['media']['poster'] ?? '') !== '')
+                                                    <p class="cin-note is-warn" data-calibrator-noaccess>صورة المشهد مربوطة، لكن عرضها داخل المحرّر يحتاج صلاحية «الوسائط» أو «المعاينة». يمكنك تعديل الإحداثيات يدويًا من الحقل أدناه.</p>
+                                                @else
+                                                    <p class="cin-note is-warn" data-calibrator-noimage>لا توجد صورة مختارة لهذا المشهد. اختر «صورة المشهد» في قسم الوسائط أدناه (أو ارفع صورة جديدة) لتظهر هنا ويمكن ضبط المناطق عليها.</p>
+                                                @endif
+                                            </div>
+                                            <label class="cin-field">مناطق الفحص — سطر: <span class="cin-ltr">id|الاسم|x|y|العرض|الارتفاع</span> (نسب 0–100 من الصورة؛ عدّلها بالأرقام ثم تحقّق بالمعاينة)<textarea id="cin-src-inspect" wire:model="sf.ix.areas" rows="5" dir="ltr"></textarea></label>
+                                            <label class="cin-field">ملاحظة تظهر عند فحص كل منطقة — سطر: <span class="cin-ltr">id|النص</span><textarea wire:model="sf.ix.notes" rows="4"></textarea></label>
+                                            <div class="cin-grid cin-grid-2">
+                                                <label class="cin-field">«قلب الصورة»: اسم الزر/الوجه الخلفي (اختياري)<input type="text" wire:model="sf.ix.back_label" maxlength="40" placeholder="خلف الصورة"></label>
+                                                <label class="cin-field">نص الوجه الخلفي (يظهر عند قلب الصورة؛ يُحتسب كمنطقة فحص بالمعرّف <span class="cin-ltr">back</span>)<textarea wire:model="sf.ix.back_text" rows="2" maxlength="600"></textarea></label>
+                                            </div>
+                                        @endif
+                                        @if ($kind === 'multi_lock')
+                                            <label class="cin-field">الأقفال — سطر لكل قفل: <span class="cin-ltr">id|الاسم|المواصفات</span> — المواصفات: <span class="cin-ltr">D2</span> خانتان رقميتان، <span class="cin-ltr">L(أ,ب,ج)</span> حرف من خيارات، ويمكن الجمع بـ <span class="cin-ltr">+</span>
+                                                <textarea wire:model="sf.ix.locks" rows="3" dir="ltr"></textarea></label>
+                                        @endif
 
                                         @if ($canManage)
                                             <div class="cin-block" data-solution-editor>
@@ -409,7 +442,18 @@
                                                 @if ($kind === 'sequence')<label class="cin-field">الترتيب الصحيح (معرّفات مفصولة بفواصل)<input type="text" wire:model="sf.ix.order" dir="ltr"></label>@endif
                                                 @if ($kind === 'drag_drop')<label class="cin-field">الربط الصحيح — سطر: <span class="cin-ltr">item=target</span><textarea wire:model="sf.ix.map" rows="3" dir="ltr"></textarea></label>@endif
                                                 @if ($kind === 'reveal_code')<label class="cin-field">الرمز الذي يُكشف<input type="text" wire:model="sf.ix.code" maxlength="64" dir="ltr"></label>@endif
-                                                @if (in_array($kind, ['container', 'reveal_code'], true))<label class="cin-field">لا يعمل إلا بعد إنجاز المشاهد (مفاتيح مفصولة بفواصل)<input type="text" wire:model="sf.ix.requires" dir="ltr"></label>@endif
+                                                @if (in_array($kind, ['container', 'reveal_code', 'answer', 'inspect', 'multi_lock'], true))<label class="cin-field">لا يعمل إلا بعد إنجاز المشاهد (مفاتيح مفصولة بفواصل)<input type="text" wire:model="sf.ix.requires" dir="ltr"></label>@endif
+                                                @if ($kind === 'answer')
+                                                    <label class="cin-field">الإجابات المقبولة — سطر لكل إجابة (تُقارَن بعد توحيد الأرقام العربية/الإنجليزية)<textarea wire:model="sf.ix.accepted" rows="3" dir="ltr"></textarea></label>
+                                                    <label class="cin-field">وحدات تُهمَل إن كتبها اللاعب (مفصولة بفواصل)<input type="text" wire:model="sf.ix.units" dir="auto" placeholder="دقيقة,دقائق,min"></label>
+                                                @endif
+                                                @if ($kind === 'inspect')<label class="cin-field">المناطق التي يجب فحصها قبل إكمال المشهد (معرّفات مفصولة بفواصل)<input type="text" wire:model="sf.ix.inspect_required" dir="ltr"></label>@endif
+                                                @if ($kind === 'multi_lock')
+                                                    <label class="cin-field">الرمز الصحيح لكل قفل — سطر: <span class="cin-ltr">id=الرمز</span> (مثل: lock_b=ب04)<textarea wire:model="sf.ix.codes" rows="3" dir="auto"></textarea></label>
+                                                    <label class="cin-field">تلميح لكل قفل عند الخطأ — سطر: <span class="cin-ltr">id=التلميح</span><textarea wire:model="sf.ix.lock_hints" rows="3" dir="auto"></textarea></label>
+                                                @endif
+                                                <label class="cin-field">نص يُكشف بعد النجاح فقط (من الخادم) — اختياري<textarea wire:model="sf.ix.reveal" rows="2" maxlength="600"></textarea></label>
+                                                <label class="cin-field">تلميحات تُعرض بالتتابع عند الخطأ — سطر لكل تلميح<textarea wire:model="sf.ix.hints" rows="3"></textarea></label>
                                                 @if ($kind === 'flashlight')
                                                     @if ($editing['imageUrl'])
                                                         @include('filament.pages.partials.cinematic-calibrator', ['format' => 'hidden', 'source' => 'cin-src-hidden', 'editing' => $editing, 'pickedPoster' => $sf['media']['poster'] ?? '', 'prefix' => 'hidden', 'canEdit' => $editable && $canManage])
@@ -420,6 +464,28 @@
                                         @endif
                                     </div>
                                 @endif
+                            </fieldset>
+
+                            {{-- CIN-2: بطاقة «سجل الأدلة» لهذا المشهد (تظهر للاعب فقط بعد إنجاز المشهد) + علامة الاعتماد التحريري --}}
+                            <fieldset class="cin-block" data-scene-evidence @disabled(! ($editable && $canManage))>
+                                <legend class="cin-block-title">سجل الأدلة (CIN-2)</legend>
+                                <p class="cin-help">تُعرض هذه البطاقة للاعب في «سجل الأدلة» بعد إنجاز المشهد فقط. اتركها فارغة إن لم يكن للمشهد دليل. لا تكتب هنا حلولًا لمشاهد لم تُنجَز بعد.</p>
+                                <div class="cin-grid cin-grid-2">
+                                    <label class="cin-field">عنوان الدليل<input type="text" wire:model="sf.ev.title" maxlength="120"></label>
+                                    <label class="cin-field">رقم الدليل (1–9، اختياري)<input type="number" wire:model="sf.ev.clue" min="1" max="9" dir="ltr"></label>
+                                </div>
+                                <label class="cin-field">ملخص الدليل<textarea wire:model="sf.ev.summary" rows="3" maxlength="600"></textarea></label>
+                                <div class="cin-grid cin-grid-2">
+                                    <label class="cin-check"><input type="checkbox" wire:model="sf.ev.image"> إظهار صورة المشهد ضمن بطاقة الدليل</label>
+                                    <label class="cin-field">علامة على الصورة — <span class="cin-ltr">x|y|الاسم</span> (نسب 0–100، اختياري)<input type="text" wire:model="sf.ev.marker" dir="ltr"></label>
+                                </div>
+                                <label class="cin-field">حالة الاعتماد التحريري
+                                    <select wire:model="sf.editorial">
+                                        <option value="">— غير محددة —</option>
+                                        <option value="proposal">مقترح تنفيذي — يحتاج اعتماد ياسمين/المالك</option>
+                                        <option value="approved">معتمد</option>
+                                    </select>
+                                </label>
                             </fieldset>
 
                             {{-- الوسائط: تبديل الملفات مسموح بصلاحية media حتى على النسخة المنشورة --}}
