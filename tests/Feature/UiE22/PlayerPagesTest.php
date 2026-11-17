@@ -52,7 +52,8 @@ test('W2: unknown or free-text reasons are shown exactly as stored and empty rea
         ->and(WalletReasonLabel::describe('  ')['known'])->toBeFalse();
 });
 
-test('W3: the wallet page lists readable labels with the raw code as secondary text, and stays free of emoji', function () {
+// E46: لم يعد الرمز الخام (solved_puzzle:76 ...) يُعرض للاعب أبدًا؛ كان data-tx-raw نصًّا ثانويًا في E22.
+test('W3: the wallet page lists readable labels, never shows the raw internal code, and stays free of emoji', function () {
     $user = e16User();
     $currency = app(\App\Services\Economy\CurrencyRegistry::class)->defaultEarnedCurrency();
     $wallets = app(CurrencyWalletService::class);
@@ -64,7 +65,8 @@ test('W3: the wallet page lists readable labels with the raw code as secondary t
     $labels = uiTexts($x, '//*[@data-tx-label]');
 
     expect($labels)->toContain('حلّ أحجية')->toContain('تسوية يدوية من الإدارة')
-        ->and(uiTexts($x, '//*[@data-tx-raw]'))->toBe(['solved_puzzle:76'])
+        ->and($x->query('//*[@data-tx-raw]')->length)->toBe(0)
+        ->and($html)->not->toContain('solved_puzzle:76')
         ->and($x->query('//h1')->length)->toBe(1)
         ->and(preg_match('/[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/u', implode(' ', uiTexts($x, '//main'))))->toBe(0);
 });

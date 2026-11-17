@@ -53,6 +53,41 @@
             </x-filament::section>
         @endif
 
+        {{-- E46: سلامة الجواهر (قراءة فقط): آخر فحص موثوق محفوظ؛ لا فحص عند الزيارة --}}
+        @if (($gemCard = $this->getGemIntegrityCard()) !== null)
+            @php $gemRun = $gemCard['run']; @endphp
+            <x-filament::section data-gem-integrity-card>
+                <x-slot name="heading">سلامة الجواهر (قراءة فقط)</x-slot>
+                @if ($gemRun === null)
+                    <div style="font-size:1.4rem; font-weight:900;" data-gem-integrity-state="never">لم يُفحص بعد</div>
+                    <div style="color:#94a3b8; font-size:.85rem; margin-top:.25rem;">لم يُشغَّل أي فحص مكتمل. يُشغَّل الفحص من سطر الأوامر (<span dir="ltr">php artisan gems:audit</span>) ولا يُشغَّل تلقائيًا عند فتح هذه اللوحة.</div>
+                @else
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:.75rem;" data-gem-integrity-state="ran">
+                        <x-filament::section>
+                            <div style="font-size:2rem; font-weight:900;" data-gem-proven>{{ $gemRun->proven_differences }}</div>
+                            <div style="color:#94a3b8;">فروقات مؤكدة (فرق مثبت)</div>
+                        </x-filament::section>
+                        <x-filament::section>
+                            <div style="font-size:2rem; font-weight:900;" data-gem-undetermined>{{ $gemRun->undetermined }}</div>
+                            <div style="color:#94a3b8;">حالات لا يمكن الجزم فيها</div>
+                        </x-filament::section>
+                        <x-filament::section>
+                            <div style="font-size:2rem; font-weight:900;" data-gem-matched>{{ $gemRun->matched }}</div>
+                            <div style="color:#94a3b8;">مطابقة من أصل {{ $gemRun->scanned }}</div>
+                        </x-filament::section>
+                    </div>
+                    <div style="color:#64748b; font-size:.8rem;">
+                        آخر فحص: {{ ($gemRun->finished_at ?? $gemRun->created_at)->diffForHumans() }}
+                        · النطاق: {{ $gemRun->scope_kind === 'all_currencies' ? 'كل العملات' : 'عملات محددة' }}
+                        @if ($gemRun->findings_truncated) · تفاصيل الحالات مقتطعة بالسقف (العدّادات كاملة) @endif
+                    </div>
+                @endif
+                <div style="margin-top:.75rem;">
+                    <a href="{{ $gemCard['url'] }}" style="font-weight:800;" data-gem-integrity-link>تفاصيل الفحص</a>
+                </div>
+            </x-filament::section>
+        @endif
+
         {{-- E25: صحة النظام (قراءة فقط) --}}
         @if (($signals = $this->getSystemSignals()) !== null)
             <x-filament::section>

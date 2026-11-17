@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\FraudFlag;
+use App\Models\GemIntegrityRun;
 use App\Models\OperationalAuditLog;
 use App\Models\RedemptionRequest;
 use App\Models\User;
@@ -96,6 +97,24 @@ class OperationsCenter extends Page
         });
     }
 
+    /**
+     * E46: بطاقة «سلامة الجواهر». تقرأ **ملخّص آخر فحص موثوق المحفوظ فقط** (صف واحد من gem_integrity_runs) ولا تشغّل أي فحص عند الزيارة.
+     * تُعرض لمن يملك economy.transactions.view (نفس صلاحية سجل المعاملات)، وإلا null (تُخفى كليًا لا تُعرض كصفر).
+     * run = null تعني «لم يُفحص بعد» ولا تُترجم إلى أصفار.
+     *
+     * @return array{run: ?GemIntegrityRun, url: string}|null
+     */
+    public function getGemIntegrityCard(): ?array
+    {
+        return once(function () {
+            if (! (auth()->user()?->can('economy.transactions.view') ?? false)) {
+                return null;
+            }
+
+            return ['run' => GemIntegrityRun::lastTrusted(), 'url' => GemIntegrityPage::getUrl()];
+        });
+    }
+
     public function getFrozenUsersCount(): ?int
     {
         return once(function () {
@@ -178,6 +197,7 @@ class OperationsCenter extends Page
         'all_sessions_revoked' => 'إنهاء كل الجلسات',
         'store_purchase_fulfilled' => 'إنجاز طلب شراء متجر',
         'store_purchase_refunded' => 'استرجاع شراء متجر',
+        'gem_integrity_scan' => 'فحص سلامة الجواهر',
     ];
 
     public function actionLabel(string $action): string
