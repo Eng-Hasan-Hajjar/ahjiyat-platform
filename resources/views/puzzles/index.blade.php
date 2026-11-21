@@ -7,6 +7,19 @@
     {{-- E23: ترويسة موحَّدة (بدل H1 متدرّج بحجم مختلف). --}}
     <x-page-header :title="$category?->name ?? 'كل الأحجيات'" icon="puzzle" subtitle="اختر تحديك، فكّر بعمق، واجمع الجواهر الثمينة." class="anim-fade-up" />
 
+    {{-- E47: مدخل «مختبر الأحجيات» (تدريب فقط، بلا جواهر ولا XP). رابط هنا فقط؛ لا تبويب دائمًا بشريط الجوال. --}}
+    <a href="{{ route('puzzle-lab.index') }}" class="lab-entry anim-fade-up d-1">
+        <span class="lab-entry-icon"><x-game-icon name="brain" class="w-6 h-6" /></span>
+        <span class="min-w-0 flex-1">
+            <span class="lab-entry-title">مختبر الأحجيات</span>
+            <span class="lab-entry-text">تدرّب على بطاقات الذاكرة وترتيب التسلسل. للتدريب فقط، بلا جواهر ولا نقاط خبرة.</span>
+            @guest
+                <span class="lab-entry-hint">يتطلب تسجيل الدخول بحساب موثّق</span>
+            @endguest
+        </span>
+        <x-ui-icon name="chevron-left" class="w-5 h-5 shrink-0" />
+    </a>
+
     {{-- ===== فلتر التصنيفات ===== --}}
     <div class="anim-fade-up d-1 flex flex-wrap gap-2 mb-6">
         <a href="{{ route('puzzles.index') }}"

@@ -282,3 +282,262 @@
     pointer-events: none;
 }
 
+
+
+/* ============================================================
+   E47 - مختبر الأحجيات (تدريب فقط)
+   تعيد استعمال .memory-grid/.memory-card أعلاه؛ الألوان من رموز الثيم (تصحّ بالفاتح والداكن). لا نعتمد اللون وحده: أيقونة + نص دائمًا.
+   ============================================================ */
+
+.lab-notice {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 9999px;
+    border: 1px dashed color-mix(in srgb, var(--color-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    color: var(--color-text-strong);
+    font-size: 0.875rem;
+    font-weight: 800;
+}
+
+.lab-notice-compact { margin-bottom: 1rem; font-size: 0.8125rem; }
+
+.lab-stage { display: grid; gap: 1.25rem; }
+
+.lab-instructions {
+    padding: 1.25rem;
+    border-radius: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-border);
+}
+
+.lab-prose {
+    color: var(--color-text);
+    line-height: 1.9;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.lab-start { display: grid; gap: 0.9rem; justify-items: start; }
+.lab-start-btn { min-height: 3rem; padding-inline: 2rem; }
+
+.lab-play { outline: none; }
+.lab-play:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; border-radius: 1rem; }
+
+.lab-problems {
+    padding: 1rem 1.25rem;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+    color: var(--color-text-strong);
+    font-weight: 700;
+}
+
+.lab-preview-banner {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    margin-bottom: 1.25rem;
+    padding: 0.9rem 1.1rem;
+    border-radius: 1rem;
+    border: 1px dashed color-mix(in srgb, var(--color-warning) 60%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+    color: var(--color-text-strong);
+}
+
+/* ----- بطاقات الذاكرة داخل المختبر ----- */
+.lab-board .memory-card { touch-action: manipulation; min-height: 4.5rem; }
+.lab-board .memory-card:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }
+
+.lab-board .memory-card-front {
+    position: absolute;
+    padding: 0.25rem;
+    font-size: clamp(0.8rem, 3.4vw, 1.05rem);
+    font-weight: 800;
+    line-height: 1.25;
+    text-align: center;
+    color: var(--color-text-strong);
+    overflow-wrap: anywhere;
+}
+
+.lab-face { display: block; max-width: 100%; }
+
+/* علامة المطابقة بأيقونة (لا اللون وحده) */
+.lab-card-check {
+    position: absolute;
+    inset-block-start: 0.3rem;
+    inset-inline-end: 0.3rem;
+    display: grid;
+    place-items: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 9999px;
+    background: var(--color-success);
+    color: #052e1f;
+}
+
+.lab-note {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+    margin-top: 1rem;
+    padding: 0.8rem 1rem;
+    border-radius: 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+    color: var(--color-text-strong);
+    line-height: 1.8;
+}
+
+/* ----- ترتيب التسلسل ----- */
+.lab-seq { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+
+.lab-seq-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-border);
+}
+
+.lab-seq-pos {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    color: var(--color-text-strong);
+    font-weight: 900;
+    font-size: 0.875rem;
+}
+
+.lab-seq-label { flex: 1 1 auto; min-width: 0; color: var(--color-text-strong); font-weight: 700; overflow-wrap: anywhere; }
+.lab-seq-moves { display: flex; gap: 0.4rem; flex-shrink: 0; }
+
+.lab-move {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: 2.75rem;   /* هدف لمس 44px */
+    min-height: 2.75rem;
+    padding: 0 0.6rem;
+    border-radius: 0.8rem;
+    border: 1px solid var(--color-surface-border);
+    background: transparent;
+    color: var(--color-text-strong);
+    font-size: 0.8125rem;
+    font-weight: 800;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.lab-move:hover:not(:disabled) { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
+.lab-move:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+.lab-move:disabled { opacity: 0.35; cursor: not-allowed; }
+.lab-icon-up { transform: rotate(180deg); }
+.lab-move-text { display: none; }
+
+@media (min-width: 640px) {
+    .lab-move-text { display: inline; }
+}
+
+/* ----- النتيجة ----- */
+.lab-result {
+    margin-top: 1.25rem;
+    padding: 1.1rem 1.25rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-surface-border);
+    color: var(--color-text-strong);
+    outline: none;
+}
+
+.lab-result:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.lab-result--ok { border-color: color-mix(in srgb, var(--color-success) 55%, transparent); background: color-mix(in srgb, var(--color-success) 12%, transparent); }
+.lab-result--wrong { border-color: color-mix(in srgb, var(--color-danger) 55%, transparent); background: color-mix(in srgb, var(--color-danger) 10%, transparent); }
+.lab-result-body { display: flex; gap: 0.8rem; align-items: flex-start; }
+.lab-result-title { font-weight: 900; font-size: 1.05rem; margin-bottom: 0.25rem; }
+
+.lab-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.25rem; }
+
+/* ----- قائمة التمارين ----- */
+.lab-card-grid { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); margin: 0; padding: 0; list-style: none; }
+
+@media (min-width: 768px) {
+    .lab-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.lab-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-surface-border);
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.lab-card:hover { border-color: var(--color-primary); transform: translateY(-2px); }
+.lab-card:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }
+.lab-card-title { font-weight: 900; font-size: 1.1rem; color: var(--color-text-strong); margin-bottom: 0.35rem; }
+.lab-card-summary { color: var(--color-muted); font-size: 0.9rem; line-height: 1.7; flex: 1 1 auto; }
+
+.lab-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--color-surface-border);
+}
+
+.lab-empty-type { padding: 1rem 1.25rem; border-radius: 1rem; border: 1px dashed var(--color-surface-border); color: var(--color-muted); }
+
+/* ----- مدخل المختبر في صفحة تصفح الأحجيات ----- */
+.lab-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin-bottom: 1.5rem;
+    padding: 0.9rem 1.1rem;
+    border-radius: 1.1rem;
+    background: var(--color-surface);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-surface-border));
+    color: var(--color-text-strong);
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.lab-entry:hover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+.lab-entry:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }
+
+.lab-entry-icon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.9rem;
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    color: var(--color-primary);
+}
+
+.lab-entry-title { display: block; font-weight: 900; }
+.lab-entry-text { display: block; color: var(--color-muted); font-size: 0.85rem; line-height: 1.6; }
+.lab-entry-hint { display: block; margin-top: 0.15rem; font-size: 0.75rem; font-weight: 800; color: var(--color-accent-text); }
+
+@media (prefers-reduced-motion: reduce) {
+    .lab-board .memory-card-inner { transition: none; }
+    .lab-board .memory-card.is-shaking .memory-card-inner { animation: none; }
+    .lab-card, .lab-entry, .lab-move { transition: none; }
+    .lab-card:hover { transform: none; }
+}

@@ -24,7 +24,7 @@ final class NavigationMenu
         ] + $extra;
 
         $home = $item('home', 'home', 'home', 'الرئيسية', ['home']);
-        $puzzles = $item('puzzles', 'puzzles.index', 'puzzle', 'الأحجيات', ['puzzles.*']);
+        $puzzles = $item('puzzles', 'puzzles.index', 'puzzle', 'الأحجيات', ['puzzles.*', 'puzzle-lab.*']);
         $competitions = $item('competitions', 'competitions.index', 'trophy', 'المنافسات', ['competitions.*', 'team-championships.*', 'players.competitive']);
         $teams = $item('teams', 'teams.index', 'team', 'الفرق', ['teams.*'], ['except' => ['teams.chat']]);
         $friends = $item('friends', 'friends.index', 'friends', 'الأصدقاء', ['friends.*']);

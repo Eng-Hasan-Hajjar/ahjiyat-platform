@@ -302,3 +302,5 @@ require __DIR__.'/seasonal_recognition.php';
 require __DIR__.'/tatawwur_ai.php';
 // CIN-1: السلاسل السينمائية التفاعلية (علم CINEMATIC_STORIES_ENABLED مغلق افتراضيًا؛ مغلقًا = 404 لكل المسارات).
 require __DIR__.'/cinematic.php';
+// E47: «مختبر الأحجيات» - تدريب بجولات بلا حالة مخزَّنة وبلا أي أثر على الجواهر/XP/المحاولات/التقدّم الرسمي (puzzle-lab.*). الإدارة في Filament.
+require __DIR__.'/puzzle_lab.php';

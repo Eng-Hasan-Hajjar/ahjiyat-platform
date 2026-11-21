@@ -48,7 +48,7 @@ final class FeatureRegistry
     public const FEATURES = [
         'home' => ['routes' => ['home'], 'article' => 'ma-hiya-ahjiyat', 'label' => 'الصفحة الرئيسية'],
         'auth' => ['routes' => ['login', 'register', 'password.*', 'verification.*'], 'article' => 'kayfa-abda', 'label' => 'التسجيل والدخول والتوثيق'],
-        'puzzles' => ['routes' => ['puzzles.*', 'cinematic.*'], 'article' => 'al-ahjiyat-wa-anwaauha', 'label' => 'الأحجيات'],
+        'puzzles' => ['routes' => ['puzzles.*', 'puzzle-lab.*', 'cinematic.*'], 'article' => 'al-ahjiyat-wa-anwaauha', 'label' => 'الأحجيات'],
         'wallet' => ['routes' => ['wallet.*'], 'article' => 'al-jawahir', 'label' => 'المحفظة والجواهر'],
         'redemption' => ['routes' => ['redemption.*'], 'article' => 'al-istibdal', 'label' => 'استبدال الجواهر'],
         'progress' => ['routes' => ['progress.*'], 'article' => 'al-taqaddum-wal-mustawayat', 'label' => 'التقدم والمستويات'],

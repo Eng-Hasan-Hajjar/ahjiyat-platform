@@ -4,6 +4,7 @@ import chatRoom from './chat.js';
 import globalSearch from './search.js';
 import sequenceGame from './games/renderers/sequence.js';
 import memoryGame from './games/renderers/memory.js';
+import labRound from './games/renderers/lab.js';
 import spotDifferenceGame from './games/renderers/spot-difference.js';
 import { seasonalBoard, seasonalVoter } from './seasonal.js';
 
@@ -11,6 +12,7 @@ window.Alpine = Alpine;
 
 Alpine.data('sequenceGame', sequenceGame);
 Alpine.data('memoryGame', memoryGame);
+Alpine.data('labRound', labRound);
 Alpine.data('spotDifferenceGame', spotDifferenceGame);
 Alpine.data('chatRoom', chatRoom);
 Alpine.data('globalSearch', globalSearch);
