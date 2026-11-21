@@ -14,13 +14,12 @@
         $fmtDur = fn ($ms) => $ms ? (int) round($ms / 1000).' ث' : '';
         $btn = 'cin-btn cin-btn-primary';
         $btnGhost = 'cin-btn';
-        $assetLabel = function ($a) use ($fmtSize, $fmtDur) {
-            return trim($a->original_name.' — '.$fmtSize($a->size_bytes).($a->duration_ms ? ' — '.$fmtDur($a->duration_ms) : '').($a->width && $a->height ? ' — '.$a->width.'×'.$a->height : '').($a->status !== 'ready' ? ' — (مسحوب)' : ''));
-        };
     @endphp
 
     @include('filament.pages.partials.cinematic-admin-styles')
     @include('filament.pages.partials.cinematic-admin-scripts')
+    {{-- المكوّن المشترك للقوائم القابلة للبحث: أنماطه وسكربته مرة واحدة على مستوى الصفحة (Livewire لا ينفّذ سكربتًا يُحقن لاحقًا). --}}
+    <x-searchable-select.assets />
 
     <div class="cin-admin" data-cin-root
          x-data="cinWorkspace({ editing: @js($editingScene) })"
@@ -123,9 +122,13 @@
                     <label class="cin-field cin-span-2">الملخص<textarea wire:model="storyForm.summary" rows="2" maxlength="1000"></textarea></label>
                     <label class="cin-field">الوصول<select wire:model="storyForm.access_mode"><option value="free">مجانية</option><option value="premium">مميزة</option></select></label>
                     <label class="cin-field">معرّف السلسلة المرتبطة (للمميزة)<input type="number" wire:model="storyForm.creator_series_id" dir="ltr"></label>
-                    <label class="cin-field cin-span-2">الغلاف (ملصق من المكتبة)
-                        <select wire:model="cover"><option value="">بلا غلاف</option>@foreach ($d['assets']['poster'] as $a)<option value="{{ $a->public_id }}">{{ $a->original_name }}</option>@endforeach</select>
-                    </label>
+                    <div class="cin-field cin-span-2" data-cover-picker>
+                        <label id="cin-cover-label" for="cin-cover">الغلاف (ملصق من المكتبة)</label>
+                        <x-searchable-select id="cin-cover" label-id="cin-cover-label" wire:model="cover" wire:key="ss-cover"
+                            method="searchMedia" :context="['kind' => 'cover']" :value="$cover" :selected="$d['coverPicked']" allow-none
+                            placeholder="ابحث باسم الملف…" none="بلا غلاف" remove-label="إزالة الغلاف" />
+                        <small>اختيار الغلاف لا يحفظ شيئًا حتى تضغط «حفظ القصة».</small>
+                    </div>
                 </div>
                 <button type="button" wire:click="saveStory" class="{{ $btn }}" style="margin-top:.75rem">حفظ القصة</button>
             </details>
@@ -272,8 +275,6 @@
                         $kind = $sf['kind'] ?? 'choose_item';
                         $isInteractionType = in_array($type, ['interaction', 'exploration'], true);
                         $mediaRoles = ['video' => 'الفيديو', 'poster' => ($type === 'video' ? 'الملصق (صورة مصغّرة)' : 'صورة المشهد (خلفية التفاعل)'), 'subtitle' => 'الترجمة (WebVTT)', 'audio' => 'صوت إضافي'];
-                        $assetById = [];
-                        foreach (['video', 'poster', 'subtitle', 'audio'] as $role) { foreach ($d['assets'][$role] as $a) { $assetById[$a->public_id] = $a; } }
                     @endphp
                     <section class="cin-editor" data-scene-editor wire:key="scene-editor-{{ $editingScene }}" aria-labelledby="cin-editor-heading">
                         <div class="cin-editor-head">
@@ -347,9 +348,12 @@
                                 @endif
 
                                 @if ($type === 'puzzle')
-                                    <label class="cin-field">الأحجية (رسمية، مفعّلة، كلاسيكية فقط)
-                                        <select wire:model="sf.puzzle_id"><option value="">—</option>@foreach ($d['puzzles'] as $p)<option value="{{ $p->id }}">{{ $p->title }}</option>@endforeach</select>
-                                    </label>
+                                    <div class="cin-field" data-puzzle-picker>
+                                        <label id="cin-puzzle-label" for="cin-puzzle">الأحجية (رسمية، مفعّلة، كلاسيكية فقط)</label>
+                                        <x-searchable-select id="cin-puzzle" label-id="cin-puzzle-label" wire:model="sf.puzzle_id" wire:key="ss-puzzle-{{ $editingScene }}"
+                                            method="searchPuzzles" :value="(string) ($sf['puzzle_id'] ?? '')" :selected="$d['puzzlePicked']" allow-none name-dir="auto"
+                                            placeholder="ابحث بعنوان الأحجية…" none="— بلا أحجية —" remove-label="إزالة الأحجية" empty-all="لا توجد أحجيات صالحة للربط." />
+                                    </div>
                                 @endif
 
                                 @if ($isInteractionType)
@@ -516,13 +520,15 @@
                                         $pickedId = (string) ($sf['media'][$role] ?? '');
                                         $savedAsset = $model->{$role};
                                         $savedId = (string) $savedAsset?->public_id;
-                                        $pickedAsset = $pickedId !== '' ? ($assetById[$pickedId] ?? null) : null;
+                                        $pickedAsset = $d['picked'][$role]['model'] ?? null;
                                         $others = $pickedAsset ? collect($d['usage'][$pickedAsset->id] ?? [])->reject(fn ($u) => $u['id'] === $editingScene)->values() : collect();
                                         $assetUrl = $pickedAsset ? $this->libraryUrl($pickedAsset) : null;
                                     @endphp
                                     <div class="cin-field" data-media-role="{{ $role }}">
-                                        <label for="cin-media-{{ $role }}">{{ $label }}</label>
-                                        <select id="cin-media-{{ $role }}" wire:model.live="sf.media.{{ $role }}"><option value="">— بلا —</option>@foreach ($d['assets'][$role] as $a)<option value="{{ $a->public_id }}">{{ $assetLabel($a) }}</option>@endforeach</select>
+                                        <label id="cin-media-{{ $role }}-label" for="cin-media-{{ $role }}">{{ $label }}</label>
+                                        <x-searchable-select id="cin-media-{{ $role }}" label-id="cin-media-{{ $role }}-label" wire:model.live="sf.media.{{ $role }}" wire:key="ss-media-{{ $role }}-{{ $editingScene }}"
+                                            method="searchMedia" :context="['kind' => $role]" :value="$pickedId" :selected="$d['picked'][$role]['desc'] ?? null" allow-none :disabled="! $canMedia"
+                                            placeholder="ابحث باسم الملف…" none="— بلا —" remove-label="إزالة الوسيط من المشهد" />
 
                                         <div class="cin-row">
                                             @if ($pickedId === $savedId)
@@ -536,8 +542,8 @@
                                             <div class="cin-asset" data-media-card>
                                                 @if ($role === 'poster' && $assetUrl)<img src="{{ $assetUrl }}" alt="معاينة {{ $pickedAsset->original_name }}" loading="lazy">@endif
                                                 <div class="cin-asset-meta">
-                                                    <span class="cin-asset-name">{{ $pickedAsset->original_name }}</span>
-                                                    <span class="cin-muted">{{ implode(' · ', array_filter([$fmtSize($pickedAsset->size_bytes), $fmtDur($pickedAsset->duration_ms), $pickedAsset->width && $pickedAsset->height ? $pickedAsset->width.'×'.$pickedAsset->height : null, $pickedAsset->mime])) }}</span>
+                                                    <span class="cin-asset-name cin-ltr" dir="ltr">{{ $pickedAsset->original_name }}</span>
+                                                    <span class="cin-muted">@foreach (\App\Services\Cinematic\Media\CinematicMediaPicker::segments(implode(' · ', array_filter([$fmtSize($pickedAsset->size_bytes), $fmtDur($pickedAsset->duration_ms), $pickedAsset->width && $pickedAsset->height ? $pickedAsset->width.'×'.$pickedAsset->height : null, $pickedAsset->mime]))) as $seg)@if ($seg['ltr'])<bdi dir="ltr">{{ $seg['t'] }}</bdi>@else{{ $seg['t'] }}@endif @endforeach</span>
                                                 </div>
                                                 @if ($assetUrl && $role !== 'poster')<a href="{{ $assetUrl }}" target="_blank" rel="noopener" class="cin-btn cin-btn-sm">@include('filament.pages.partials.cinematic-icon', ['name' => 'eye']) معاينة الملف</a>@endif
                                             </div>

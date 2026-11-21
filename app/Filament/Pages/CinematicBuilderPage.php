@@ -10,6 +10,7 @@ use App\Models\Cinematic\CinematicSceneSolution;
 use App\Models\Cinematic\CinematicStage;
 use App\Models\Cinematic\CinematicStory;
 use App\Models\Puzzle;
+use App\Services\Cinematic\Admin\CinematicPuzzlePicker;
 use App\Services\Cinematic\Admin\SceneFormCodec;
 use App\Services\Cinematic\CinematicAuthoringService;
 use App\Services\Cinematic\CinematicException;
@@ -18,10 +19,12 @@ use App\Services\Cinematic\CinematicPuzzleBridge;
 use App\Services\Cinematic\CinematicReadinessChecker;
 use App\Services\Cinematic\Interactions\InteractionEngine;
 use App\Services\Cinematic\Media\CinematicMediaLinks;
+use App\Services\Cinematic\Media\CinematicMediaPicker;
 use Filament\Notifications\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\MaxWidth;
+use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Url;
 
 /**
@@ -172,8 +175,12 @@ class CinematicBuilderPage extends Page
         $this->run('manage', function () use ($authoring) {
             $story = $this->story();
             $authoring->updateStory($story, $this->storyForm);
-            $cover = $this->cover === '' ? null : CinematicMediaAsset::query()->where('public_id', $this->cover)->first();
-            $authoring->setCover($story, $cover);
+
+            // الغلاف يُبدَّل فقط إن تغيّر اختياره: حفظ عنوان القصة لا يجب أن يفشل لأن الغلاف المربوط سابقًا سُحب من المكتبة.
+            if ($this->cover !== (string) $story->cover?->public_id) {
+                $cover = $this->cover === '' ? null : CinematicMediaAsset::query()->where('public_id', $this->cover)->first();
+                $authoring->setCover($story, $cover);
+            }
         }, 'حُفظت بيانات القصة.');
     }
 
@@ -482,6 +489,110 @@ class CinematicBuilderPage extends Page
         return route('cinematic.preview', array_filter(['revision' => $this->revision()->public_id, 'scene' => $scene->public_id, 'mode' => $asPlayer ? 'player' : null]));
     }
 
+    // ───────────────────────── بحث محدّدات الوسائط والأحجية (الخادم) ─────────────────────────
+
+    /**
+     * بحث ملفات المكتبة لمحدّد الوسائط: video|poster|subtitle|audio للمشهد، وcover لغلاف القصة (ملصقات).
+     * يُنفَّذ على الخادم ضمن كل ملفات النوع الجاهزة قبل تحديد العدد، والنوع شرط ثابت (بحث الصور لا يُظهر فيديو/صوتًا).
+     * الصلاحية نفسها كالحفظ: media لوسائط المشهد، وmanage للغلاف. لا مسار تخزين ولا معرّف داخلي في المخرجات، ولا يغيّر أي حالة (Renderless).
+     *
+     * @param  array<string, mixed>  $context
+     * @return array{items: list<array<string, mixed>>, total: int, next: int|null}
+     */
+    #[Renderless]
+    public function searchMedia(string $term = '', int $offset = 0, string $current = '', array $context = []): array
+    {
+        $kind = (string) ($context['kind'] ?? '');
+        abort_unless(in_array($kind, ['video', 'poster', 'subtitle', 'audio', 'cover'], true), 422);
+        abort_unless($this->canPick($kind), 403);
+
+        $role = $kind === 'cover' ? CinematicMediaAsset::ROLE_POSTER : $kind;
+        $pinned = $current === '' ? null : $this->pickedAsset($kind, $current);
+
+        return app(CinematicMediaPicker::class)->search($role, $term, $offset, $pinned);
+    }
+
+    /**
+     * بحث محدّد الأحجية في مشهد الأحجية: ضمن كل الأحجيات الصالحة للربط (رسمية، مفعّلة، كلاسيكية، بإجابة معتمدة) قبل تحديد العدد.
+     * الصلاحية manage (كحفظ المشهد).
+     *
+     * @param  array<string, mixed>  $context
+     * @return array{items: list<array<string, mixed>>, total: int, next: int|null}
+     */
+    #[Renderless]
+    public function searchPuzzles(string $term = '', int $offset = 0, string $current = '', array $context = []): array
+    {
+        abort_unless($this->can('manage'), 403);
+
+        return app(CinematicPuzzlePicker::class)->search($term, $offset, $current === '' ? null : $this->pickedPuzzle($current));
+    }
+
+    /** هل يملك المستخدم صلاحية الاختيار (لا الرؤية فقط) في هذا الحقل؟ */
+    protected function canPick(string $kind): bool
+    {
+        return $this->can($kind === 'cover' ? 'manage' : 'media');
+    }
+
+    /** معرّف الملف المربوط فعلًا (المحفوظ) في هذا الحقل: غلاف القصة، أو وسيط المشهد المفتوح في هذه النسخة. */
+    protected function savedAssetId(string $kind): ?int
+    {
+        if ($kind === 'cover') {
+            return $this->story()?->cover_asset_id;
+        }
+
+        if ($this->editingScene === null || $this->editingScene === '') {
+            return null;
+        }
+
+        $scene = CinematicScene::query()->where('public_id', $this->editingScene)->where('revision_id', $this->revision()->id)->first();
+
+        return $scene?->{$kind.'_asset_id'};
+    }
+
+    /**
+     * الملف المختار في حقل بعد التحقق: من نوع الحقل نفسه، وجاهز أو هو المربوط فعلًا (المسحوب المربوط يبقى ظاهرًا ولا يُعرض غيره).
+     * من لا يملك صلاحية الاختيار لا يرى سوى الملف المحفوظ. لا يُرجع أبدًا ملفًا من نوع آخر أو مسحوبًا غير مربوط.
+     */
+    protected function pickedAsset(string $kind, string $publicId): ?CinematicMediaAsset
+    {
+        if ($publicId === '') {
+            return null;
+        }
+
+        $role = $kind === 'cover' ? CinematicMediaAsset::ROLE_POSTER : $kind;
+        $asset = CinematicMediaAsset::query()->where('public_id', $publicId)->where('role', $role)->first();
+
+        if ($asset === null) {
+            return null;
+        }
+
+        $saved = $this->savedAssetId($kind);
+
+        if ($saved !== null && $asset->id === $saved) {
+            return $asset;
+        }
+
+        return $this->canPick($kind) && $asset->isReady() ? $asset : null;
+    }
+
+    /** الأحجية المختارة في الحقل: صالحة للربط، أو هي المربوطة فعلًا بالمشهد (تبقى ظاهرة مع سبب عدم الصلاحية). */
+    protected function pickedPuzzle(string $id): ?Puzzle
+    {
+        if ($id === '' || ! ctype_digit($id) || ! $this->can('manage')) {
+            return null;
+        }
+
+        $eligible = app(CinematicPuzzleBridge::class)->eligibleQuery()->whereKey((int) $id)->first();
+
+        if ($eligible !== null) {
+            return $eligible;
+        }
+
+        $scene = $this->editingScene ? CinematicScene::query()->where('public_id', $this->editingScene)->where('revision_id', $this->revision()->id)->first() : null;
+
+        return $scene !== null && (int) $scene->puzzle_id === (int) $id ? Puzzle::query()->with('category:id,name')->find((int) $id) : null;
+    }
+
     // ───────────────────────── داخلي ─────────────────────────
 
     protected function stageOf(string $publicId): CinematicStage
@@ -519,34 +630,7 @@ class CinematicBuilderPage extends Page
         $tree = CinematicStage::query()->where('revision_id', $revision->id)->orderBy('position')
             ->with(['chapters' => fn ($q) => $q->orderBy('position'), 'chapters.scenes' => fn ($q) => $q->orderBy('position')->with(['video', 'poster', 'subtitle', 'audio'])])->get();
         $report = app(CinematicReadinessChecker::class)->check($revision);
-        $bridge = app(CinematicPuzzleBridge::class);
-        $columns = ['id', 'public_id', 'role', 'status', 'original_name', 'mime', 'size_bytes', 'duration_ms', 'width', 'height'];
-
-        // قوائم الاختيار: الملفات الجاهزة + الملف المربوط حاليًا بالمشهد المفتوح (حتى لو سُحب) كي لا يختفي اختيار محفوظ من القائمة.
-        $linkedNow = [];
-
-        foreach ($tree as $stage) {
-            foreach ($stage->chapters as $chapter) {
-                foreach ($chapter->scenes as $scene) {
-                    foreach (['video', 'poster', 'subtitle', 'audio'] as $role) {
-                        if ($scene->{$role} !== null && $scene->public_id === $this->editingScene) {
-                            $linkedNow[$role] = $scene->{$role}->id;
-                        }
-                    }
-                }
-            }
-        }
-
-        $assets = function (string $role) use ($columns, $linkedNow) {
-            $query = CinematicMediaAsset::query()->where('role', $role)
-                ->where(fn ($q) => $q->where('status', CinematicMediaAsset::STATUS_READY)->when(isset($linkedNow[$role]), fn ($qq) => $qq->orWhere('id', $linkedNow[$role])));
-
-            return $query->orderByDesc('id')->limit(200)->get($columns);
-        };
-
-        $puzzles = $this->editingScene && in_array($this->sf['type'] ?? '', ['puzzle'], true)
-            ? Puzzle::query()->where('is_active', true)->orderBy('title')->limit(300)->get()->filter(fn (Puzzle $p) => $bridge->ineligibleReason($p) === null)->values()
-            : collect();
+        $mediaPicker = app(CinematicMediaPicker::class);
 
         // استعمال الوسائط داخل هذه النسخة: asset id => قائمة مشاهد. يكشف ربط فيديو واحد بمشهدين (يُعرض الفيديو مرتين) قبل الحفظ.
         $usage = [];
@@ -579,11 +663,17 @@ class CinematicBuilderPage extends Page
         $position = $this->editingScene ? array_search($this->editingScene, array_column($flat, 'id'), true) : false;
         $current = $position === false ? null : $flat[$position];
         $editing = null;
+        $picked = ['video' => null, 'poster' => null, 'subtitle' => null, 'audio' => null];
         $sceneModel = $this->editingScene ? CinematicScene::query()->where('public_id', $this->editingScene)->where('revision_id', $revision->id)->with(['video', 'poster', 'subtitle', 'audio'])->first() : null;
 
         if ($sceneModel !== null) {
-            $pickedPoster = (string) ($this->sf['media']['poster'] ?? '');
-            $posterAsset = $pickedPoster === '' ? null : CinematicMediaAsset::query()->where('public_id', $pickedPoster)->first();
+            // الملفات المختارة (وصف مختصر لكل حقل): تُحمَّل هي فقط لا المكتبة؛ والبحث عن غيرها على الخادم عند الطلب (searchMedia).
+            foreach (['video', 'poster', 'subtitle', 'audio'] as $role) {
+                $model = $this->pickedAsset($role, (string) ($this->sf['media'][$role] ?? ''));
+                $picked[$role] = ['model' => $model, 'desc' => $model ? $mediaPicker->describeOne($model, true) : null];
+            }
+
+            $posterAsset = $picked['poster']['model'];
 
             $editing = [
                 'model' => $sceneModel,
@@ -615,8 +705,9 @@ class CinematicBuilderPage extends Page
             'flat' => $flat,
             'usage' => $usage,
             'editing' => $editing,
-            'assets' => ['video' => $assets('video'), 'poster' => $assets('poster'), 'subtitle' => $assets('subtitle'), 'audio' => $assets('audio')],
-            'puzzles' => $puzzles,
+            'picked' => $picked,
+            'coverPicked' => ($coverModel = $this->pickedAsset('cover', $this->cover)) ? $mediaPicker->describeOne($coverModel, true) : null,
+            'puzzlePicked' => ($puzzleModel = $this->pickedPuzzle((string) ($this->sf['puzzle_id'] ?? ''))) ? app(CinematicPuzzlePicker::class)->describe($puzzleModel, true) : null,
             'kinds' => ['hotspot' => 'نقطة ساخنة', 'container' => 'باب/درج بشرط', 'sequence' => 'ترتيب', 'drag_drop' => 'سحب وإفلات', 'choose_item' => 'اختيار عنصر', 'compare' => 'مقارنة', 'reveal_code' => 'كشف رمز بشرط', 'flashlight' => 'مصباح', 'answer' => 'إجابة رقمية/نصية', 'inspect' => 'فحص مناطق (تكبير/قلب)', 'multi_lock' => 'خزانة متعددة الأقفال', 'board_move' => 'رقعة: نقلة حصان', 'inference' => 'استنتاج + مصدره'],
             'types' => ['video' => 'فيديو', 'narrative' => 'سرد', 'puzzle' => 'أحجية', 'interaction' => 'تفاعل', 'exploration' => 'استكشاف', 'transition' => 'انتقال'],
             'statusLabels' => ['draft' => 'مسودة', 'in_review' => 'قيد المراجعة', 'published' => 'منشورة', 'superseded' => 'مستبدلة', 'unpublished' => 'مسحوبة'],

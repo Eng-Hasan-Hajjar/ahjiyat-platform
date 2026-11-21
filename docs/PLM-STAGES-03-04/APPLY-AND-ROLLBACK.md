@@ -13,8 +13,9 @@
 & "C:\xampp\mysql\bin\mysqldump.exe" -u root -p --single-transaction YOUR_DB > "$HOME\backup_before_plm34.sql"
 ```
 
-3. لا حاجة إلى `composer install` ولا `npm run build`: لم تُضَف حزم، والواجهة جزء من قوالب Blade.
-4. لا يوجد migration جديد. لا تغيير في بنية قاعدة البيانات.
+3. **إن كانت حزمة E48 (SEARCHABLE-SELECTS) مطبّقة عندك** (وهو الحال عادةً) فالملفان `app/Filament/Pages/CinematicBuilderPage.php` و`resources/views/filament/pages/cinematic-builder.blade.php` في الحزمة الأصلية **يكتبان فوق تعديلات E48**. استعمل بدلهما نسختي `AHJIYAT-PLM-STAGES-03-04-HOTFIX1.zip` (E48 + تعديلاتي) وفق `HOTFIX1-README.md`.
+4. لا حاجة إلى `composer install` ولا `npm run build`: لم تُضَف حزم، والواجهة جزء من قوالب Blade.
+5. لا يوجد migration جديد. لا تغيير في بنية قاعدة البيانات.
 
 ## 1) فك الحزمة والتحقق منها
 
