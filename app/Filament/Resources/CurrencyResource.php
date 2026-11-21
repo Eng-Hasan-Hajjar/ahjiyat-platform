@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SearchableOptions;
 use App\Filament\Resources\CurrencyResource\Pages;
 use App\Models\Currency;
 use App\Services\Economy\CurrencyRegistry;
@@ -82,17 +83,11 @@ class CurrencyResource extends Resource
                         ->options(['season' => 'موسم رسمي', 'campaign' => 'حملة'])
                         ->live()
                         ->native(false),
-                    Forms\Components\Select::make('scope_id')
-                        ->label('العنصر المرتبط')
-                        ->options(function (Get $get) {
-                            return match ($get('scope_type')) {
-                                'season' => \App\Models\Season::query()->pluck('code', 'id'),
-                                'campaign' => \App\Models\Campaign::query()->pluck('title', 'id'),
-                                default => [],
-                            };
-                        })
-                        ->visible(fn (Get $get) => filled($get('scope_type')))
-                        ->native(false),
+                    SearchableOptions::seasonOrCampaign('scope_type')->apply(
+                        Forms\Components\Select::make('scope_id')
+                            ->label('العنصر المرتبط')
+                            ->visible(fn (Get $get) => filled($get('scope_type'))),
+                    ),
                 ]),
 
             Forms\Components\Section::make('الجدول الزمني (اختياري)')

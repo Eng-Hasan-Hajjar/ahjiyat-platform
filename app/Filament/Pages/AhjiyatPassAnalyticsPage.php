@@ -6,7 +6,9 @@ use App\Models\AhjiyatPass;
 use App\Models\AhjiyatPassMission;
 use App\Services\AhjiyatPass\PassAnalyticsService;
 use App\Services\AhjiyatPass\PassReconciler;
+use App\Support\Search\ModelPicker;
 use Filament\Pages\Page;
+use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Url;
 
 /**
@@ -43,6 +45,29 @@ class AhjiyatPassAnalyticsPage extends Page
         abort_unless(static::canAccess(), 403);
     }
 
+    /** مزوّد قائمة المسارات المقفلة (المنشورة) لمحدّد المسار؛ المعرّف العلني (ULID) هو القيمة. */
+    protected function passPicker(): ModelPicker
+    {
+        return ModelPicker::make(
+            fn () => AhjiyatPass::query()->whereNotNull('locked_at'),
+            fn (AhjiyatPass $p) => $p->name.' ('.$p->starts_at?->format('Y-m-d').')',
+        )->idColumn('public_id')->searchIn(['name'])->orderBy('starts_at', 'desc')->orderBy('id', 'desc');
+    }
+
+    /**
+     * بحث المسارات المنشورة على الخادم (كل المسارات لا أحدث 50 فقط). صلاحية الصفحة نفسها (passes.view).
+     *
+     * @param  array<string, mixed>  $context
+     * @return array{items: list<array<string, mixed>>, total: int, next: int|null}
+     */
+    #[Renderless]
+    public function searchPasses(string $term = '', int $offset = 0, string $current = '', array $context = []): array
+    {
+        abort_unless(static::canAccess(), 403);
+
+        return $this->passPicker()->search($term, $offset);
+    }
+
     public function runCheck(): void
     {
         $this->checked = true;
@@ -51,8 +76,11 @@ class AhjiyatPassAnalyticsPage extends Page
     /** @return array<string, mixed> */
     public function data(): array
     {
-        $passes = AhjiyatPass::query()->whereNotNull('locked_at')->orderByDesc('starts_at')->limit(50)->get(['id', 'public_id', 'name', 'starts_at', 'ends_at']);
-        $selected = $this->passId !== null ? $passes->firstWhere('public_id', $this->passId) : $passes->first();
+        // E48: المحدّد يُبحث على الخادم. المسار المختار يُقرأ مباشرة (كان يُبحث عنه داخل أحدث 50 فقط، فمسار أقدم برابط ?pass= كان يظهر كأن لا مسارات).
+        $picker = $this->passPicker();
+        $selected = $this->passId !== null && $this->passId !== ''
+            ? $picker->find($this->passId)
+            : AhjiyatPass::query()->whereNotNull('locked_at')->orderByDesc('starts_at')->orderByDesc('id')->first();
         $stats = $selected !== null ? app(PassAnalyticsService::class)->forPass($selected) : null;
         $missionNames = [];
 
@@ -63,8 +91,8 @@ class AhjiyatPassAnalyticsPage extends Page
         }
 
         return [
-            'passes' => $passes,
             'selected' => $selected,
+            'selectedPicked' => $selected !== null ? $picker->describe($selected) : null,
             'stats' => $stats,
             'missionNames' => $missionNames,
             'report' => $this->checked ? app(PassReconciler::class)->run(false) : null,

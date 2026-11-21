@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SeasonResource\RelationManagers;
 
+use App\Filament\Support\SearchableOptions;
 use App\Models\Campaign;
 use App\Models\CompetitiveEvent;
 use App\Models\MissionPool;
@@ -15,6 +16,8 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
+use App\Support\Search\TextSearch;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -47,18 +50,17 @@ class ContentItemsRelationManager extends RelationManager
     }
 
     /** @return array<int|string, string> */
-    protected function targets(?string $type): array
+    /** استعلام العناصر القابلة للربط بحسب النوع (بحث الخادم يعمل فوقه ضمن كل السجلات لا أحدث 100). */
+    protected function targetQuery(?string $type): Builder
     {
         /** @var Season $season */
         $season = $this->getOwnerRecord();
 
         return match ($type) {
-            SeasonContentItem::TYPE_CAMPAIGN => Campaign::query()->where('id', '!=', $season->campaign_id)
-                ->whereDoesntHave('season')->orderByDesc('id')->limit(100)->pluck('title', 'id')->all(),
-            SeasonContentItem::TYPE_COMPETITIVE_EVENT => CompetitiveEvent::query()->where('status', '!=', CompetitiveEvent::STATUS_CANCELLED)
-                ->orderByDesc('id')->limit(100)->pluck('title', 'id')->all(),
-            SeasonContentItem::TYPE_MISSION_POOL => MissionPool::query()->orderByDesc('id')->limit(100)->pluck('name', 'id')->all(),
-            default => [],
+            SeasonContentItem::TYPE_CAMPAIGN => Campaign::query()->where('id', '!=', $season->campaign_id)->whereDoesntHave('season'),
+            SeasonContentItem::TYPE_COMPETITIVE_EVENT => CompetitiveEvent::query()->where('status', '!=', CompetitiveEvent::STATUS_CANCELLED),
+            SeasonContentItem::TYPE_MISSION_POOL => MissionPool::query(),
+            default => Campaign::query()->whereRaw('1 = 0'),
         };
     }
 
@@ -88,8 +90,10 @@ class ContentItemsRelationManager extends RelationManager
                     ->visible(fn () => ! $this->isReadOnly())
                     ->form(fn () => [
                         Forms\Components\Select::make('type')->label('النوع')->options($this->typeLabels())->required()->native(false)->live(),
-                        Forms\Components\Select::make('target_id')->label('العنصر')->required()->searchable()->native(false)
-                            ->options(fn (Get $get) => $this->targets($get('type'))),
+                        SearchableOptions::make(fn (Get $get) => $this->targetQuery($get('type')), fn (Model $m) => (string) ($m instanceof MissionPool ? $m->name : $m->title))
+                            ->newestFirst()
+                            ->searchUsing(fn (Builder $q, array $tokens) => TextSearch::contains($q, $q->getModel() instanceof MissionPool ? 'name' : 'title', $tokens))
+                            ->apply(Forms\Components\Select::make('target_id')->label('العنصر')->required()),
                         ...$this->optionFields(),
                     ])
                     ->action(function (array $data) {

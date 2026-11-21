@@ -3,11 +3,13 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ReferralCampaignResource\Pages;
+use App\Filament\Support\SearchableOptions;
 use App\Models\ReferralCampaign;
 use App\Models\Season;
 use App\Models\UserReferral;
 use App\Services\Referrals\ReferralCampaignService;
 use App\Services\Referrals\ReferralException;
+use App\Support\Search\TextSearch;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -57,7 +59,10 @@ class ReferralCampaignResource extends Resource
                 Forms\Components\TextInput::make('name')->label('الاسم')->required()->maxLength(120),
                 Forms\Components\TextInput::make('slug')->label('المعرّف (يُستعمل في ?c=)')->required()->maxLength(64)->regex('/^[a-z0-9]+(?:-[a-z0-9]+)*$/')->helperText('أحرف لاتينية صغيرة وأرقام وشرطات.'),
                 Forms\Components\Toggle::make('is_public')->label('تظهر لللاعبين في صفحة الدعوات')->default(true),
-                Forms\Components\Select::make('season_id')->label('موسم مرتبط (اختياري)')->searchable()->options(fn () => Season::query()->with('campaign:id,title')->orderByDesc('id')->limit(50)->get()->mapWithKeys(fn ($s) => [$s->id => $s->campaign?->title ?? ('موسم #'.$s->id)])->all()),
+                SearchableOptions::make(fn () => Season::query()->with('campaign:id,title'), fn (Season $s) => (string) ($s->campaign?->title ?? ('موسم #'.$s->id)))
+                    ->newestFirst()
+                    ->searchUsing(fn (Builder $q, array $tokens) => $q->whereHas('campaign', fn (Builder $c) => TextSearch::contains($c, 'title', $tokens)))
+                    ->apply(Forms\Components\Select::make('season_id')->label('موسم مرتبط (اختياري)')),
                 Forms\Components\DateTimePicker::make('starts_at')->label('تبدأ (اختياري)'),
                 Forms\Components\DateTimePicker::make('ends_at')->label('تنتهي (اختياري)')->after('starts_at'),
             ]),

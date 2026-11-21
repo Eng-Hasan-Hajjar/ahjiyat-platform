@@ -24,8 +24,12 @@ use App\Services\SeasonalRecognition\SeasonWriterLeaderboardService;
 use App\Services\SeasonalRecognition\SeasonWriterReconciler;
 use App\Services\SeasonalRecognition\SeasonWriterRosterService;
 use App\Services\Sponsorship\SponsorshipException;
+use App\Support\Search\ModelPicker;
+use App\Support\Search\TextSearch;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Livewire\Attributes\Renderless;
 use Throwable;
 
 /**
@@ -144,6 +148,34 @@ class SeasonalRecognitionPage extends Page
         $this->confirmWriters = $this->confirmSupporters = false;
     }
 
+    /** مزوّد قائمة المواسم (بحث الخادم): الاسم = عنوان الحملة + المعرّف النصي؛ البحث في أيٍّ منهما. */
+    protected function seasonPicker(): ModelPicker
+    {
+        return ModelPicker::make(
+            fn () => Season::query()->with('campaign:id,title'),
+            fn (Season $s) => ($s->campaign?->title ?? $s->slug).' ('.$s->slug.')',
+        )->orderBy('id', 'desc')->searchUsing(function (Builder $q, array $tokens) {
+            foreach ($tokens as $token) {
+                $q->where(fn (Builder $w) => $w->whereHas('campaign', fn (Builder $c) => TextSearch::contains($c, 'title', [$token]))
+                    ->orWhere(fn (Builder $x) => TextSearch::contains($x, 'slug', [$token])));
+            }
+        });
+    }
+
+    /**
+     * بحث المواسم على الخادم لمحدّد «الموسم» (المكوّن المشترك searchable-select): كل المواسم لا أحدث 60 فقط. للمصرَّح لهم بالصفحة (الاطلاع).
+     *
+     * @param  array<string, mixed>  $context
+     * @return array{items: list<array<string, mixed>>, total: int, next: int|null}
+     */
+    #[Renderless]
+    public function searchSeasons(string $term = '', int $offset = 0, string $current = '', array $context = []): array
+    {
+        abort_unless(static::canAccess(), 403);
+
+        return $this->seasonPicker()->search($term, $offset);
+    }
+
     protected function season(): ?Season
     {
         return $this->seasonId ? Season::query()->with('campaign:id,title')->find($this->seasonId) : null;
@@ -202,7 +234,8 @@ class SeasonalRecognitionPage extends Page
         $setting = $season !== null ? $settings->settingFor($season) : null;
 
         $d = [
-            'seasons' => Season::query()->with('campaign:id,title')->orderByDesc('id')->limit(60)->get(),
+            // E48: المحدّد يُبحث على الخادم؛ يُحمَّل هنا وصف الموسم الحالي فقط (حتى لو كان قديمًا).
+            'seasonPicked' => $season !== null ? $this->seasonPicker()->describe($season) : null,
             'season' => $season,
             'setting' => $setting,
             'can' => [

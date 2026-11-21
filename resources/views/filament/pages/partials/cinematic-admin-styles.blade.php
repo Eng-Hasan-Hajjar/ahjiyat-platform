@@ -249,6 +249,7 @@
 .cin-admin .cin-asset img { width: 6rem; height: auto; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border-radius: 0.3rem; border: 1px solid var(--cin-border-soft); }
 .cin-admin .cin-asset-meta { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1 1 12rem; }
 .cin-admin .cin-asset-name { font-weight: 700; overflow-wrap: anywhere; }
+[dir=rtl] .cin-admin .cin-asset-name.cin-ltr { text-align: right; }
 .cin-admin .cin-table-wrap { overflow-x: auto; }
 .cin-admin .cin-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .cin-admin .cin-table th { color: var(--cin-muted); text-align: start; font-weight: 700; padding: 0.5rem; border-bottom: 1px solid var(--cin-border); white-space: nowrap; }

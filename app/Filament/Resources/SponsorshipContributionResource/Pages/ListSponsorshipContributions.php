@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SponsorshipContributionResource\Pages;
 
+use App\Filament\Support\SearchableOptions;
 use App\Filament\Resources\SponsorshipContributionResource;
 use App\Filament\Widgets\SponsorshipStatsWidget;
 use App\Models\SponsorshipProgram;
@@ -33,8 +34,8 @@ class ListSponsorshipContributions extends ListRecords
                     Forms\Components\Select::make('supporter_id')->label('الداعم')->required()->searchable()
                         ->getSearchResultsUsing(fn (string $search) => SupporterProfile::query()->where('status', SupporterProfile::STATUS_ACTIVE)->where('display_name', 'like', '%'.addcslashes($search, '%_\\').'%')->orderBy('display_name')->limit(20)->pluck('display_name', 'id')->all())
                         ->getOptionLabelUsing(fn ($value) => SupporterProfile::query()->whereKey($value)->value('display_name')),
-                    Forms\Components\Select::make('program_id')->label('البرنامج')->required()
-                        ->options(fn () => SponsorshipProgram::query()->whereIn('status', [SponsorshipProgram::STATUS_DRAFT, SponsorshipProgram::STATUS_ACTIVE])->orderByDesc('id')->limit(100)->pluck('title', 'id')->all()),
+                    SearchableOptions::make(fn () => SponsorshipProgram::query()->whereIn('status', [SponsorshipProgram::STATUS_DRAFT, SponsorshipProgram::STATUS_ACTIVE]), 'title')->newestFirst()
+                        ->apply(Forms\Components\Select::make('program_id')->label('البرنامج')->required()),
                     Forms\Components\TextInput::make('amount')->label('المبلغ')->required()->maxLength(20),
                     Forms\Components\Select::make('currency')->label('العملة')->required()->options(SponsorshipMoney::options())->default(SponsorshipMoney::accountingCurrency()),
                     Forms\Components\Toggle::make('is_anonymous')->label('مجهولة (لا تُنسب علنًا)'),

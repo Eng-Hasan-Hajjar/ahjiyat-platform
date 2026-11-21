@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CampaignGateResource\RelationManagers;
 
+use App\Filament\Support\SearchableOptions;
 use App\Models\CampaignStep;
 use App\Models\Puzzle;
 use Filament\Forms;
@@ -108,14 +109,15 @@ class StepsRelationManager extends RelationManager
                 ->collapsible(),
 
             // ===== puzzle فقط - اختيار أحجية موجودة حصراً =====
-            Forms\Components\Select::make('puzzle_id')
-                ->label('الأحجية')
-                ->options(fn () => Puzzle::query()->official()->where('is_active', true)->pluck('title', 'id'))
-                ->searchable()
-                ->required(fn (Get $get) => $get('kind') === CampaignStep::KIND_PUZZLE)
-                ->visible(fn (Get $get) => $get('kind') === CampaignStep::KIND_PUZZLE)
-                ->helperText('تعديل محتوى/حل الأحجية نفسها يتم من صفحة الأحجيات، لا هون.')
-                ->columnSpanFull(),
+            // E48: بحث على الخادم ضمن كل الأحجيات الرسمية الفعّالة (بدل تحميلها كلها في المتصفح).
+            SearchableOptions::make(fn () => Puzzle::query()->official()->where('is_active', true), 'title')->apply(
+                Forms\Components\Select::make('puzzle_id')
+                    ->label('الأحجية')
+                    ->required(fn (Get $get) => $get('kind') === CampaignStep::KIND_PUZZLE)
+                    ->visible(fn (Get $get) => $get('kind') === CampaignStep::KIND_PUZZLE)
+                    ->helperText('تعديل محتوى/حل الأحجية نفسها يتم من صفحة الأحجيات، لا هون.')
+                    ->columnSpanFull(),
+            ),
 
             // ===== المكافأة - لخطوات الأحجية فقط =====
             Forms\Components\Select::make('reward_mode')

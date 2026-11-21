@@ -212,13 +212,15 @@ test('UX-05: media permissions - view-only cannot link or upload, media permissi
     $this->actingAs(e16User())->postJson('/admin/cinematic/media', ['role' => 'poster', 'file' => $png()])->assertForbidden();
 });
 
-test('UX-06: dropdowns render real <option> elements with readable names, and the admin CSS gives every select/option solid colours (no translucent option background, no global select rule)', function () {
+test('UX-06: media pickers no longer ship the library as <option> elements (E48: searched on the server), and the admin CSS gives every select/option solid colours (no translucent option background, no global select rule)', function () {
     $w = ux_world();
     $video = cin_video_asset($w['admin']);
     $this->actingAs($w['admin']);
 
     $html = $this->get(CinematicBuilderPage::getUrl(['story' => $w['story']->public_id, 'scene' => $w['film']->public_id]))->assertOk()->getContent();
-    expect($html)->toContain('<option value="'.$video->public_id.'"')->toContain('scene.mp4')->toContain('data-scene-media')->toContain('data-save-media');
+    // E48: ملفات المكتبة لم تعد تُرسَل كلها إلى الصفحة كـ<option> (كانت أحدث 200 فقط)؛ يبحث محدّد الوسائط على الخادم (انظر tests/Feature/SearchableSelects).
+    // يبقى هنا أن حقول الوسائط وزر الحفظ موجودة وأن المكتبة لا تُحمَّل إلى الصفحة.
+    expect($html)->toContain('data-ss-root')->toContain('data-scene-media')->toContain('data-save-media')->not->toContain('<option value="'.$video->public_id.'"');
 
     $css = (string) file_get_contents(resource_path('views/filament/pages/partials/cinematic-admin-styles.blade.php'));
     expect($css)->toContain('.cin-admin select option, .cin-admin select optgroup')->toContain('color-scheme: dark')->toContain('color-scheme: light');

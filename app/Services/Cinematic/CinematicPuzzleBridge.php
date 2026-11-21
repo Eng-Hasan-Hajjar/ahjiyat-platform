@@ -42,6 +42,19 @@ class CinematicPuzzleBridge
         return null;
     }
 
+    /**
+     * استعلام الأحجيات الصالحة للربط: يطابق ineligibleReason() بالضبط (رسمية، مفعّلة، كلاسيكية بلا game_type، بإجابة معتمدة).
+     * مصدر واحد للقاعدة يخدم بحث محدّد الأحجية على الخادم؛ والتكافؤ بين الاثنين مُثبَت بالاختبار.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<Puzzle>
+     */
+    public function eligibleQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return Puzzle::query()->official()->where('is_active', true)
+            ->where(fn ($q) => $q->whereNull('game_type')->orWhere('game_type', ''))
+            ->whereNotNull('answer_hash')->where('answer_hash', '!=', '');
+    }
+
     public function check(Puzzle $puzzle, string $answer): bool
     {
         return $this->games->validatorFor($puzzle)->check($puzzle, ['answer' => mb_substr($answer, 0, 500)])->correct;

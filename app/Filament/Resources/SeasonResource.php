@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SearchableOptions;
 use App\Filament\Resources\CampaignResource;
 use App\Filament\Resources\SeasonResource\Pages;
 use App\Filament\Resources\SeasonResource\RelationManagers\AnnouncementsRelationManager;
@@ -118,10 +119,11 @@ class SeasonResource extends Resource
                     Forms\Components\DateTimePicker::make('ends_at')->label('نهاية الموسم')->seconds(false)->helperText('فارغ = تنتهي مع الحملة الأساسية.'),
                     Forms\Components\DateTimePicker::make('announcement_at')->label('موعد ظهور الموسم للجمهور')->seconds(false)->helperText('فارغ = يظهر فور النشر. يجب ألا يتأخر عن البداية.'),
                     Forms\Components\DateTimePicker::make('archive_at')->label('موعد الأرشفة التلقائية')->seconds(false)->helperText('اختياري. بعده ينتقل الموسم إلى الأرشيف وتُجمَّد نافذته.'),
-                    Forms\Components\Select::make('ahjiyat_pass_id')->label('مسار الأحجيات المرتبط (اختياري)')->searchable()->native(false)->placeholder('بدون مسار')
-                        ->options(fn () => AhjiyatPass::query()->orderByDesc('id')->limit(100)->pluck('name', 'id')->all())
-                        ->helperText('عرض فقط في صفحة الموسم: المسار يملك نقاطه ومكافآته وملكيته.')
-                        ->columnSpanFull(),
+                    SearchableOptions::make(fn () => AhjiyatPass::query(), 'name')->newestFirst()->apply(
+                        Forms\Components\Select::make('ahjiyat_pass_id')->label('مسار الأحجيات المرتبط (اختياري)')->placeholder('بدون مسار')
+                            ->helperText('عرض فقط في صفحة الموسم: المسار يملك نقاطه ومكافآته وملكيته.')
+                            ->columnSpanFull(),
+                    ),
                 ])->columns(2),
 
             Forms\Components\Section::make('النشر')

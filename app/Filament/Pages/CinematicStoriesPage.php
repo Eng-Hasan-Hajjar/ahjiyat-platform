@@ -4,11 +4,12 @@ namespace App\Filament\Pages;
 
 use App\Models\Cinematic\CinematicRevision;
 use App\Models\Cinematic\CinematicStory;
-use App\Models\CreatorSeries;
+use App\Services\Cinematic\Admin\CinematicSeriesPicker;
 use App\Services\Cinematic\CinematicAuthoringService;
 use App\Services\Cinematic\CinematicException;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Livewire\Attributes\Renderless;
 
 /**
  * CIN-1 - قائمة القصص السينمائية: إنشاء قصة (قصيرة/طويلة، مجانية/مميزة)، فتح المنشئ، أرشفة/إلغاء أرشفة.
@@ -86,6 +87,20 @@ class CinematicStoriesPage extends Page
     }
 
     /** @return array<string, mixed> */
+    /**
+     * بحث السلاسل على الخادم لقائمة «السلسلة المرتبطة» (المكوّن المشترك searchable-select). صلاحية الإنشاء نفسها (manage).
+     *
+     * @param  array<string, mixed>  $context
+     * @return array{items: list<array<string, mixed>>, total: int, next: int|null}
+     */
+    #[Renderless]
+    public function searchSeries(string $term = '', int $offset = 0, string $current = '', array $context = []): array
+    {
+        abort_unless($this->canManage(), 403);
+
+        return app(CinematicSeriesPicker::class)->search($term, $offset);
+    }
+
     public function data(): array
     {
         $stories = CinematicStory::query()->with('liveRevision')->orderByDesc('id')->limit(200)->get()->map(function (CinematicStory $s): array {
@@ -104,7 +119,6 @@ class CinematicStoriesPage extends Page
             'rows' => $stories,
             'canManage' => $this->canManage(),
             'canPublish' => auth()->user()?->can('cinematic-stories.publish') ?? false,
-            'series' => CreatorSeries::query()->orderByDesc('id')->limit(200)->get(['id', 'public_id', 'published_title']),
             'mediaUrl' => CinematicMediaLibraryPage::getUrl(),
         ];
     }

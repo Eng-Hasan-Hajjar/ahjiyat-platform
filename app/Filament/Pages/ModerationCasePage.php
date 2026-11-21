@@ -3,12 +3,13 @@
 namespace App\Filament\Pages;
 
 use App\Models\ModerationCase;
-use App\Models\User;
+use App\Services\TrustSafety\AssigneePicker;
 use App\Services\TrustSafety\CaseService;
 use App\Services\TrustSafety\EnforcementService;
 use App\Services\TrustSafety\ModerationException;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Livewire\Attributes\Renderless;
 
 /**
  * E38 - صفحة حالة إشراف واحدة (للمشرفين فقط): المصادر، الموضوع، الأدلة والملاحظات، الإجراءات والاعتراضات عليها، والتسلسل الزمني.
@@ -95,16 +96,15 @@ class ModerationCasePage extends Page
         $case = $this->caseOrFail();
         $user = auth()->user();
         $service = app(CaseService::class);
-        $assignable = $user->can('trust-safety.supervise')
-            ? User::query()->permission('trust-safety.manage-cases')->orderBy('name')->limit(100)->get(['id', 'name'])->pluck('name', 'id')->all()
-            : [];
+        // E48: القائمة لا تُحمَّل هنا؛ يُبحث عن المشرفين على الخادم عند الطلب (searchAssignees). نعرف فقط هل يوجد من يُعيَّن إليه.
+        $hasAssignable = $user->can('trust-safety.supervise') && app(AssigneePicker::class)->any();
 
         return $service->detail($case) + [
             'actionsAvailable' => $case->isActive() ? app(EnforcementService::class)->available($case, $user) : [],
             'isMine' => (int) $case->assigned_to === (int) $user->id,
             'canManage' => $user->can('trust-safety.manage-cases'),
             'canSupervise' => $user->can('trust-safety.supervise'),
-            'assignable' => $assignable,
+            'hasAssignable' => $hasAssignable,
             'me' => $user->id,
         ];
     }
@@ -129,10 +129,30 @@ class ModerationCasePage extends Page
         $this->attempt(fn ($c, $u) => app(CaseService::class)->release($c, $u), 'تخلّيت عن الحالة.');
     }
 
+    /**
+     * بحث مشرفي الحالات على الخادم لقائمة «إعادة التعيين» (المكوّن المشترك searchable-select). للمشرف الأعلى فقط كالإجراء نفسه.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array{items: list<array<string, mixed>>, total: int, next: int|null}
+     */
+    #[Renderless]
+    public function searchAssignees(string $term = '', int $offset = 0, string $current = '', array $context = []): array
+    {
+        abort_unless(auth()->user()?->can('trust-safety.supervise'), 403);
+
+        return app(AssigneePicker::class)->search($term, $offset);
+    }
+
     public function assign(): void
     {
         $this->attempt(function ($c, $u) {
-            $assignee = $this->assigneeId !== '' ? User::query()->find((int) $this->assigneeId) : null;
+            // المعرّف يأتي من العميل: لا يُقبل إلا مشرف حالات فعلي (والخدمة تعيد الفحص). غيره = لا أحد مطابق.
+            $assignee = $this->assigneeId !== '' ? app(AssigneePicker::class)->find((int) $this->assigneeId) : null;
+
+            if ($this->assigneeId !== '' && $assignee === null) {
+                throw new ModerationException('المشرف المختار غير متاح للتعيين.');
+            }
+
             app(CaseService::class)->assign($c, $u, $assignee);
             $this->assigneeId = '';
         }, 'حُدِّث تعيين الحالة.');

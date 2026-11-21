@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <x-searchable-select.assets />
     @php
         $d = $this->data();
         $s = $d['stats'];
@@ -9,9 +10,12 @@
     <p class="text-xs text-gray-500">أرقام تجميعية فقط (تُحدَّث كل دقائق قليلة). إيراد المميز إيراد منصة، ولا علاقة له بأرباح المبدعين أو صندوق الرعاية. لا قائمة أفراد حسب الإنفاق.</p>
 
     <div class="flex flex-wrap items-center gap-2">
-        <select wire:model.live="passId" class="rounded-lg border border-gray-300 dark:border-white/10 dark:bg-white/5 px-3 py-2 text-sm">
-            @foreach ($d['passes'] as $p)<option value="{{ $p->public_id }}" @selected($d['selected'] && $d['selected']->id === $p->id)>{{ $p->name }} ({{ $p->starts_at->format('Y-m-d') }})</option>@endforeach
-        </select>
+        {{-- E48: بحث الخادم بدل <select> بأحدث 50 مسارًا؛ المسار الحالي يظهر حتى لو كان أقدم. --}}
+        <div class="w-80 max-w-full" data-pass-picker>
+            <span id="pa-pass-label" class="sr-only">المسار</span>
+            <x-searchable-select id="pa-pass" label-id="pa-pass-label" wire:model.live="passId" wire:key="ss-pass" method="searchPasses"
+                :value="(string) ($d['selected']?->public_id ?? '')" :selected="$d['selectedPicked']" name-dir="auto" placeholder="ابحث باسم المسار…" />
+        </div>
         <button type="button" wire:click="runCheck" class="rounded-lg border border-gray-300 dark:border-white/10 px-3 py-2 text-sm" data-run-check>فحص سلامة (قراءة فقط)</button>
     </div>
 

@@ -4,7 +4,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\SponsorshipPaymentResource\Pages;
 use App\Models\SponsorshipPayment;
-use App\Models\SponsorshipProgram;
 use App\Services\Payments\PaymentAnalytics;
 use App\Services\Payments\SponsorshipPaymentService;
 use App\Services\Sponsorship\SponsorshipException;
@@ -91,8 +90,9 @@ class SponsorshipPaymentResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('status')->label('الحالة')->options(SponsorshipPayment::statusLabels()),
                 Tables\Filters\SelectFilter::make('provider')->label('الطريقة')->options(fn () => collect((array) config('payments.providers'))->keys()->mapWithKeys(fn ($k) => [(string) $k => (string) $k])->all()),
-                Tables\Filters\SelectFilter::make('sponsorship_program_id')->label('البرنامج')
-                    ->options(fn () => SponsorshipProgram::query()->orderByDesc('id')->limit(100)->pluck('title', 'id')->all()),
+                // E48: بحث Filament المدمج على الخادم عبر العلاقة (بدل أحدث 100 برنامج فقط).
+                Tables\Filters\SelectFilter::make('sponsorship_program_id')->label('البرنامج')->relationship('program', 'title')->searchable()->preload()->optionsLimit(20)
+                    ->placeholder('كل البرامج'),
                 Tables\Filters\TernaryFilter::make('is_anonymous')->label('مجهول'),
                 Tables\Filters\TernaryFilter::make('has_proof')->label('إثبات مرفوع')->queries(
                     true: fn (Builder $q) => $q->whereNotNull('proof_path'),

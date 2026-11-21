@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserReferralResource\Pages;
-use App\Models\ReferralCampaign;
 use App\Models\UserReferral;
 use App\Services\Referrals\ReferralException;
 use App\Services\Referrals\ReferralReviewService;
@@ -82,7 +81,9 @@ class UserReferralResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')->label('الحالة')->options(array_combine(UserReferral::STATUSES, array_map([self::class, 'statusLabel'], UserReferral::STATUSES))),
-                Tables\Filters\SelectFilter::make('referral_campaign_id')->label('الحملة')->options(fn () => ReferralCampaign::query()->orderBy('name')->limit(100)->pluck('name', 'id')->all()),
+                // E48: بحث Filament المدمج على الخادم عبر العلاقة (بدل أول 100 حملة في المتصفح)؛ الفلترة نفسها: referral_campaign_id = المختار.
+                Tables\Filters\SelectFilter::make('referral_campaign_id')->label('الحملة')->relationship('campaign', 'name')->searchable()->preload()->optionsLimit(20)
+                    ->placeholder('كل الحملات'),
                 Tables\Filters\SelectFilter::make('reward_status')->label('المكافأة')->options(['none' => '—', 'pending' => 'قيد التسليم', 'granted' => 'سُلّمت', 'skipped' => 'لا مكافأة']),
                 Tables\Filters\Filter::make('has_signals')->label('بها إشارات مخاطر')->query(fn (Builder $query) => $query->whereNotNull('risk_signals')),
             ])

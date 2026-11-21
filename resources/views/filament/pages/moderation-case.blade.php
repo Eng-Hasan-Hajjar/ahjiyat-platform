@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <x-searchable-select.assets />
     @php
         $d = $this->data();
         $case = $d['case'];
@@ -41,12 +42,14 @@
                 <button type="button" wire:click="release" class="{{ $btnAlt }}">التخلّي عن الحالة</button>
             @endif
         </div>
-        @if ($active && $d['canSupervise'] && $d['assignable'])
-            <form wire:submit.prevent="assign" class="flex flex-wrap gap-2 items-center pt-1">
-                <select wire:model="assigneeId" class="{{ $inputClass }} !w-64">
-                    <option value="">— إلغاء التعيين —</option>
-                    @foreach ($d['assignable'] as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
-                </select>
+        @if ($active && $d['canSupervise'] && $d['hasAssignable'])
+            {{-- E48: قائمة المشرفين تُبحث على الخادم (مكوّن مشترك) بدل <select> بأول 100 مشرف. الاختيار لا يعيّن أحدًا قبل «إعادة التعيين». --}}
+            <form wire:submit.prevent="assign" class="flex flex-wrap gap-2 items-center pt-1" data-assignee-picker>
+                <div class="w-72 max-w-full">
+                    <x-searchable-select id="case-assignee" wire:model="assigneeId" wire:key="ss-assignee" method="searchAssignees"
+                        :value="$this->assigneeId" :selected="null" allow-none name-dir="auto"
+                        placeholder="ابحث باسم المشرف…" none="— إلغاء التعيين —" remove-label="مسح اختيار المشرف" />
+                </div>
                 <button type="submit" class="{{ $btnAlt }}">إعادة التعيين</button>
             </form>
         @endif

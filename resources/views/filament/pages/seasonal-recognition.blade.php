@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <x-searchable-select.assets />
     @php
         $d = $this->data();
         extract($d, EXTR_SKIP);
@@ -20,13 +21,14 @@
         المفتاحان العامان: الكتّاب {{ $d['flags']['writers'] ? 'مُفعَّل' : 'معطَّل' }} · الداعمون {{ $d['flags']['supporters'] ? 'مُفعَّل' : 'معطَّل' }} (تعطيلهما يوقف الإجراءات الجديدة فقط ولا يمحو تاريخًا).</p>
 
     <div class="flex flex-wrap items-center gap-3">
-        <label class="text-sm font-bold">الموسم
-            <select wire:model.live="seasonId" class="{{ $input }} !w-auto min-w-[16rem]">
-                @foreach ($d['seasons'] as $s)
-                    <option value="{{ $s->id }}">{{ $s->campaign?->title ?? $s->slug }} ({{ $s->slug }})</option>
-                @endforeach
-            </select>
-        </label>
+        <div class="text-sm font-bold" data-season-picker>
+            <span id="sr-season-label" class="block mb-1">الموسم</span>
+            {{-- E48: بحث الخادم بدل <select> بأحدث 60 موسمًا؛ الموسم الحالي يظهر حتى لو كان أقدم. --}}
+            <div class="w-80 max-w-full">
+                <x-searchable-select id="sr-season" label-id="sr-season-label" wire:model.live="seasonId" wire:key="ss-season" method="searchSeasons"
+                    :value="(string) $this->seasonId" :selected="$d['seasonPicked']" name-dir="auto" placeholder="ابحث بعنوان الموسم أو معرّفه…" />
+            </div>
+        </div>
         @if ($season)<span class="text-xs text-gray-500">حالة التصويت: <strong>{{ $states[$d['state']] ?? $d['state'] }}</strong></span>@endif
     </div>
 

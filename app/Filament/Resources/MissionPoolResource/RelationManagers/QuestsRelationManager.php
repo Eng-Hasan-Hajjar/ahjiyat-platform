@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\MissionPoolResource\RelationManagers;
 
+use App\Filament\Support\SearchableOptions;
 use App\Models\MissionPool;
 use App\Models\QuestDefinition;
 use App\Services\LiveOps\LiveOpsException;
@@ -48,15 +49,13 @@ class QuestsRelationManager extends RelationManager
                 Tables\Actions\Action::make('addQuest')->label('إضافة مهمة')
                     ->visible(fn () => ! $this->isReadOnly())
                     ->form(fn () => [
-                        Forms\Components\Select::make('quest_id')->label('المهمة')->required()->searchable()->native(false)
-                            ->options(function () {
-                                /** @var MissionPool $pool */
-                                $pool = $this->getOwnerRecord();
+                        SearchableOptions::make(function () {
+                            /** @var MissionPool $pool */
+                            $pool = $this->getOwnerRecord();
 
-                                return QuestDefinition::query()->where('period_type', $pool->period_type)
-                                    ->whereNotIn('id', $pool->quests()->pluck('quest_definitions.id'))
-                                    ->orderBy('name')->limit(100)->pluck('name', 'id');
-                            }),
+                            return QuestDefinition::query()->where('period_type', $pool->period_type)
+                                ->whereNotIn('id', $pool->quests()->pluck('quest_definitions.id'));
+                        }, 'name')->apply(Forms\Components\Select::make('quest_id')->label('المهمة')->required()),
                     ])
                     ->action(function (array $data) {
                         $this->run(fn (MissionPoolService $s, MissionPool $pool) => $s->attach(auth()->user(), $pool, QuestDefinition::query()->findOrFail((int) $data['quest_id'])), 'أُضيفت المهمة للمجموعة.');

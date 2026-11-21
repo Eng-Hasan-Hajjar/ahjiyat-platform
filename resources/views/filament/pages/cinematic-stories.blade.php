@@ -3,6 +3,7 @@
 
     {{-- CIN-1 UX: نفس أنماط المنشئ والمكتبة (محصورة بـ .cin-admin). كانت الحقول هنا بخلفية شبه شفافة فتظهر قوائم الاختيار بنص غير مقروء. --}}
     @include('filament.pages.partials.cinematic-admin-styles')
+    <x-searchable-select.assets />
 
     <div class="cin-admin" data-cin-root>
         <div class="cin-row">
@@ -29,10 +30,9 @@
                     </label>
                     @if (($form['access_mode'] ?? 'free') === 'premium')
                         <label class="cin-field" style="grid-column:1/-1">السلسلة المرتبطة (الملكية تُقرأ منها)
-                            <select wire:model="form.creator_series_id">
-                                <option value="">—</option>
-                                @foreach ($d['series'] as $series)<option value="{{ $series->id }}">{{ $series->published_title ?: $series->public_id }}</option>@endforeach
-                            </select>
+                            <x-searchable-select id="cin-new-series" wire:model="form.creator_series_id" wire:key="ss-new-series" method="searchSeries"
+                                :value="$form['creator_series_id'] ?? ''" :selected="null" allow-none name-dir="auto"
+                                placeholder="ابحث بعنوان السلسلة…" none="— بلا سلسلة —" remove-label="مسح اختيار السلسلة" />
                         </label>
                     @endif
                 </div>

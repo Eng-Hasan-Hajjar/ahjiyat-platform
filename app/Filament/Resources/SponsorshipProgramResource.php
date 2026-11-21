@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SearchableOptions;
 use App\Filament\Resources\SponsorshipProgramResource\Pages;
 use App\Models\CompetitiveEvent;
 use App\Models\SponsorshipContribution;
@@ -124,9 +125,9 @@ class SponsorshipProgramResource extends Resource
         return Tables\Actions\Action::make('assign_role')->label('تعيين دور (راعٍ / راعٍ رئيسي)')->icon('heroicon-o-star')
             ->visible(fn (SponsorshipProgram $r) => $r->status !== SponsorshipProgram::STATUS_CANCELLED && (auth()->user()?->can('sponsorships.manage') ?? false))
             ->form(fn (SponsorshipProgram $r) => [
-                Forms\Components\Select::make('supporter_id')->label('الداعم (له مساهمة مؤكَّدة بهذا البرنامج)')->required()
-                    ->options(fn () => SupporterProfile::query()->whereIn('id', SponsorshipContribution::query()->where('sponsorship_program_id', $r->id)
-                        ->where('status', SponsorshipContribution::STATUS_CONFIRMED)->select('supporter_profile_id'))->orderBy('display_name')->limit(100)->pluck('display_name', 'id')->all()),
+                SearchableOptions::make(fn () => SupporterProfile::query()->whereIn('id', SponsorshipContribution::query()->where('sponsorship_program_id', $r->id)
+                    ->where('status', SponsorshipContribution::STATUS_CONFIRMED)->select('supporter_profile_id')), 'display_name')
+                    ->apply(Forms\Components\Select::make('supporter_id')->label('الداعم (له مساهمة مؤكَّدة بهذا البرنامج)')->required()),
                 Forms\Components\Select::make('role')->label('الدور')->required()->options(['supporter' => 'داعم', 'sponsor' => 'راعٍ', 'main_sponsor' => 'الراعي الرئيسي'])->default('sponsor'),
             ])
             ->action(fn (SponsorshipProgram $record, array $data) => self::guard(function () use ($record, $data) {
