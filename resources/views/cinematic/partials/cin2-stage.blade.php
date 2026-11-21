@@ -44,4 +44,21 @@
         </div>
     </div>
 </template>
+
+<!-- PLM-3 board_move: رقعة صفوف/أعمدة. الصف 1 في الأسفل والعمود 1 على اليسار (ثابت). الحصان قطعة وحيدة تُسحب أو تُنقل باللمس/النقر ثم تُؤكَّد النقلة (القرار للخادم). -->
+<template x-if="kind === 'board_move' && ix.board && ix.piece">
+    <div class="cin2-board" :class="[bShake ? 'is-shake' : '', doneNow ? 'is-done' : '']" dir="ltr" :style="'--rows:' + bRows + ';--cols:' + bCols + ';'" role="group" :aria-label="ix.alt_text || 'الرقعة: الصف الأول في الأسفل والعمود الأول على اليسار'" data-cin34-board :data-origin="ix.board.origin">
+        <template x-for="r in boardRowNumbers" :key="'rl' + r"><span class="cin2-axis cin2-axis-r" :style="'grid-row:' + (bRows - r + 1) + ';grid-column:1;'" aria-hidden="true" data-cin34-row-label :data-row="r" x-text="arNum(r)"></span></template>
+        <template x-for="c in boardColNumbers" :key="'cl' + c"><span class="cin2-axis cin2-axis-c" :style="'grid-row:' + (bRows + 1) + ';grid-column:' + (c + 1) + ';'" aria-hidden="true" data-cin34-col-label :data-col="c" x-text="arNum(c)"></span></template>
+        <div class="cin2-board-grid" x-ref="boardGrid" x-on:keydown="boardKey($event)" data-cin34-board-grid>
+            <template x-for="sq in boardSquares" :key="sq.key">
+                <button type="button" class="cin2-sq" :class="[sq.dark ? 'is-dark' : 'is-light', traceAt(sq.row, sq.col) ? 'has-trace' : '', bPending && bPending.row === sq.row && bPending.col === sq.col ? 'is-pending' : '', sq.row === bStart.row && sq.col === bStart.col ? 'is-start' : '']"
+                    :style="'grid-row:' + sq.gr + ';grid-column:' + sq.gc + ';'" :data-row="sq.row" :data-col="sq.col" :data-trace="traceAt(sq.row, sq.col) ? '1' : '0'"
+                    :tabindex="sqTab(sq)" :aria-label="sqLabel(sq)" :disabled="busy || doneNow" x-on:click="sqClick(sq)" data-cin34-sq><span class="cin2-trace" x-show="traceAt(sq.row, sq.col)" aria-hidden="true"></span></button>
+            </template>
+            <div class="cin2-knight" :class="[bDrag && bDrag.on ? 'is-dragging' : '', bPending ? 'is-moved' : '']" :style="knightStyle" role="img" :aria-label="ix.piece.label + ': الصف ' + arNum(bPos.row) + '، العمود ' + arNum(bPos.col)"
+                x-on:pointerdown="knightDown($event)" x-on:pointermove="knightMove($event)" x-on:pointerup="knightUp($event)" x-on:pointercancel="knightCancel()" data-cin34-knight :data-row="bPos.row" :data-col="bPos.col"><span aria-hidden="true">♞</span></div>
+        </div>
+    </div>
+</template>
 @endverbatim

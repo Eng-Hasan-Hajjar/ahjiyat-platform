@@ -1,5 +1,6 @@
 {{--
     CIN-2 - ورقة الأنواع الجديدة: answer (إجابة) / inspect (ملاحظات الفحص) / multi_lock (الخزانة ذات القفلين) + نص الكشف بعد النجاح.
+    PLM-3/4 - board_move (حالة النقلة وتأكيدها) / inference (استنتاج + مصدره).
     تُضمَّن داخل .imm-paper-body في مكوّن Alpine cinematicPlayer. كل النصوص بـx-text (نصًّا خامًّا). التلميحات تأتي من الخادم عبر result.hint (تُعرض في طبقة التغذية الراجعة).
 --}}
 @verbatim
@@ -68,8 +69,45 @@
     </form>
 </template>
 
+
+<!-- PLM-3 board_move: حالة النقلة والتأكيد. القرار للخادم؛ بديل لوحة المفاتيح: الآثار المعروضة كأزرار (تظهر عند التركيز فقط). -->
+<template x-if="kind === 'board_move'">
+    <div class="imm-lines cin34-board-paper" data-cin34-board-paper>
+        <p class="imm-note" aria-live="polite" data-cin34-board-status x-text="boardStatus"></p>
+        <ul class="imm-kbd" aria-label="الآثار المعروضة على الرقعة (بديل لوحة المفاتيح وقارئ الشاشة)">
+            <template x-for="t in boardTraceList" :key="'t' + t.id"><li><button type="button" class="imm-chip" x-on:click="placeAt(t.row, t.col)" :disabled="busy || doneNow" x-text="'الصف ' + arNum(t.row) + '، العمود ' + arNum(t.col)" data-cin34-trace-btn></button></li></template>
+        </ul>
+        <div class="imm-ls">
+            <button type="button" class="imm-btn imm-btn-primary" x-on:click="confirmBoardMove()" :disabled="busy || doneNow || !bPending" data-cin34-board-confirm>أكّد النقلة</button>
+            <button type="button" class="imm-btn imm-btn-sm" x-on:click="boardReturn()" :disabled="busy || doneNow || !bPending" data-cin34-board-return>أعد الحصان</button>
+        </div>
+    </div>
+</template>
+
+<!-- PLM-4 inference: استنتاج + مصدره معًا. المصادر مقروءة كلها قبل التأكيد وبعده (نصوصها عامة)، والخادم يتحقق من الزوج كاملًا ولا يكشف أي نصف صحيح. -->
+<template x-if="kind === 'inference'">
+    <form class="imm-lines cin34-infer" x-on:submit.prevent="submitInference()" data-cin34-infer>
+        <div class="cin34-opts" role="radiogroup" aria-label="الاستنتاج">
+            <template x-for="o in ix.options" :key="o.id"><button type="button" class="imm-choice cin34-opt" :class="infConclusion === o.id ? 'is-on' : ''" role="radio" :aria-checked="infConclusion === o.id ? 'true' : 'false'" :data-option="o.id" x-on:click="infPick(o.id)" :disabled="busy || doneNow" x-text="o.label" data-cin34-option></button></template>
+        </div>
+        <p class="cin34-lead" data-cin34-sources-lead>أي مصدر يسند استنتاجك؟ يمكنك اختيار أكثر من مصدر.</p>
+        <div class="cin34-srcs" aria-label="مصادر الأدلة">
+            <template x-for="g in infGroups" :key="g.title">
+                <div class="cin34-group" role="group" :aria-label="g.title">
+                    <p class="cin34-group-title" x-text="g.title"></p>
+                    <template x-for="s in g.items" :key="s.id"><button type="button" class="imm-choice cin34-src" :class="infSources.indexOf(s.id) !== -1 ? 'is-on' : ''" :aria-pressed="infSources.indexOf(s.id) !== -1 ? 'true' : 'false'" :data-source="s.id" x-on:click="infToggle(s.id)" :disabled="busy || doneNow" data-cin34-source><b x-text="s.label"></b><span x-show="s.text" x-text="s.text"></span></button></template>
+                </div>
+            </template>
+        </div>
+        <div class="imm-ls">
+            <button type="submit" class="imm-btn imm-btn-primary" :disabled="busy || doneNow || !infReady" data-cin34-infer-submit>أكّد الاستنتاج ومصدره</button>
+            <button type="button" class="imm-btn imm-btn-sm" x-show="evidenceList.length" x-on:click="openEvidence()" data-cin34-open-evidence>سجل الأدلة</button>
+        </div>
+    </form>
+</template>
+
 <!-- نص الكشف بعد النجاح (من الخادم فقط) للأنواع الجديدة -->
-<template x-if="revealed && (kind === 'answer' || kind === 'inspect' || kind === 'multi_lock')">
+<template x-if="revealed && (kind === 'answer' || kind === 'inspect' || kind === 'multi_lock' || kind === 'board_move' || kind === 'inference')">
     <p class="cin2-reveal" data-cin2-reveal x-text="revealed"></p>
 </template>
 @endverbatim

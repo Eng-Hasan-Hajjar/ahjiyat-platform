@@ -243,6 +243,7 @@ document.addEventListener('alpine:init', function () {
                     var data = await this.call('POST', this.url('submit', this.scene.id), body);
                     this.result = data.result || null;
                     if (typeof this.applyLockDetail === 'function') { this.applyLockDetail(this.result); }
+                    if (typeof this.applyBoardResult === 'function') { this.applyBoardResult(this.result); }
                     if (data.state) { this.state = data.state; }
                     this.nextScene = data.scene || null;
                     if (this.result && this.result.correct && this.result.reveal) { this.revealed = this.result.reveal; }

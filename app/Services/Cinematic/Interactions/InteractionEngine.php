@@ -8,6 +8,8 @@ namespace App\Services\Cinematic\Interactions;
  * الأنواع: hotspot (نقطة ساخنة)، container (فتح باب/درج بشرط)، sequence (ترتيب)، drag_drop (سحب وإفلات)، choose_item (اختيار عنصر)،
  * compare (مقارنة صورة/مخطط بالمشهد)، reveal_code (كشف رمز بعد شرط)، flashlight (استكشاف بمصباح).
  * CIN-2: answer (إدخال إجابة رقمية/نصية بتطبيع الأرقام العربية)، inspect (فحص صورة بتكبير: مناطق فحص مطلوبة)، multi_lock (قفل مركب من عدة أقفال).
+ * PLM-3/4 («الساعة المتوقفة» و«الأبواب الثلاثة»): board_move (رقعة بإحداثيات صف/عمود: الصف 1 أسفل والعمود 1 يسار؛ نقلة حصان واحدة إلى أحد الآثار المعروضة، والخادم يقرّر)،
+ *   inference (استنتاج + مصدره معًا: يُقبل فقط الزوج الصحيح كاملًا — الاستنتاج ومجموعة المصادر نفسها — ولا يُكشف أي جزء منه عند الخطأ).
  * حقلان عامان في الحل لكل الأنواع: reveal (نص يُكشف بعد النجاح فقط) وhints (تلميحات تُعرض بالتتابع عند الخطأ) — كلاهما خادمي ولا يصل المتصفح قبل وقته.
  * كل نوع يعمل باللمس والفأرة ولوحة المفاتيح لأن الإرسال دائمًا معرّفات عناصر (id) أو إحداثيات نسبية؛ الواجهة تقدّم بديلًا بالقوائم.
  *
@@ -15,7 +17,10 @@ namespace App\Services\Cinematic\Interactions;
  */
 final class InteractionEngine
 {
-    public const KINDS = ['hotspot', 'container', 'sequence', 'drag_drop', 'choose_item', 'compare', 'reveal_code', 'flashlight', 'answer', 'inspect', 'multi_lock'];
+    public const KINDS = ['hotspot', 'container', 'sequence', 'drag_drop', 'choose_item', 'compare', 'reveal_code', 'flashlight', 'answer', 'inspect', 'multi_lock', 'board_move', 'inference'];
+
+    /** اتجاه الرقعة ثابت وليس قابلًا للتأليف: الصف 1 في أسفل الإطار والعمود 1 على يساره (يزداد الصف إلى أعلى والعمود إلى اليمين). */
+    public const BOARD_ORIGIN = 'bottom-left';
 
     private const ID = '/\A[a-z0-9_]{1,40}\z/';
 
@@ -217,6 +222,16 @@ final class InteractionEngine
 
                 $this->requiresList($solution, $errors);
                 break;
+
+            case 'board_move':
+                $this->validateBoardMove($public, $solution, $errors);
+                $this->requiresList($solution, $errors);
+                break;
+
+            case 'inference':
+                $this->validateInference($public, $solution, $errors);
+                $this->requiresList($solution, $errors);
+                break;
         }
 
         $reveal = $solution['reveal'] ?? null;
@@ -296,6 +311,19 @@ final class InteractionEngine
             $out['locks'] = array_map(fn (array $l) => ['id' => $l['id'], 'label' => $this->text($l['label'] ?? ''), 'segments' => array_map(fn (array $g) => ($g['type'] ?? '') === 'letter'
                 ? ['type' => 'letter', 'options' => array_values(array_map(fn ($o) => $this->text($o), (array) ($g['options'] ?? [])))]
                 : ['type' => 'digits', 'length' => (int) ($g['length'] ?? 1)], array_values(array_filter((array) ($l['segments'] ?? []), 'is_array')))], $this->listOf($public, 'locks'));
+        }
+
+        if ($kind === 'board_move') {
+            $board = (array) ($public['board'] ?? []);
+            $piece = (array) ($public['piece'] ?? []);
+            $out['board'] = ['rows' => (int) ($board['rows'] ?? 8), 'cols' => (int) ($board['cols'] ?? 8), 'origin' => self::BOARD_ORIGIN];
+            $out['piece'] = ['type' => 'knight', 'id' => (string) ($piece['id'] ?? 'knight'), 'label' => $this->text($piece['label'] ?? ''), 'row' => (int) ($piece['row'] ?? 0), 'col' => (int) ($piece['col'] ?? 0)];
+            $out['targets'] = array_map(fn (array $t) => ['id' => $t['id'], 'label' => $this->text($t['label'] ?? ''), 'row' => (int) $t['row'], 'col' => (int) $t['col']], $this->listOf($public, 'targets'));
+        }
+
+        if ($kind === 'inference') {
+            $out['options'] = array_map(fn (array $i) => ['id' => $i['id'], 'label' => $this->text($i['label'] ?? '')], $this->listOf($public, 'options'));
+            $out['sources'] = array_map(fn (array $i) => ['id' => $i['id'], 'label' => $this->text($i['label'] ?? ''), 'text' => $this->text($i['text'] ?? ''), 'group' => $this->text($i['group'] ?? '')], $this->listOf($public, 'sources'));
         }
 
         return $out;
@@ -466,6 +494,49 @@ final class InteractionEngine
 
                 return $no() + ['hint' => $hint, 'detail' => $detail];
 
+            case 'board_move':
+                if (array_diff((array) ($solution['requires_scenes'] ?? []), $completedKeys) !== []) {
+                    return $no(true);
+                }
+
+                $row = $this->wholeNumber($submission['row'] ?? null);
+                $col = $this->wholeNumber($submission['col'] ?? null);
+
+                if ($row === null || $col === null) {
+                    return $no();
+                }
+
+                $piece = (array) ($public['piece'] ?? []);
+
+                // الموضع يجب أن يكون أحد الآثار المعروضة فقط (حتى لو كان هندسيًا نقلة حصان أخرى مشروعة)، وأن يكون الأثر الصحيح، وأن يكون نقلة حصان مشروعة من البداية.
+                foreach ($this->listOf($public, 'targets') as $t) {
+                    if ((int) $t['row'] === $row && (int) $t['col'] === $col) {
+                        return ($t['id'] ?? null) === ($solution['correct'] ?? null) && $this->isKnightMove((int) ($piece['row'] ?? 0), (int) ($piece['col'] ?? 0), $row, $col) ? $ok() : $no();
+                    }
+                }
+
+                return $no();
+
+            case 'inference':
+                if (array_diff((array) ($solution['requires_scenes'] ?? []), $completedKeys) !== []) {
+                    return $no(true);
+                }
+
+                $conclusion = $submission['conclusion'] ?? null;
+                $sources = $submission['sources'] ?? null;
+
+                if (! is_string($conclusion) || ! is_array($sources) || count($sources) > 12 || array_filter($sources, fn ($x) => ! is_string($x)) !== []) {
+                    return $no();
+                }
+
+                // الزوج كاملًا: الاستنتاج الصحيح + مجموعة المصادر نفسها بلا زيادة ولا نقص. لا يُسرَّب أي جزء (لا detail) فلا يُعرف أي نصف كان صحيحًا.
+                $given = array_values(array_unique($sources));
+                $expected = array_values(array_unique(array_filter((array) ($solution['sources'] ?? []), 'is_string')));
+                sort($given);
+                sort($expected);
+
+                return $conclusion === ($solution['conclusion'] ?? null) && $expected !== [] && $given === $expected ? $ok() : $no();
+
             case 'flashlight':
                 $targets = (array) ($solution['targets'] ?? []);
                 $required = (int) ($solution['required'] ?? count($targets));
@@ -493,6 +564,148 @@ final class InteractionEngine
         }
 
         return $no();
+    }
+
+    /**
+     * PLM-3: تحقق تعريف board_move. الرقعة 5–12 صفًا/عمودًا، القطعة حصان واحد داخل الرقعة، 1–6 آثار معروضة بمواضع مميزة داخل الرقعة،
+     * ويجب أن يكون **أثر واحد فقط** من الآثار المعروضة نقلة حصان مشروعة من البداية، وهو الأثر الصحيح في الحل.
+     *
+     * @param  array<string, mixed>  $public
+     * @param  array<string, mixed>  $solution
+     * @param  list<string>  $errors
+     */
+    private function validateBoardMove(array $public, array $solution, array &$errors): void
+    {
+        $board = $public['board'] ?? null;
+        $rows = is_array($board) ? ($board['rows'] ?? null) : null;
+        $cols = is_array($board) ? ($board['cols'] ?? null) : null;
+
+        if (! is_int($rows) || ! is_int($cols) || $rows < 5 || $rows > 12 || $cols < 5 || $cols > 12) {
+            $errors[] = 'الرقعة: عدد الصفوف والأعمدة أعداد صحيحة بين 5 و12.';
+
+            return;
+        }
+
+        $piece = $public['piece'] ?? null;
+
+        if (! is_array($piece) || ($piece['type'] ?? null) !== 'knight' || ! $this->validId($piece['id'] ?? null) || trim((string) ($piece['label'] ?? '')) === '' || ! $this->inBoard($piece['row'] ?? null, $piece['col'] ?? null, $rows, $cols)) {
+            $errors[] = 'القطعة: حصان (type=knight) بمعرّف واسم وموضع بداية داخل الرقعة.';
+
+            return;
+        }
+
+        $targets = $public['targets'] ?? null;
+
+        if (! is_array($targets) || $targets === [] || count($targets) > 6) {
+            $errors[] = 'عرّف من 1 إلى 6 آثار (مواضع) معروضة.';
+
+            return;
+        }
+
+        $ids = [];
+        $cells = [];
+        $legal = [];
+
+        foreach ($targets as $t) {
+            if (! is_array($t) || ! $this->validId($t['id'] ?? null) || in_array($t['id'], $ids, true) || trim((string) ($t['label'] ?? '')) === '' || ! $this->inBoard($t['row'] ?? null, $t['col'] ?? null, $rows, $cols)) {
+                $errors[] = 'أثر غير صالح (معرّف فريد، اسم، وموضع صف/عمود داخل الرقعة).';
+
+                return;
+            }
+
+            $cell = $t['row'].'/'.$t['col'];
+
+            if (isset($cells[$cell]) || ($t['row'] === $piece['row'] && $t['col'] === $piece['col'])) {
+                $errors[] = 'موضعان متطابقان بين الآثار أو أثر على موضع البداية.';
+
+                return;
+            }
+
+            $ids[] = $t['id'];
+            $cells[$cell] = true;
+
+            if ($this->isKnightMove($piece['row'], $piece['col'], $t['row'], $t['col'])) {
+                $legal[] = $t['id'];
+            }
+        }
+
+        $correct = $solution['correct'] ?? null;
+
+        if (! is_string($correct) || ! in_array($correct, $ids, true)) {
+            $errors[] = 'حدّد الأثر الصحيح من الآثار المعرّفة.';
+        } elseif ($legal !== [$correct]) {
+            $errors[] = 'يجب أن يكون أثر واحد فقط من الآثار المعروضة نقلة حصان مشروعة من موضع البداية، وهو الأثر الصحيح.';
+        }
+    }
+
+    /**
+     * PLM-4: تحقق تعريف inference. 2–4 استنتاجات محتملة و2–6 مصادر؛ الحل = استنتاج واحد + مجموعة مصادر غير فارغة ولا تساوي كل المصادر.
+     *
+     * @param  array<string, mixed>  $public
+     * @param  array<string, mixed>  $solution
+     * @param  list<string>  $errors
+     */
+    private function validateInference(array $public, array $solution, array &$errors): void
+    {
+        $options = $this->itemIds($public, 'options', 2, 4, $errors);
+        $sources = $public['sources'] ?? null;
+        $sourceIds = [];
+
+        if (! is_array($sources) || count($sources) < 2 || count($sources) > 6) {
+            $errors[] = 'عرّف من 2 إلى 6 مصادر أدلة.';
+        } else {
+            foreach ($sources as $src) {
+                if (! is_array($src) || ! $this->validId($src['id'] ?? null) || in_array($src['id'], $sourceIds, true) || trim((string) ($src['label'] ?? '')) === '' || mb_strlen((string) ($src['label'] ?? '')) > 120
+                    || mb_strlen((string) ($src['text'] ?? '')) > 400 || mb_strlen((string) ($src['group'] ?? '')) > 60) {
+                    $errors[] = 'مصدر غير صالح (معرّف فريد، اسم حتى 120 حرفًا، نص حتى 400، مجموعة حتى 60).';
+                    $sourceIds = [];
+
+                    break;
+                }
+
+                $sourceIds[] = $src['id'];
+            }
+        }
+
+        $conclusion = $solution['conclusion'] ?? null;
+
+        if ($options !== [] && (! is_string($conclusion) || ! in_array($conclusion, $options, true))) {
+            $errors[] = 'حدّد الاستنتاج الصحيح من الاستنتاجات المعرّفة.';
+        }
+
+        $need = $solution['sources'] ?? null;
+
+        if ($sourceIds !== [] && (! is_array($need) || $need === [] || count(array_unique($need)) !== count($need) || array_diff($need, $sourceIds) !== [] || count($need) >= count($sourceIds))) {
+            $errors[] = 'حدّد مصادر الدليل الصحيحة من المصادر المعرّفة (مصدر واحد على الأقل، وليس كلها).';
+        }
+    }
+
+    /** نقلة حصان مشروعة: مربعان في اتجاه ومربع واحد عموديًا عليه. */
+    private function isKnightMove(int $fromRow, int $fromCol, int $toRow, int $toCol): bool
+    {
+        $dr = abs($toRow - $fromRow);
+        $dc = abs($toCol - $fromCol);
+
+        return ($dr === 2 && $dc === 1) || ($dr === 1 && $dc === 2);
+    }
+
+    private function inBoard(mixed $row, mixed $col, int $rows, int $cols): bool
+    {
+        return is_int($row) && is_int($col) && $row >= 1 && $row <= $rows && $col >= 1 && $col <= $cols;
+    }
+
+    /** عدد صحيح موجب من عدد أو نص أرقام (بما فيها العربية-الهندية)؛ null غير ذلك. */
+    private function wholeNumber(mixed $v): ?int
+    {
+        if (is_int($v)) {
+            return $v;
+        }
+
+        if (is_string($v) && preg_match('/\A\d{1,3}\z/', $this->digits(trim($v))) === 1) {
+            return (int) $this->digits(trim($v));
+        }
+
+        return null;
     }
 
     /** رقم معيَّر (نص عشري قانوني) من إدخال يقبل الأرقام العربية والفارسية والفاصلة العشرية العربية ووحدات مسموحة؛ null إن لم يكن رقمًا. */

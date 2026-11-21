@@ -18,7 +18,7 @@
     };
     var AREA_KINDS = ['hotspot', 'container'];
     var STAGE_KINDS = ['hotspot', 'container', 'flashlight'];
-    var OK_FALLBACK = { hotspot: 'أصبتَ الموضع… ينفتح الطريق أمامك.', container: 'أصبتَ الموضع… ينفتح الطريق أمامك.', flashlight: 'ظهر شيء تحت الضوء…', sequence: 'ترتيبك في محلّه.', drag_drop: 'استقرّت القطع في أماكنها.', choose_item: 'اختيار موفّق.', compare: 'اختيار موفّق.', reveal_code: 'انكشف السر.', answer: 'إجابة صحيحة.', inspect: 'أنهيت الفحص.', multi_lock: 'انفتح القفلان.' };
+    var OK_FALLBACK = { hotspot: 'أصبتَ الموضع… ينفتح الطريق أمامك.', container: 'أصبتَ الموضع… ينفتح الطريق أمامك.', flashlight: 'ظهر شيء تحت الضوء…', sequence: 'ترتيبك في محلّه.', drag_drop: 'استقرّت القطع في أماكنها.', choose_item: 'اختيار موفّق.', compare: 'اختيار موفّق.', reveal_code: 'انكشف السر.', answer: 'إجابة صحيحة.', inspect: 'أنهيت الفحص.', multi_lock: 'انفتح القفلان.', board_move: 'استقرّ الحصان في أثره.', inference: 'استنتاج يسنده دليله.' };
 
     window.cinImmersiveMixin = function () {
         return {
@@ -46,6 +46,8 @@
                 if (s.type === 'video') { return true; }
                 if (s.type === 'transition') { return false; }
                 if (s.type === 'puzzle') { return !!(s.puzzle && s.puzzle.image_url); }
+                /* PLM-3: الرقعة هي المسرح نفسه (لا صورة مطلوبة) فيبقى التخطيط جانبيًا/علويًا للرقعة والورقة معًا */
+                if (this.isInteractionScene && this.kind === 'board_move') { return true; }
                 return !!s.image;
             },
             get bgUrl() {

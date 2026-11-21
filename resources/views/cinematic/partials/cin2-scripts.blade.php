@@ -1,5 +1,5 @@
 {{--
-    CIN-2 - سلوك أنواع التفاعل الجديدة (answer / inspect / multi_lock) وسجل الأدلة. يُدمج في مكوّن Alpine cinematicPlayer عبر window.cinStage2Mixin
+    CIN-2 - سلوك أنواع التفاعل الجديدة (answer / inspect / multi_lock) وسجل الأدلة. PLM-3/4: board_move (رقعة) وinference (استنتاج + مصدره). يُدمج في مكوّن Alpine cinematicPlayer عبر window.cinStage2Mixin
     بنفس أسلوب window.cinImmersiveMixin. عرض وجمع مدخلات فقط:
       - لا حل ولا إجابة صحيحة ولا تلميح هنا: كل ذلك يأتي من الخادم بعد الإرسال (result.hint / result.reveal / result.detail).
       - التقدّم والمكافآت وحفظ الأدلة كلها على الخادم؛ سجل الأدلة يُستقبَل من الخادم (data.evidence) ولا يُحسب هنا.
@@ -14,12 +14,15 @@
 
     window.cinStage2Mixin = function () {
         /* مؤشرات اللمس/الفأرة غير تفاعلية (لا تحتاج مراقبة Alpine) فتبقى في الإغلاق لكل نسخة مكوّن */
-        var ptrs = {}; var pinch = null; var moved = false;
+        var ptrs = {}; var pinch = null; var moved = false; var dragEnd = 0;
+        var AR = '٠١٢٣٤٥٦٧٨٩';
 
         return {
             evidence: [], evOpen: false, evIndex: 0, evBig: false, tries: 0,
             inspected: [], flipped: false, zs: 1, zx: 0, zy: 0, dragging: false, seenId: null,
             lockVals: {}, lockMark: {},
+            /* PLM-3/4: الرقعة والاستنتاج */
+            bPending: null, bDrag: null, bFocus: null, bShake: false, infConclusion: '', infSources: [],
 
             /* ───── سجل الأدلة ───── */
             /* اللعب الحقيقي: القائمة من الخادم (أدلة مشاهد مكتملة فقط). المعاينة: أدلة المشاهد السابقة للمشهد الحالي (+ الحالي إن نجح) بلا حفظ. */
@@ -44,6 +47,7 @@
             resetStage2() {
                 this.inspected = []; this.flipped = false; this.zs = 1; this.zx = 0; this.zy = 0; this.dragging = false; this.seenId = null;
                 this.lockVals = {}; this.lockMark = {}; this.tries = 0; ptrs = {}; pinch = null; moved = false;
+                this.bPending = null; this.bDrag = null; this.bFocus = null; this.bShake = false; this.infConclusion = ''; this.infSources = []; dragEnd = 0;
             },
 
             /* ───── answer ───── */
@@ -193,6 +197,128 @@
                 this.ix.locks.forEach(function (l) { values[l.id] = (l.segments || []).map(function (sg, i) { return String(self.lockVal(l.id, i)); }); });
                 this.submit({ values: values });
             },
+            /* ───── PLM-3: board_move (رقعة + حصان) ─────
+               الإحداثيات: الصف 1 في أسفل الرقعة والعمود 1 على يسارها (ثابتان: الشبكة dir=ltr والصفوف تُرسم تنازليًا). لا حل هنا: يُرسَل الموضع المختار فقط
+               (row, col) والخادم يقرّر: أحد الآثار المعروضة + هو الأثر الصحيح + نقلة حصان مشروعة. عند الخطأ يعود الحصان إلى البداية (applyBoardResult). */
+            arNum(n) { return String(n).replace(/[0-9]/g, function (d) { return AR[Number(d)]; }); },
+            get bRows() { return this.ix && this.ix.board ? this.ix.board.rows : 8; },
+            get bCols() { return this.ix && this.ix.board ? this.ix.board.cols : 8; },
+            get bStart() { return this.ix && this.ix.piece ? { row: this.ix.piece.row, col: this.ix.piece.col } : { row: 1, col: 1 }; },
+            get bPos() { return this.bPending || this.bStart; },
+            get boardRowNumbers() { var a = []; for (var r = this.bRows; r >= 1; r--) { a.push(r); } return a; },
+            get boardColNumbers() { var a = []; for (var c = 1; c <= this.bCols; c++) { a.push(c); } return a; },
+            get boardSquares() {
+                if (this.kind !== 'board_move' || !this.ix || !this.ix.board) { return []; }
+                var out = []; var rows = this.bRows; var cols = this.bCols;
+                for (var r = rows; r >= 1; r--) { for (var c = 1; c <= cols; c++) { out.push({ key: r + '-' + c, row: r, col: c, gr: rows - r + 1, gc: c, dark: (r + c) % 2 === 0 }); } }
+                return out;
+            },
+            /* الآثار كأزرار بديلة مرتبة بصريًا (صف تنازليًا ثم عمود تصاعديًا) فلا يُكشف ترتيب التأليف */
+            get boardTraceList() {
+                return ((this.ix && this.ix.targets) || []).slice().sort(function (a, b) { return b.row - a.row || a.col - b.col; });
+            },
+            get knightStyle() {
+                var p = this.bPos; var st = 'grid-row:' + (this.bRows - p.row + 1) + ';grid-column:' + p.col + ';';
+                if (this.bDrag && this.bDrag.on) { st += 'transform:translate(' + this.bDrag.dx + 'px,' + this.bDrag.dy + 'px);'; }
+                return st;
+            },
+            get boardStatus() {
+                var s = this.bStart; var p = this.bPending;
+                if (this.doneNow) { return 'استقرّ الحصان في موضعه الجديد.'; }
+                if (!p) { return 'الحصان عند الصف ' + this.arNum(s.row) + ' والعمود ' + this.arNum(s.col) + '. اسحبه إلى الأثر المختار، أو المس المربع ثم اضغط «أكّد النقلة».'; }
+                return 'الموضع المختار: الصف ' + this.arNum(p.row) + ' والعمود ' + this.arNum(p.col) + '. أكّد النقلة أو أعد الحصان.';
+            },
+            traceAt(r, c) { return !!(this.ix && this.ix.targets && this.ix.targets.some(function (t) { return t.row === r && t.col === c; })); },
+            sqLabel(sq) {
+                var s = this.bStart; var l = 'الصف ' + this.arNum(sq.row) + '، العمود ' + this.arNum(sq.col);
+                if (this.traceAt(sq.row, sq.col)) { l += '، أثر محتمل'; }
+                if (sq.row === this.bPos.row && sq.col === this.bPos.col) { l += '، الحصان هنا'; } else if (sq.row === s.row && sq.col === s.col) { l += '، موضع البداية'; }
+                return l;
+            },
+            sqTab(sq) { var f = this.bFocus || this.bStart; return f.row === sq.row && f.col === sq.col ? 0 : -1; },
+            placeAt(r, c) {
+                if (this.busy || this.doneNow) { return; }
+                var s = this.bStart; this.nudge = '';
+                this.bPending = (r === s.row && c === s.col) ? null : { row: r, col: c };
+                this.bFocus = { row: r, col: c };
+            },
+            sqClick(sq) { if (Date.now() - dragEnd < 350) { return; } this.placeAt(sq.row, sq.col); },
+            boardReturn() { if (this.busy || this.doneNow) { return; } this.bPending = null; this.bDrag = null; this.bFocus = null; },
+            confirmBoardMove() {
+                if (this.busy || this.doneNow || !this.bPending) { return; }
+                this.submit({ row: this.bPending.row, col: this.bPending.col });
+            },
+            /* الخطأ: يعود الحصان إلى البداية (الرسالة والتلميح من الخادم)؛ النجاح: يبقى في موضعه */
+            applyBoardResult(result) {
+                if (this.kind !== 'board_move' || !result) { return; }
+                if (!result.correct) {
+                    this.bPending = null; this.bDrag = null; this.bFocus = null; this.bShake = true;
+                    var self = this; setTimeout(function () { self.bShake = false; }, 600);
+                }
+            },
+            boardKey(ev) {
+                var f = this.bFocus || this.bStart; var r = f.row; var c = f.col; var k = ev.key;
+                if (k === 'ArrowUp') { r += 1; } else if (k === 'ArrowDown') { r -= 1; } else if (k === 'ArrowLeft') { c -= 1; } else if (k === 'ArrowRight') { c += 1; } else { return; }
+                ev.preventDefault();
+                r = clamp(r, 1, this.bRows); c = clamp(c, 1, this.bCols); this.bFocus = { row: r, col: c };
+                var g = this.$refs.boardGrid; var self = this;
+                this.$nextTick(function () { var el = g && g.querySelector('[data-cin34-sq][data-row="' + r + '"][data-col="' + c + '"]'); if (el) { el.focus({ preventScroll: true }); } });
+            },
+            /* مربع الرقعة تحت نقطة شاشة، بالحساب الهندسي لشبكة المربعات (بلا اعتماد على عنصر تحت المؤشر) */
+            boardCellAt(cx, cy) {
+                var g = this.$refs.boardGrid; if (!g) { return null; }
+                var b = g.getBoundingClientRect();
+                if (!b.width || !b.height || cx < b.left || cx >= b.right || cy < b.top || cy >= b.bottom) { return null; }
+                var c = Math.floor((cx - b.left) / b.width * this.bCols) + 1; var r = this.bRows - Math.floor((cy - b.top) / b.height * this.bRows);
+                return { row: clamp(r, 1, this.bRows), col: clamp(c, 1, this.bCols) };
+            },
+            knightDown(ev) {
+                if (this.busy || this.doneNow || (ev.pointerType === 'mouse' && ev.button !== 0)) { return; }
+                this.bDrag = { id: ev.pointerId, sx: ev.clientX, sy: ev.clientY, dx: 0, dy: 0, on: false };
+                try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch (e) { /* لا بأس */ }
+            },
+            knightMove(ev) {
+                var d = this.bDrag; if (!d || d.id !== ev.pointerId) { return; }
+                d.dx = ev.clientX - d.sx; d.dy = ev.clientY - d.sy;
+                if (!d.on && Math.hypot(d.dx, d.dy) > 6) { d.on = true; }
+            },
+            knightUp(ev) {
+                var d = this.bDrag; if (!d || d.id !== ev.pointerId) { return; }
+                this.bDrag = null;
+                if (!d.on) {
+                    /* لمسة على الحصان نفسه: إن كان منقولًا مؤقتًا فتُعيده إلى البداية */
+                    if (this.bPending) { this.bPending = null; }
+                    return;
+                }
+                dragEnd = Date.now();
+                var cell = this.boardCellAt(ev.clientX, ev.clientY);
+                if (cell) { this.placeAt(cell.row, cell.col); }
+            },
+            knightCancel() { this.bDrag = null; },
+
+            /* ───── PLM-4: inference (استنتاج + مصدره معًا) ───── */
+            get infReady() { return !!this.infConclusion && this.infSources.length > 0; },
+            get infGroups() {
+                var groups = []; var idx = {};
+                ((this.ix && this.ix.sources) || []).forEach(function (s) {
+                    var t = s.group || 'المصادر';
+                    if (idx[t] === undefined) { idx[t] = groups.length; groups.push({ title: t, items: [] }); }
+                    groups[idx[t]].items.push(s);
+                });
+                return groups;
+            },
+            infPick(id) { if (this.busy || this.doneNow) { return; } this.infConclusion = id; },
+            infToggle(id) {
+                if (this.busy || this.doneNow) { return; }
+                var i = this.infSources.indexOf(id);
+                this.infSources = i === -1 ? this.infSources.concat([id]) : this.infSources.filter(function (x) { return x !== id; });
+            },
+            submitInference() {
+                if (this.busy || this.doneNow || !this.infReady) { return; }
+                /* لا مسح للاختيارات بعد الخطأ: يعدّل اللاعب ما يراه ناقصًا؛ الخادم لا يكشف أي نصف كان صحيحًا */
+                this.submit({ conclusion: this.infConclusion, sources: this.infSources.slice() });
+            },
+
             /* علامات كل قفل بعد الإرسال (من الخادم: result.detail) */
             applyLockDetail(result) {
                 if (!result || !result.detail || typeof result.detail !== 'object') { return; }

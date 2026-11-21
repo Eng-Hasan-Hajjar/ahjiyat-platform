@@ -21,6 +21,9 @@ namespace App\Services\Cinematic\Admin;
  *   رموز الأقفال:     معرّف القفل=الرمز الصحيح      وتلميحات الأقفال: معرّف القفل=التلميح
  *   تلميحات:         سطر لكل تلميح (يُعرض بالتتابع عند الخطأ)
  *   علامة:            x|y|الاسم                    (علامة على صورة الدليل، نسب مئوية)
+ *  PLM-3/4:
+ *   الرقعة:           الصفوف والأعمدة بحقلين رقميين؛ القطعة: المعرّف|الاسم|الصف|العمود؛ الآثار: المعرّف|الاسم|الصف|العمود (الصف 1 أسفل والعمود 1 يسار — ثابت لا يُؤلَّف)
+ *   مصادر الاستنتاج:  المعرّف|الاسم|المجموعة|النص          (لنوع inference؛ الخيارات تُكتب في حقل «العناصر» بصيغة المعرّف|الاسم)
  */
 final class SceneFormCodec
 {
@@ -98,6 +101,20 @@ final class SceneFormCodec
                 $solution['lock_hints'] = self::pairs((string) ($form['lock_hints'] ?? ''), '=');
                 $solution['requires_scenes'] = self::csv((string) ($form['requires'] ?? ''));
                 break;
+            case 'board_move':
+                $public['board'] = ['rows' => self::int($form['board_rows'] ?? null), 'cols' => self::int($form['board_cols'] ?? null)];
+                $public['piece'] = self::piece((string) ($form['piece'] ?? ''));
+                $public['targets'] = self::cells((string) ($form['board_targets'] ?? ''));
+                $solution['correct'] = trim((string) ($form['correct'] ?? ''));
+                $solution['requires_scenes'] = self::csv((string) ($form['requires'] ?? ''));
+                break;
+            case 'inference':
+                $public['options'] = $items;
+                $public['sources'] = self::sources((string) ($form['sources'] ?? ''));
+                $solution['conclusion'] = trim((string) ($form['correct'] ?? ''));
+                $solution['sources'] = self::csv((string) ($form['source_correct'] ?? ''));
+                $solution['requires_scenes'] = self::csv((string) ($form['requires'] ?? ''));
+                break;
             case 'hotspot':
                 $public['areas'] = $areas;
                 $solution['correct'] = self::csv((string) ($form['correct'] ?? ''));
@@ -164,12 +181,13 @@ final class SceneFormCodec
             'locked_message' => (string) ($public['locked_message'] ?? ''), 'reveal_label' => (string) ($public['reveal_label'] ?? ''),
             'areas' => '', 'items' => '', 'targets' => '', 'correct' => '', 'order' => '', 'map' => '', 'code' => '', 'requires' => '', 'hidden' => '', 'required' => '', 'light_radius' => '15',
             'input' => 'text', 'placeholder' => '', 'unit_label' => '', 'facts' => '', 'accepted' => '', 'units' => '', 'notes' => '', 'inspect_required' => '', 'back_label' => '', 'back_text' => '', 'locks' => '', 'codes' => '', 'lock_hints' => '', 'reveal' => '', 'hints' => '',
+            'board_rows' => '8', 'board_cols' => '8', 'piece' => '', 'board_targets' => '', 'sources' => '', 'source_correct' => '',
         ];
 
         $form['areas'] = implode("\n", array_map(fn ($a) => implode('|', [$a['id'], $a['label'], $a['x'], $a['y'], $a['w'], $a['h']]), (array) ($public['areas'] ?? [])));
-        $form['items'] = implode("\n", array_map(fn ($i) => $i['id'].'|'.($i['label'] ?? '').(($i['symbol'] ?? '') !== '' ? '|'.$i['symbol'] : ''), (array) ($public[$kind === 'compare' ? 'options' : 'items'] ?? [])));
+        $form['items'] = implode("\n", array_map(fn ($i) => $i['id'].'|'.($i['label'] ?? '').(($i['symbol'] ?? '') !== '' ? '|'.$i['symbol'] : ''), (array) ($public[in_array($kind, ['compare', 'inference'], true) ? 'options' : 'items'] ?? [])));
         $form['targets'] = implode("\n", array_map(fn ($t) => $t['id'].'|'.($t['label'] ?? ''), (array) ($public['targets'] ?? [])));
-        $form['correct'] = is_array($solution['correct'] ?? null) ? implode(',', $solution['correct']) : (string) ($solution['correct'] ?? '');
+        $form['correct'] = is_array($solution['correct'] ?? null) ? implode(',', $solution['correct']) : (string) ($solution['correct'] ?? ($kind === 'inference' ? ($solution['conclusion'] ?? '') : ''));
         $form['order'] = implode(',', (array) ($solution['order'] ?? []));
         $form['map'] = implode("\n", array_map(fn ($k, $v) => $k.'='.$v, array_keys((array) ($solution['map'] ?? [])), array_values((array) ($solution['map'] ?? []))));
         $form['code'] = (string) ($solution['code'] ?? '');
@@ -194,6 +212,22 @@ final class SceneFormCodec
         $form['lock_hints'] = implode("\n", array_map(fn ($k, $v) => $k.'='.$v, array_keys((array) ($solution['lock_hints'] ?? [])), array_values((array) ($solution['lock_hints'] ?? []))));
         $form['reveal'] = (string) ($solution['reveal'] ?? '');
         $form['hints'] = implode("\n", array_map('strval', (array) ($solution['hints'] ?? [])));
+
+        // PLM-3/4
+        if ($kind === 'board_move') {
+            $form['board_rows'] = (string) ($public['board']['rows'] ?? '8');
+            $form['board_cols'] = (string) ($public['board']['cols'] ?? '8');
+            $pc = (array) ($public['piece'] ?? []);
+            $form['piece'] = $pc === [] ? '' : implode('|', [$pc['id'] ?? '', $pc['label'] ?? '', $pc['row'] ?? '', $pc['col'] ?? '']);
+            $form['board_targets'] = implode("\n", array_map(fn ($t) => implode('|', [$t['id'] ?? '', $t['label'] ?? '', $t['row'] ?? '', $t['col'] ?? '']), (array) ($public['targets'] ?? [])));
+            $form['targets'] = '';
+        }
+
+        if ($kind === 'inference') {
+            $form['sources'] = implode("\n", array_map(fn ($x) => implode('|', [$x['id'] ?? '', $x['label'] ?? '', $x['group'] ?? '', $x['text'] ?? '']), (array) ($public['sources'] ?? [])));
+            $form['source_correct'] = implode(',', (array) ($solution['sources'] ?? []));
+            $form['targets'] = '';
+        }
 
         return $form;
     }
@@ -250,6 +284,46 @@ final class SceneFormCodec
         }
 
         return $out;
+    }
+
+    /** @return array<string, mixed> القطعة: المعرّف|الاسم|الصف|العمود (الحصان فقط) */
+    private static function piece(string $text): array
+    {
+        $p = array_map('trim', explode('|', trim(self::rows($text)[0] ?? ''), 4));
+
+        return ['type' => 'knight', 'id' => $p[0] ?? '', 'label' => $p[1] ?? '', 'row' => self::int($p[2] ?? null), 'col' => self::int($p[3] ?? null)];
+    }
+
+    /** @return list<array<string, mixed>> الآثار: المعرّف|الاسم|الصف|العمود */
+    private static function cells(string $text): array
+    {
+        $out = [];
+
+        foreach (self::rows($text) as $row) {
+            $p = array_map('trim', explode('|', $row, 4));
+            $out[] = ['id' => $p[0] ?? '', 'label' => $p[1] ?? '', 'row' => self::int($p[2] ?? null), 'col' => self::int($p[3] ?? null)];
+        }
+
+        return $out;
+    }
+
+    /** @return list<array<string, string>> المصادر: المعرّف|الاسم|المجموعة|النص (النص قد يحوي «|» فيُؤخذ الباقي كاملًا) */
+    private static function sources(string $text): array
+    {
+        $out = [];
+
+        foreach (self::rows($text) as $row) {
+            $p = array_map('trim', explode('|', $row, 4));
+            $out[] = ['id' => $p[0] ?? '', 'label' => $p[1] ?? '', 'group' => $p[2] ?? '', 'text' => $p[3] ?? ''];
+        }
+
+        return $out;
+    }
+
+    /** عدد صحيح من نص أرقام لاتينية؛ غير ذلك يبقى نصًا فيرفضه InteractionEngine::validate. */
+    private static function int(mixed $v): int|string
+    {
+        return is_numeric($v) && (string) (int) $v === trim((string) $v) ? (int) $v : (is_string($v) ? trim($v) : '');
     }
 
     /** @return list<array<string, string>> */

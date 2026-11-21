@@ -1,0 +1,1080 @@
+{
+  "format": "cinematic-stage-addon/1",
+  "source": "وثيقة «الصفحة التي لم تُكتب — المرحلة الثالثة: الساعة المتوقفة» (الصياغة التفاعلية المنقّحة، ١٣ نوفمبر ٢٠٢٦). نصوص المشاهد ومفاتيحها وألغازها منها؛ أي نص ألّفته مساعدًا (وصف بديل لمشهد فيديو/تلميح/نص بديل) يحمل editorial=proposal وينتظر مراجعة ياسمين والمالك.",
+  "target_story_slug": "unwritten-page",
+  "requires_existing": {
+    "stage_key": "stage_2"
+  },
+  "provisional_notice": "كل ما يرد في مصفوفة provisional معايَر مؤقتًا (إحداثيات مناطق الفحص) ويُعاد ضبطه مع الفن النهائي من لوحة الإدارة. editorial=proposal يعني نصًّا مساعدًا ينتظر الاعتماد.",
+  "warning": "يحتوي هذا الملف الحلول المرجعية للألغاز. لا تنشره ولا تضعه في مجلد عام.",
+  "story_notes": "يُضاف إلى القصة الموجودة (unwritten-page) كمرحلة ثالثة دون لمس المرحلتين الأولى والثانية. لا يُنشئ أي لغز للمرحلة الرابعة أو ما بعدها، وتنتهي المرحلة عند ردهة الأبواب دون اختيار باب.",
+  "seam_notes": [
+    "المشهد الأول stage3_corridor_video معلّق على المفتاح seam_pending_stage2_end_approval: نهاية الثانية المنقّحة (الباب الحديدي والرقعة وعبارة «أحيانًا يكون الحل في الخطوة التي تتراجع عنها» ومخطط المخزن والمرجع ب 214) غير متاحة في المستودع، فلا يُفتح الدخول إلى الثالثة من الثانية قبل اعتمادها.",
+    "الفرق بين ب04 وب 214 وموضع بداية الثالثة موثّق في docs/PLM-STAGES-03-04/SEAM-STAGE2-TO-STAGE3.md."
+  ],
+  "pending_links": [
+    {
+      "key": "seam_pending_stage2_end_approval",
+      "meaning": "اعتماد نهاية المرحلة الثانية المنقّحة كنقطة دخول إلى الثالثة (مشهد الإغلاق: الباب الحديدي والرقعة والخزانة)",
+      "gates": [
+        "stage3_corridor_video"
+      ]
+    }
+  ],
+  "stage": {
+    "stable_key": "stage_3",
+    "title": "المرحلة الثالثة: الساعة المتوقفة",
+    "summary": "باب حديدي ورقعة وخزانة في نهاية ممر، وأثر حركة يقود آدم إلى ساعة توقفت عند لحظة ما."
+  },
+  "chapters": [
+    {
+      "stable_key": "ch3_corridor",
+      "title": "الفصل الأول: عند نهاية الممر",
+      "summary": "نهاية ممر: باب حديدي ورقعة وخزانة.",
+      "scenes": [
+        {
+          "stable_key": "stage3_corridor_video",
+          "type": "video",
+          "title": "عند نهاية الممر",
+          "duration_hint_seconds": 35,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "seam_pending_stage2_end_approval"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "",
+                "text": "نهاية الممر الداخلي المتصل بالمخزن، مباشرة بعد خاتمة الثانية. تستأنف اللقطة الباب الحديدي والرقعة فوقه والعبارة نفسها: «أحيانًا يكون الحل في الخطوة التي تتراجع عنها»."
+              },
+              {
+                "speaker": "",
+                "text": "على يمين الباب خزانة حديدية ضيقة بقفل ذي أربع خانات. يضيء آدم الجدار ثم يقرّب المصباح من الرقعة."
+              },
+              {
+                "speaker": "آدم",
+                "text": "الصورة أوصلتني إلى الملف، والملف إلى هذا الممر... وهذه المرة يريدون مني أن أرجع خطوة."
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "لقطة تأسيسية واحدة تُظهر الباب الحديدي والرقعة فوقه والعبارة، وعلى يمينه خزانة حديدية ضيقة بقفل ذي أربع خانات؛ يبقى الباب والخزانة عنصرين منفصلين واضحين (30–40 ثانية).",
+              "image": null,
+              "sfx": [
+                "خطوات قصيرة",
+                "حفيف ثياب",
+                "دقات ساعة المكتبة بعيدة بسبب المسافة",
+                "لا يصدر أي دق من الساعة المخفية داخل الخزانة"
+              ],
+              "interaction_assets": []
+            },
+            "start_frame": "استئناف لقطة نهاية الثانية المنقّحة: الباب الحديدي والرقعة والعبارة.",
+            "end_frame": "الباب والخزانة واضحان في اللقطة نفسها (هي صورة فحص الممر).",
+            "on_end": "يُفتح فحص الممر.",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "لا يُعاد لغز المخزن ولا يُطلب رمز 3618 مرة أخرى. هذا المشهد معلَّق على اعتماد نهاية الثانية المنقّحة (ملف docs/PLM-STAGES-03-04/SEAM-STAGE2-TO-STAGE3.md).",
+            "media_slot": "الفيديو",
+            "media_kind": "فيديو",
+            "media_required_for_readiness": true,
+            "link_action": "link_to_existing_scene"
+          }
+        },
+        {
+          "stable_key": "stage3_corridor_inspect",
+          "type": "interaction",
+          "title": "فحص الباب والرقعة والخزانة",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage3_corridor_video"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "inspect",
+              "prompt": "افحص العبارة والرقعة فوق الباب والخزانة الحديدية.",
+              "instructions": "كبّر الصورة بالأزرار أو بالقرص بإصبعين، وانقر على العبارة وعلى الرقعة وعلى الخزانة.",
+              "alt_text": "باب حديدي عليه عبارة محفورة ورقعة فوقه، وعلى يمينه خزانة حديدية ضيقة بقفل ذي أربع خانات.",
+              "wrong_message": "ما زال في الممر ما لم تنتبه إليه.",
+              "areas": [
+                {
+                  "id": "door_phrase",
+                  "label": "العبارة المحفورة",
+                  "x": 26,
+                  "y": 12,
+                  "w": 48,
+                  "h": 10,
+                  "note": "العبارة نفسها: «أحيانًا يكون الحل في الخطوة التي تتراجع عنها»."
+                },
+                {
+                  "id": "door_board",
+                  "label": "الرقعة فوق الباب",
+                  "x": 36,
+                  "y": 24,
+                  "w": 28,
+                  "h": 24,
+                  "note": "رقعة فوق الباب الحديدي."
+                },
+                {
+                  "id": "iron_cabinet",
+                  "label": "الخزانة الحديدية",
+                  "x": 76,
+                  "y": 30,
+                  "w": 18,
+                  "h": 52,
+                  "note": "خزانة حديدية ضيقة بقفل ذي أربع خانات، على يمين الباب."
+                }
+              ],
+              "required_count": 3
+            },
+            "editorial": "proposal"
+          },
+          "solution": {
+            "required": [
+              "door_phrase",
+              "door_board",
+              "iron_cabinet"
+            ],
+            "requires_scenes": [
+              "stage3_corridor_video"
+            ],
+            "hints": [
+              "افحص العبارة، والرقعة فوق الباب، والخزانة على يمينه."
+            ]
+          },
+          "provisional": [
+            "areas.*.x/y/w/h (تُعاير على الصورة النهائية)"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "صورة ثابتة للباب الحديدي والرقعة فوقه والخزانة على يمينه (يمكن أن تكون اللقطة الأخيرة من الفيديو السابق).",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "مناطق الفحص (x,y,w,h) مؤقتة وتُعاير على الصورة النهائية من لوحة الإدارة.",
+            "media_slot": "صورة المشهد (خلفية التفاعل)",
+            "media_kind": "صورة",
+            "media_required_for_readiness": true,
+            "link_action": "link_to_existing_scene"
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch3_knight",
+      "title": "الفصل الثاني: أثر الحصان",
+      "summary": "رقعة على لوح وأثر لحركة سابقة.",
+      "scenes": [
+        {
+          "stable_key": "stage3_board_intro_video",
+          "type": "video",
+          "title": "رقعة على لوح",
+          "duration_hint_seconds": 45,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage3_corridor_inspect"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "",
+                "text": "رقعة من ثمانية صفوف وثمانية أعمدة مثبتة على لوح. الحصان الأبيض هو القطعة الوحيدة القابلة للتحريك؛ بقية الزخارف ثابتة. هذا قفل مبني على حركة الحصان، وليس مباراة."
+              },
+              {
+                "speaker": "",
+                "text": "تظهر أرقام الصفوف والأعمدة على الإطار: الصف الأول في أسفل الكادر قرب آدم، والعمود الأول على يسار الكادر. يزداد رقم الصف إلى أعلى ورقم العمود إلى اليمين. الحصان عند الصف الخامس والعمود الخامس، وثلاثة آثار دائرية محتملة لقاعدته ظاهرة على الرقعة."
+              },
+              {
+                "speaker": "",
+                "text": "تحت الرقعة نقش: «أعد الحصان إلى أثره، ولا تغيّر حركته». وبجواره رسم تعليمي يبيّن أن نقلة الحصان الواحدة تمتد مربعين في اتجاه ومربعًا واحدًا عموديًا عليه."
+              },
+              {
+                "speaker": "آدم",
+                "text": "هناك أكثر من أثر... لكن ليست كل مسافة بينها حركة حصان."
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "رقعة 8×8 على لوح، حصان أبيض وحيد قابل للتحريك، أرقام الصفوف والأعمدة على الإطار (الصف 1 أسفل الكادر قرب آدم، والعمود 1 يسار الكادر)، ثلاثة آثار دائرية، نقش تحت الرقعة ورسم تعليمي لنقلة الحصان (40–50 ثانية).",
+              "image": null,
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": "الرقعة فوق الباب كما انتهى بها المشهد السابق.",
+            "end_frame": "الرقعة كاملة بالآثار الثلاثة (إطار الأحجية الأولى).",
+            "on_end": "تُفتح الأحجية الأولى (الموضع الذي تركه الحصان).",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "لا مباراة ولا حالة كش ولا ادعاء أن الملك محاصر. اتجاه الإطار (الصف 1 أسفل والعمود 1 يسار) يجب أن يطابق واجهة الرقعة في المشغّل حرفيًا.",
+            "media_slot": "الفيديو",
+            "media_kind": "فيديو",
+            "media_required_for_readiness": true,
+            "link_action": "link_to_existing_scene"
+          }
+        },
+        {
+          "stable_key": "stage3_knight_puzzle",
+          "type": "interaction",
+          "title": "اللغز الأول: الموضع الذي تركه الحصان",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage3_board_intro_video"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "board_move",
+              "prompt": "أعد الحصان إلى أثره، ولا تغيّر حركته.",
+              "instructions": "نقلة الحصان الواحدة تمتد مربعين في اتجاه ومربعًا واحدًا عموديًا عليه. الصف ١ في أسفل الرقعة والعمود ١ على يسارها. اسحب الحصان إلى الأثر المختار، أو المس المربع المقصود ثم اضغط «أكّد النقلة».",
+              "alt_text": "رقعة من ثمانية صفوف وثمانية أعمدة. الحصان الأبيض عند الصف ٥ والعمود ٥، وثلاثة آثار دائرية محتملة: الصف ٣ والعمود ٤، والصف ٣ والعمود ٥، والصف ٤ والعمود ٤.",
+              "success_message": "تسمع طقّة، وينفتح درج صغير أسفل الرقعة. الباب الحديدي يبقى مغلقًا.",
+              "wrong_message": "آدم: سأقارن الأثر بالرسم مرة أخرى.",
+              "locked_message": "شاهد الرقعة أولًا.",
+              "board": {
+                "rows": 8,
+                "cols": 8
+              },
+              "piece": {
+                "type": "knight",
+                "id": "knight",
+                "label": "الحصان الأبيض",
+                "row": 5,
+                "col": 5
+              },
+              "targets": [
+                {
+                  "id": "trace_a",
+                  "label": "الصف ٣ والعمود ٤",
+                  "row": 3,
+                  "col": 4
+                },
+                {
+                  "id": "trace_b",
+                  "label": "الصف ٣ والعمود ٥",
+                  "row": 3,
+                  "col": 5
+                },
+                {
+                  "id": "trace_c",
+                  "label": "الصف ٤ والعمود ٤",
+                  "row": 4,
+                  "col": 4
+                }
+              ]
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "ورقة 11:45 وطبعة النقلة",
+              "summary": "ورقة عليها 11:45 ورسم وجه ساعة، وبجانبها طبعة مصغرة للرقعة تسجل موضعي بداية النقلة ونهايتها: من الصف ٥ والعمود ٥ إلى الصف ٣ والعمود ٤.",
+              "clue": null,
+              "show_image": false,
+              "marker": null
+            }
+          },
+          "solution": {
+            "correct": "trace_a",
+            "requires_scenes": [
+              "stage3_board_intro_video"
+            ],
+            "hints": [
+              "انظر إلى اختلاف المسافات بين الموضع الحالي والآثار الثلاثة.",
+              "نقلة الحصان الواحدة: مربعان في اتجاه ومربع واحد عموديًا عليه."
+            ],
+            "reveal": "في الدرج ورقة عليها 11:45 ورسم وجه ساعة، وبجانبها طبعة مصغرة للرقعة تسجل موضعي بداية النقلة ونهايتها. آدم: وقت... وأثر الحركة التي أوصلتني إليه."
+          },
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "اختياري: صورة الرقعة فارغة من الحل (بلا طبعة النقلة ولا الورقة) كخلفية مرجعية. لا تُربط بهذا المشهد أي صورة تُظهر الورقة أو طبعة النقلة لأنها تُرى خلف الرقعة قبل الحل.",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "طقّة، ثم ينفتح الدرج الصغير أسفل الرقعة وتُحفظ الورقة وطبعة الحركة في سجل الأدلة.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "الحل المرجعي: نقلة واحدة من الصف 5 والعمود 5 إلى الصف 3 والعمود 4. لا يُقبل موضع صحيح هندسيًا ما لم يكن أحد الآثار الثلاثة المعروضة.",
+            "media_slot": "صورة المشهد (خلفية التفاعل)",
+            "media_kind": "صورة",
+            "media_required_for_readiness": false,
+            "link_action": "link_to_existing_scene"
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch3_cabinet",
+      "title": "الفصل الثالث: خزانة الوقت",
+      "summary": "خزانة بقفل رقمي.",
+      "scenes": [
+        {
+          "stable_key": "stage3_cabinet_video",
+          "type": "video",
+          "title": "خزانة الوقت",
+          "duration_hint_seconds": 35,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage3_knight_puzzle"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "",
+                "text": "ينقل آدم الضوء إلى الخزانة الواقعة يمين الباب؛ لا يرجع إلى مخزن آخر ولا يعبر بابًا لم يفتحه بعد."
+              },
+              {
+                "speaker": "",
+                "text": "على الخزانة علامة وجه الساعة نفسها الموجودة على الورقة. فوق القفل توضيح محفور: «الساعة ثم الدقيقة». تظهر الخانات الأربع مرتبة من اليسار إلى اليمين، ومقسمة بصريًا إلى خانتين للساعة وخانتين للدقيقة."
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "آدم ينقل الضوء إلى الخزانة يمين الباب: علامة وجه الساعة، النقش «الساعة ثم الدقيقة»، أربع خانات من اليسار إلى اليمين بخانتين للساعة وخانتين للدقيقة (نحو 35 ثانية).",
+              "image": null,
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": "الرقعة والدرج المفتوح أسفلها.",
+            "end_frame": "القفل ذو الخانات الأربع واضحًا (إطار اللغز الثاني).",
+            "on_end": "يُفتح قفل الخزانة.",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "لا انتقال إلى مخزن آخر ولا عبور باب لم يُفتح بعد.",
+            "media_slot": "الفيديو",
+            "media_kind": "فيديو",
+            "media_required_for_readiness": true,
+            "link_action": "link_to_existing_scene"
+          }
+        },
+        {
+          "stable_key": "stage3_time_lock",
+          "type": "interaction",
+          "title": "اللغز الثاني: قفل الساعة والدقيقة",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage3_cabinet_video"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "multi_lock",
+              "prompt": "حوّل قراءة الورقة إلى أربع خانات: الساعة ثم الدقيقة.",
+              "instructions": "الخانتان الأوليان للساعة والأخريان للدقيقة، من اليسار إلى اليمين. تُقبل الأرقام العربية والإنجليزية. راجع الورقة من سجل الأدلة.",
+              "alt_text": "قفل خزانة بأربع خانات رقمية: خانتان للساعة وخانتان للدقيقة، وفوقه علامة وجه الساعة.",
+              "success_message": "يتحرر لسان القفل.",
+              "wrong_message": "يبقى القفل مغلقًا. راجع الورقة في سجل الأدلة.",
+              "locked_message": "انتهِ من فحص الخزانة أولًا.",
+              "locks": [
+                {
+                  "id": "cabinet_lock",
+                  "label": "قفل الخزانة",
+                  "segments": [
+                    {
+                      "type": "digits",
+                      "length": 2
+                    },
+                    {
+                      "type": "digits",
+                      "length": 2
+                    }
+                  ]
+                }
+              ]
+            },
+            "editorial": "proposal"
+          },
+          "solution": {
+            "codes": {
+              "cabinet_lock": "1145"
+            },
+            "requires_scenes": [
+              "stage3_cabinet_video",
+              "stage3_knight_puzzle"
+            ],
+            "hints": [
+              "راجع الورقة في سجل الأدلة: الساعة أولًا ثم الدقيقة.",
+              "لا يُطلب هنا طرح وقت من وقت آخر ولا حساب مدة."
+            ],
+            "reveal": "يفتح آدم الخزانة من حافتها، فتظهر ساعة صغيرة داخل حامل خشبي. تتوقف الموسيقى قبل أن تتضح العقارب."
+          },
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "اختياري: صورة الخزانة وقفلها ذي الخانات الأربع (علامة وجه الساعة ظاهرة، بلا أرقام مكتوبة على الخانات).",
+              "sfx": [],
+              "interaction_assets": [
+                "لا أصول إضافية: القفل واجهة برمجية (خانتان رقميتان للساعة وخانتان للدقيقة)."
+              ]
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "يتحرر لسان القفل وتُفتح الخزانة.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "الحل 1145 أو ١١٤٥ (الأرقام العربية واللاتينية). لا يقبل القفل 3618.",
+            "media_slot": "صورة المشهد (خلفية التفاعل)",
+            "media_kind": "صورة",
+            "media_required_for_readiness": false,
+            "link_action": "link_to_existing_scene"
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch3_clock",
+      "title": "الفصل الرابع: الساعة التي لا تدق",
+      "summary": "ساعة صغيرة في حامل خشبي.",
+      "scenes": [
+        {
+          "stable_key": "stage3_clock_video",
+          "type": "video",
+          "title": "الساعة التي لا تدق",
+          "duration_hint_seconds": 55,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage3_time_lock"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "",
+                "text": "لقطة مقرّبة للساعة الصغيرة: عقرب الدقائق على ٩، وعقرب الساعات بين ١١ و١٢ وأقرب إلى ١٢. القراءة 11:45. توضع الساعة على محور يسمح برؤية ظهرها دون تغيير موضع العقارب أو إعادة تشغيلها."
+              },
+              {
+                "speaker": "",
+                "text": "تبقى يد آدم قريبة من الحامل. يحدّق في العقارب، وتشدّ أصابعه على حافة الخشب."
+              },
+              {
+                "speaker": "آدم",
+                "text": "الحادية عشرة وخمس وأربعون... لماذا يبدو هذا الوقت مألوفًا؟"
+              },
+              {
+                "speaker": "آدم",
+                "text": "(بعد صمت) وجوده هنا لا يخبرني بعد بما حدث."
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "لقطة مقرّبة للساعة الصغيرة (عقرب الدقائق على 9، وعقرب الساعات بين 11 و12 وأقرب إلى 12) على محور يسمح برؤية ظهرها، مع إتاحة تثبيت اللقطة للفحص (50–60 ثانية).",
+              "image": null,
+              "sfx": [
+                "نَفَس آدم",
+                "حركة الخشب",
+                "دقات ساعة القاعة بعيدة أو تخفت تدريجيًا"
+              ],
+              "interaction_assets": []
+            },
+            "start_frame": "الخزانة مفتوحة والساعة داخل حاملها.",
+            "end_frame": "الساعة وحدها بوضوح (صورة فحص الساعة).",
+            "on_end": "يُفتح فحص الساعة.",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "لا تُعرض جريمة ولا صورة من الماضي ولا وجه يوحي بمعرفة الثامن. لا تتزامن طقّة جديدة مع العقارب المتوقفة بما يوحي أنها تعمل.",
+            "media_slot": "الفيديو",
+            "media_kind": "فيديو",
+            "media_required_for_readiness": true,
+            "link_action": "link_to_existing_scene"
+          }
+        },
+        {
+          "stable_key": "stage3_clock_inspect",
+          "type": "interaction",
+          "title": "فحص الساعة المتوقفة",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage3_clock_video"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "inspect",
+              "prompt": "افحص الساعة المتوقفة، ثم اقرأ ظهرها.",
+              "instructions": "كبّر الصورة وانقر على العقربين، ثم اقلب الساعة لتقرأ ظهرها. القلب لا يغيّر موضع العقارب.",
+              "alt_text": "ساعة صغيرة متوقفة داخل حامل خشبي، عقرب الدقائق على ٩ وعقرب الساعات بين ١١ و١٢ وأقرب إلى ١٢.",
+              "wrong_message": "ما زالت الساعة تحمل ما لم تقرأه.",
+              "areas": [
+                {
+                  "id": "minute_hand",
+                  "label": "عقرب الدقائق",
+                  "x": 47,
+                  "y": 12,
+                  "w": 8,
+                  "h": 36,
+                  "note": "عقرب الدقائق على ٩."
+                },
+                {
+                  "id": "hour_hand",
+                  "label": "عقرب الساعات",
+                  "x": 30,
+                  "y": 30,
+                  "w": 20,
+                  "h": 8,
+                  "note": "عقرب الساعات بين ١١ و١٢، وأقرب إلى ١٢."
+                },
+                {
+                  "id": "clock_face",
+                  "label": "وجه الساعة",
+                  "x": 24,
+                  "y": 10,
+                  "w": 52,
+                  "h": 66,
+                  "note": "القراءة 11:45. الساعة صغيرة داخل حامل خشبي."
+                }
+              ],
+              "required_count": 3,
+              "back": {
+                "label": "ظهر الساعة",
+                "text": "ليست الساعة ما تبحث عنه، بل ما حدث عندما توقفت."
+              }
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "الساعة المتوقفة",
+              "summary": "ساعة صغيرة متوقفة ظاهريًا على 11:45، وورقة تحمل القراءة نفسها، ونقش على ظهرها يربطها بحدث غير موضح: «ليست الساعة ما تبحث عنه، بل ما حدث عندما توقفت». تطابق القراءة ثابت، أما سبب التوقف وتاريخ الحدث فلا يزالان مجهولين.",
+              "clue": null,
+              "show_image": true,
+              "marker": null
+            }
+          },
+          "solution": {
+            "required": [
+              "minute_hand",
+              "hour_hand",
+              "back"
+            ],
+            "requires_scenes": [
+              "stage3_clock_video"
+            ],
+            "hints": [
+              "اقرأ موضع العقربين، ثم اقلب الساعة وانظر إلى ظهرها."
+            ]
+          },
+          "provisional": [
+            "areas.*.x/y/w/h (تُعاير على الصورة النهائية)"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "لقطة مقرّبة للساعة الصغيرة (وجه الساعة بعقاربها عند 11:45) تُستخدم أيضًا كصورة في بطاقة الدليل.",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "النقش على الظهر يُعرض كنص من الواجهة (back.text)؛ يمكن لاحقًا استبداله بصورة الظهر. تُعاير مناطق الفحص على الصورة النهائية.",
+            "media_slot": "صورة المشهد (خلفية التفاعل)",
+            "media_kind": "صورة",
+            "media_required_for_readiness": true,
+            "link_action": "link_to_existing_scene"
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch3_recording",
+      "title": "الفصل الخامس: رسالة تحت الحامل",
+      "summary": "حجرة صغيرة تحت الحامل.",
+      "scenes": [
+        {
+          "stable_key": "stage3_holder_video",
+          "type": "video",
+          "title": "حجرة تحت الحامل",
+          "duration_hint_seconds": null,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage3_clock_inspect"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "",
+                "text": "عندما يدير آدم حامل الساعة تظهر حجرة أسفله. فيها جهاز تشغيل صوتي ميكانيكي ذو أسطوانة وبوق صغير، وثلاث لوحات معدنية رقيقة. لا تظهر شاشة أو شريط كاسيت."
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "آدم يدير حامل الساعة فتظهر حجرة أسفله: جهاز تشغيل صوتي ميكانيكي (أسطوانة وبوق صغير) وثلاث لوحات معدنية رقيقة. بلا شاشة ولا شريط كاسيت، دون كتابة سنة جديدة.",
+              "image": null,
+              "sfx": [
+                "حركة الحامل الخشبي"
+              ],
+              "interaction_assets": []
+            },
+            "start_frame": "الساعة في حاملها.",
+            "end_frame": "الجهاز واللوحات الثلاث واضحة (صورة فحص الجهاز).",
+            "on_end": "يُفتح فحص الجهاز.",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "مشهد أضافه القالب لأن الوثيقة تصف لقطة مستقلة لإدارة الحامل؛ إن سلّم محمد اللقطة مدمجة مع فيديو آخر فاحذف هذا المشهد أو اتركه بنصه البديل.",
+            "media_slot": "الفيديو",
+            "media_kind": "فيديو",
+            "media_required_for_readiness": true,
+            "link_action": "scene_added_for_handoff"
+          }
+        },
+        {
+          "stable_key": "stage3_recorder_lever",
+          "type": "interaction",
+          "title": "ذراع الجهاز",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage3_holder_video"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "inspect",
+              "prompt": "افحص الجهاز، ثم حرّك الذراع إلى وضع التشغيل.",
+              "instructions": "انقر على الذراع لتحريكه إلى وضع التشغيل. هذا استكشاف وليس لغزًا.",
+              "alt_text": "جهاز تشغيل صوتي ميكانيكي بأسطوانة وبوق صغير وذراع، وبجانبه ثلاث لوحات معدنية رقيقة.",
+              "success_message": "تبدأ الأسطوانة بالدوران.",
+              "wrong_message": "جرّب الذراع.",
+              "areas": [
+                {
+                  "id": "lever",
+                  "label": "الذراع",
+                  "x": 62,
+                  "y": 52,
+                  "w": 14,
+                  "h": 22,
+                  "note": "ذراع التشغيل: تُحرَّك إلى وضع التشغيل."
+                },
+                {
+                  "id": "horn",
+                  "label": "البوق",
+                  "x": 20,
+                  "y": 18,
+                  "w": 24,
+                  "h": 30,
+                  "note": "بوق صغير."
+                },
+                {
+                  "id": "cylinder",
+                  "label": "الأسطوانة",
+                  "x": 40,
+                  "y": 52,
+                  "w": 18,
+                  "h": 22,
+                  "note": "أسطوانة تدور عند التشغيل."
+                },
+                {
+                  "id": "plates",
+                  "label": "اللوحات المعدنية",
+                  "x": 8,
+                  "y": 72,
+                  "w": 84,
+                  "h": 20,
+                  "note": "ثلاث لوحات معدنية رقيقة."
+                }
+              ],
+              "required_count": 1
+            },
+            "editorial": "proposal"
+          },
+          "solution": {
+            "required": [
+              "lever"
+            ],
+            "requires_scenes": [
+              "stage3_holder_video"
+            ],
+            "hints": [
+              "الذراع هو ما يشغّل الجهاز."
+            ]
+          },
+          "provisional": [
+            "areas.*.x/y/w/h (تُعاير على الصورة النهائية)"
+          ],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "صورة الجهاز الصوتي الميكانيكي واللوحات الثلاث تحته (بلا شاشة ولا كاسيت).",
+              "sfx": [],
+              "interaction_assets": []
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "فعل استكشاف وليس لغزًا رابعًا.",
+            "media_slot": "صورة المشهد (خلفية التفاعل)",
+            "media_kind": "صورة",
+            "media_required_for_readiness": true,
+            "link_action": "link_to_existing_scene"
+          }
+        },
+        {
+          "stable_key": "stage3_recording_video",
+          "type": "video",
+          "title": "التسجيل",
+          "duration_hint_seconds": null,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage3_recorder_lever"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "",
+                "text": "تبدأ الأسطوانة بالدوران، ويُسمع صوت غير معروف، واضح الكلمات رغم الخشخشة الخفيفة."
+              },
+              {
+                "speaker": "صوت مجهول",
+                "text": "الوقت فتح الخزانة. أما الطريق الذي يليها، فاحتفظ له بما فعلته على الرقعة. تحت الساعة آثار لحركات مختلفة. طابق واحدًا منها مع أثر رجوعك، ثم ضعه في الحامل. وعندما تبلغ الأبواب، قارن العلامة والأثر معًا."
+              }
+            ],
+            "evidence": {
+              "title": "نص التسجيل",
+              "summary": "الوقت فتح الخزانة. أما الطريق الذي يليها، فاحتفظ له بما فعلته على الرقعة. تحت الساعة آثار لحركات مختلفة. طابق واحدًا منها مع أثر رجوعك، ثم ضعه في الحامل. وعندما تبلغ الأبواب، قارن العلامة والأثر معًا.",
+              "clue": null,
+              "show_image": false,
+              "marker": null
+            },
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "الأسطوانة تدور ويصدر الصوت من البوق؛ لا يظهر مصدر الصوت. يتاح تشغيل التسجيل وإعادته وقراءة نصه.",
+              "image": null,
+              "sfx": [
+                "دوران الأسطوانة",
+                "خشخشة خفيفة",
+                "صوت غير معروف واضح الكلمات"
+              ],
+              "interaction_assets": []
+            },
+            "start_frame": "الذراع في وضع التشغيل.",
+            "end_frame": "الأسطوانة تدور والبوق ثابت.",
+            "on_end": "يُفتح اختيار اللوحة.",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "الصوت لا يعرّف نفسه ولا يقول إنه كان حاضرًا عند توقف الساعة. نص التسجيل يُحفظ في سجل الأدلة ليُقرأ لاحقًا (المرحلة الرابعة تحيل إليه).",
+            "media_slot": "الفيديو",
+            "media_kind": "فيديو",
+            "media_required_for_readiness": true,
+            "link_action": "link_to_existing_scene"
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch3_plates",
+      "title": "الفصل السادس: اللوحة التي تطابق الأثر",
+      "summary": "لوحات معدنية ومزلاج.",
+      "scenes": [
+        {
+          "stable_key": "stage3_plates_choice",
+          "type": "interaction",
+          "title": "اللغز الثالث: الحركة التي حدثت بالفعل",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage3_recording_video"
+            ]
+          },
+          "config": {
+            "max_attempts": 50,
+            "interaction": {
+              "kind": "choose_item",
+              "prompt": "احفظ ما فعلته، لا كل ما تستطيع فعله.",
+              "instructions": "افتح طبعة النقلة من سجل الأدلة وقارنها باللوحات الثلاث، ثم ضع في الحامل اللوحة التي تطابقها. الثلمة في أعلى كل لوحة تمنع تدويرها أو قلب اتجاهها، ولا يعتمد الحل على اللون.",
+              "alt_text": "ثلاث لوحات معدنية أ وب وج. على كل لوحة شبكة مصغرة بدائرتين للبداية والنهاية وسهم بينهما؛ علامة الحصان على أ وب، وعلامة خط مستقيم على ج.",
+              "success_message": "يضغط موضع النهاية المحفور في اللوحة لسانًا داخليًا، وتنتقل حركة ميكانيكية إلى مزلاج الباب الحديدي بجوار الخزانة.",
+              "wrong_message": "آدم: هذا طريق ممكن... لكنه ليس الأثر الذي تركته.",
+              "items": [
+                {
+                  "id": "plate_a",
+                  "label": "اللوحة أ — علامة الحصان: من الصف ٥ والعمود ٥ إلى الصف ٣ والعمود ٦",
+                  "symbol": "أ"
+                },
+                {
+                  "id": "plate_b",
+                  "label": "اللوحة ب — علامة الحصان: من الصف ٥ والعمود ٥ إلى الصف ٣ والعمود ٤",
+                  "symbol": "ب"
+                },
+                {
+                  "id": "plate_c",
+                  "label": "اللوحة ج — علامة خط مستقيم: من الصف ٥ والعمود ٥ إلى الصف ٣ والعمود ٥",
+                  "symbol": "ج"
+                }
+              ]
+            },
+            "editorial": "proposal",
+            "evidence": {
+              "title": "لوحة الحركة ب",
+              "summary": "لوحة معدنية عليها شبكة مصغرة بعلامة الحصان، من الصف ٥ والعمود ٥ إلى الصف ٣ والعمود ٤. ثلمة في أعلاها تثبّت اتجاهها. أخذها آدم معه.",
+              "clue": null,
+              "show_image": false,
+              "marker": null
+            }
+          },
+          "solution": {
+            "correct": "plate_b",
+            "hints": [
+              "افتح طبعة النقلة من سجل الأدلة وقارن البداية والنهاية.",
+              "معرفة ما يمكن فعله لا تكفي؛ المطلوب ما نُفِّذ فعلًا."
+            ],
+            "reveal": "يُحفظ الأثر: تأخذ اللوحة ب مكانها في الحامل ويتحرر مزلاج الباب الحديدي."
+          },
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": null,
+              "image": "صورة واحدة مدمجة للمقارنة: طبعة النقلة (من الصف 5 والعمود 5 إلى الصف 3 والعمود 4) إلى جانب اللوحات أ وب وج بشبكاتها المصغرة، بالاتجاه نفسه والأرقام نفسها، مع الثلمة في أعلى كل لوحة.",
+              "sfx": [],
+              "interaction_assets": [
+                "صورة المقارنة المدمجة تُربط بخانة صورة المشهد الوحيدة (لا خانات متعددة للّوحات)."
+              ]
+            },
+            "start_frame": null,
+            "end_frame": null,
+            "on_end": null,
+            "on_success": "لقطة قصيرة تحرّك الذراع داخل الخزانة ثم المزلاج؛ تُحفظ لوحة الحركة ب في سجل الأدلة.",
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "ب وحدها تطابق النقلة المنفذة؛ أ حركة حصان ممكنة نحو اليمين لم ينفذها اللاعب؛ ج حركة مستقيمة لا تطابق قاعدة الحصان. المطابقة لا تعتمد على اللون ولا السمع وحدهما.",
+            "media_slot": "صورة المشهد (خلفية التفاعل)",
+            "media_kind": "صورة",
+            "media_required_for_readiness": false,
+            "link_action": "link_to_existing_scene"
+          }
+        },
+        {
+          "stable_key": "stage3_latch_video",
+          "type": "video",
+          "title": "المزلاج يتحرر",
+          "duration_hint_seconds": null,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage3_plates_choice"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "",
+                "text": "تبيّن لقطة قصيرة تحرّك الذراع داخل الخزانة ثم مزلاج الباب الحديدي، فيتحرر."
+              },
+              {
+                "speaker": "",
+                "text": "بعد تحرر المزلاج يستقر في وضع الفتح، وتخرج اللوحة ب من شق الاسترجاع؛ يأخذها آدم معه. تبقى الساعة والجهاز في الخزانة."
+              },
+              {
+                "speaker": "آدم",
+                "text": "ليس كل ما كان يمكنني فعله هو ما فعلته. سأحتفظ بهذا الأثر."
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "لقطة قصيرة: يضغط موضع النهاية المحفور في اللوحة لسانًا داخليًا، تتحرك الذراع داخل الخزانة ثم مزلاج الباب الحديدي بجوارها فيتحرر ويستقر في وضع الفتح، وتخرج اللوحة ب من شق الاسترجاع ويأخذها آدم.",
+              "image": null,
+              "sfx": [
+                "طقّة ميكانيكية",
+                "احتكاك معدن"
+              ],
+              "interaction_assets": []
+            },
+            "start_frame": "اللوحة ب في الحامل.",
+            "end_frame": "آدم يحمل اللوحة ب والباب الحديدي مفتوح المزلاج.",
+            "on_end": "يُفتح مشهد الأبواب الثلاثة.",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "مشهد أضافه القالب لأن الوثيقة تصف لقطة العلاقة السببية (الذراع ثم المزلاج) كلقطة مستقلة؛ إن دُمجت مع الفيديو التالي فاحذفه أو اتركه بنصه البديل. لا تصبح اللوحة مفتاح المربع القديم ولا تحل محل مفاتيح المرحلة الأولى.",
+            "media_slot": "الفيديو",
+            "media_kind": "فيديو",
+            "media_required_for_readiness": true,
+            "link_action": "scene_added_for_handoff"
+          }
+        }
+      ]
+    },
+    {
+      "stable_key": "ch3_doors",
+      "title": "الفصل السابع: ثلاثة أبواب",
+      "summary": "ردهة الأبواب، وتنتهي المرحلة قبل أي اختيار.",
+      "scenes": [
+        {
+          "stable_key": "stage3_doors_video",
+          "type": "video",
+          "title": "ثلاثة أبواب",
+          "duration_hint_seconds": 50,
+          "awaiting_media": true,
+          "unlock_rule": {
+            "requires": [
+              "stage3_latch_video"
+            ]
+          },
+          "config": {
+            "transcript": [
+              {
+                "speaker": "",
+                "text": "يفتح آدم الباب الحديدي الذي تحرر مزلاجه، ويدخل ممرًا ثانيًا قصيرًا ينتهي بردهة الأبواب."
+              },
+              {
+                "speaker": "",
+                "text": "ثلاثة أبواب واضحة في لقطة واسعة: على اليسار حصان شطرنج، وفي الوسط ساعة دائرية بلا عقارب، وعلى اليمين كتاب مفتوح. جميعها مغلقة عند الوصول، والإضاءة لا تميّز الباب الصحيح."
+              },
+              {
+                "speaker": "",
+                "text": "على الجدار: «ثلاثة أبواب وثلاثة أسرار». وتحتها: «واحد يعيدك إلى ماضيك، والثاني يأخذك إلى ما تخشاه، والثالث يريك ما أخفيت»."
+              },
+              {
+                "speaker": "آدم",
+                "text": "الحصان أعادني إلى أثره، والساعة إلى سؤال لا أفهمه... فإلى أين يقود الكتاب؟"
+              },
+              {
+                "speaker": "",
+                "text": "ينظر إلى اللوحة التي يحملها، ثم إلى الأبواب. لا يفتح بابًا، ولا يختار بدل اللاعب."
+              },
+              {
+                "speaker": "آدم",
+                "text": "طلب مني الصوت أن أقارن العلامة والأثر معًا. هذه المرة لديّ ما أقارن به."
+              },
+              {
+                "speaker": "",
+                "text": "تنتهي اللقطة على يده واللوحة والأبواب في الخلفية، ويظهر عنوان المرحلة الرابعة: «الأبواب الثلاثة»."
+              }
+            ],
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "assets": {
+              "video": "آدم يفتح الباب الحديدي ويعبر ممرًا ثانيًا قصيرًا إلى ردهة الأبواب: لقطة واسعة لثلاثة أبواب مغلقة (حصان شطرنج يسارًا، ساعة دائرية بلا عقارب في الوسط، كتاب مفتوح يمينًا)، ونص الجدار، وتنتهي على يده واللوحة والأبواب خلفها (45–55 ثانية).",
+              "image": null,
+              "sfx": [
+                "تخفت أصوات القاعة مع التقدم",
+                "وقع الخطوات ثم الصمت"
+              ],
+              "interaction_assets": []
+            },
+            "start_frame": "الباب الحديدي المفتوح المزلاج.",
+            "end_frame": "يد آدم واللوحة والأبواب الثلاثة في الخلفية، ثم عنوان المرحلة الرابعة.",
+            "on_end": "تظهر بطاقة الانتقال إلى المرحلة الرابعة.",
+            "on_success": null,
+            "availability": "missing",
+            "needs_approval": true,
+            "notes": "تحت علامة كل باب لوحة صغيرة منقوشة لا تظهر تفاصيلها في لقطة النهاية (تُكبَّر عند بدء الرابعة). لا ضحكة خلف باب بعينه، ولا يُعاقَب اللاعب بإطفاء مصباحه. لا اختيار باب في هذه المرحلة.",
+            "media_slot": "الفيديو",
+            "media_kind": "فيديو",
+            "media_required_for_readiness": true,
+            "link_action": "link_to_existing_scene"
+          }
+        },
+        {
+          "stable_key": "stage3_end",
+          "type": "transition",
+          "title": "نهاية المرحلة الثالثة",
+          "duration_hint_seconds": null,
+          "awaiting_media": false,
+          "unlock_rule": {
+            "requires": [
+              "stage3_doors_video"
+            ]
+          },
+          "config": {
+            "title": "المرحلة الرابعة",
+            "subtitle": "",
+            "next_stage_title": "الأبواب الثلاثة",
+            "editorial": "proposal"
+          },
+          "solution": null,
+          "provisional": [],
+          "production": {
+            "laravel": "بطاقة انتقال تنفذها Laravel: «المرحلة الرابعة» ثم «الأبواب الثلاثة». لا يُختار باب هنا.",
+            "media_slot": null,
+            "media_kind": null,
+            "media_required_for_readiness": false,
+            "link_action": "none"
+          }
+        }
+      ]
+    }
+  ],
+  "pending_from_pdf": [],
+  "not_in_pdf": [
+    "اختيار الباب: يبدأ في المرحلة الرابعة ولا يُحتسب لغزًا إضافيًا في الثالثة.",
+    "سبب توقف الساعة وهوية الثامن وصدق صاحب التسجيل ومعنى عبارة السابع: مجهولة ولا يُجاب عنها هنا."
+  ]
+}
